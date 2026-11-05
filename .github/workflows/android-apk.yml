@@ -1,13 +1,18 @@
 name: Ash Rush - APK Android autonome
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'android-app/**'
-      - 'ash-rush-standalone.html'
       - 'src/**'
-      - 'assets/audio/**'
       - 'tests/**'
+      - 'assets/sprites/**'
+      - 'assets/audio/**'
+      - 'tools/**'
+      - 'package.json'
+      - 'index.html'
+      - 'style.css'
+      - 'ash-rush-standalone.html'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
@@ -32,61 +37,75 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Utiliser le SDK préinstallé sur le runner
+      - name: Utiliser SDK Android présent sur runner
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=$ANDROID_HOME"
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
-          fi
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1); fi
           test -x "$SDKMANAGER"
           if [ ! -d "$ANDROID_HOME/platforms/android-35" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/aapt" ]; then
             yes | "$SDKMANAGER" --licenses >/dev/null || true
             "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
-          else
-            echo "SDK Android 35 et Build Tools 35 déjà disponibles."
           fi
-      - name: Tester les collisions et l'entrée tactile
+      - name: Valider le moteur, sprites, sauvegarde des parois
         run: npm test
-      - name: Construire le HTML autonome et vérifier la synchronisation
+      - name: Reconstituer le HTML autonome pixel-par-pixel identique
         run: |
           npm run build:standalone
           git diff --exit-code -- ash-rush-standalone.html
-      - name: Préparer le HTML embarqué
+          test -s assets/sprites/atlas.png
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p=Path('assets/sprites/atlas.png').read_bytes()
+          assert p[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II',p[16:24]) == (1024,1120)
+          html=Path('ash-rush-standalone.html').read_text()
+          assert 'data:image/png;base64,' in html
+          assert 'class CaveTerrain' in html
+          PY
+      - name: Copier jeu, sprite atlas et WAV originaux dans APK
         run: |
-          mkdir -p android-app/app/src/main/assets
+          set -euo pipefail
+          mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites}
           cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
-          mkdir -p android-app/app/src/main/assets/assets/audio/spacefortress
+          cp assets/sprites/atlas.png android-app/app/src/main/assets/assets/sprites/atlas.png
           cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
+          test -s android-app/app/src/main/assets/assets/sprites/atlas.png
           test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
-      - name: Compiler APK debug installable
+      - name: Compiler APK Android debug
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
-      - name: Vérifier APK, signature, identité et empreinte
+      - name: Vérifier APK, signature, identité, présence réelle des assets
         shell: bash
         run: |
           set -euo pipefail
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.4-and-preview-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.4-and-preview-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.4-and-preview-debug.apk | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.4-and-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.andpreview' versionCode='24' versionName='0.2.4'"
-          sha256sum AshRush-v0.2.4-and-preview-debug.apk > AshRush-v0.2.4-and-preview-debug.apk.sha256
-          test -s AshRush-v0.2.4-and-preview-debug.apk
-      - name: Publication directe sur GitHub Releases
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.3.0-asteroid-debug.apk
+          APK=AshRush-v0.3.0-asteroid-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.cavernpreview' versionCode='30' versionName='0.3.0'"
+          unzip -Z1 "$APK" > /tmp/ashrush-apk-files.txt
+          grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-apk-files.txt
+          grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-apk-files.txt
+          grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-apk-files.txt
+          test "$(stat -c %s "$APK")" -gt 450000
+          sha256sum "$APK" > "$APK.sha256"
+      - name: Publication APK direct GitHub Release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          TAG=v0.2.4-sfx-android-preview
+          TAG=v0.3.0-asteroid-preview
+          APK=AshRush-v0.3.0-asteroid-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" AshRush-v0.2.4-and-preview-debug.apk AshRush-v0.2.4-and-preview-debug.apk.sha256 --clobber
+            gh release upload "$TAG" "$APK" "$APK.sha256" --clobber
           else
-            gh release create "$TAG" AshRush-v0.2.4-and-preview-debug.apk AshRush-v0.2.4-and-preview-debug.apk.sha256 \
-              --title "Ash Rush 0.2.4 - AND seul, interface simplifiée (APK de test)" \
-              --notes "FX sonores SpaceFortressVs embarqués hors ligne. Gameplay exclusivement A & B, commandes de laboratoire supprimées, paysage et tactile conservés. Package fr.fab.ashrush.andpreview indépendant de la précédente version de test. Signature Debug CI." \
+            gh release create "$TAG" "$APK" "$APK.sha256" \
+              --title "Ash Rush 0.3.0 - sprites et cavernes destructibles" \
+              --notes "Sprites issus des planches, 23 frames atlas, parois géantes creusables par AND NOT, cratères sauvegardés, sons SpaceFortressVs, paysage multitouch. APK de test signé Android Debug. Package fr.fab.ashrush.cavernpreview séparé pour ne pas casser les anciennes installations ; persistance dans cette installation, non migrée entre packages." \
               --prerelease --target "$GITHUB_SHA"
           fi
-          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx 'AshRush-v0.2.4-and-preview-debug.apk'
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

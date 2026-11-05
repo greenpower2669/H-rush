@@ -2,10 +2,16 @@ import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from '.
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { touchTarget } from './input.js';
+import { loadGameArt } from './art.js';
+import { CaveTerrain } from './terrain.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const grid = new SpatialGrid(112);
+const terrain = new CaveTerrain(typeof localStorage === 'undefined' ? null : localStorage);
+let artFrames = null;
+let bursts = [];
+let caveWasActive = false;
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d', { alpha: false });
 const $ = selector => document.querySelector(selector);
@@ -87,6 +93,30 @@ const ships = {
     path(g,'#e6f6ff',[[16,4],[21,13],[29,16],[21,20],[16,28],[11,20],[4,16],[11,12]]);
   })
 };
+
+function useArt(frames) {
+  if (!frames) return;
+  artFrames = frames;
+  for (const kind of ['player','scout','manta','boss','asteroid','missile','shield']) {
+    if (frames[kind]?.length) ships[kind] = frames[kind][0];
+  }
+  if (player) player.sprite = ships.player;
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid') enemy.sprite = ships[enemy.kind];
+}
+function updateSpriteAnimations() {
+  if (!artFrames) return;
+  const frame = Math.floor(elapsed * 11);
+  player.sprite = artFrames.player[frame % artFrames.player.length];
+  for (const enemy of enemies) {
+    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
+    const frames = artFrames[enemy.kind];
+    if (frames) enemy.sprite = frames[Math.floor(enemy.age * 9) % frames.length];
+  }
+  for(const rocket of missiles) rocket.sprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+}
+function spawnSpriteExplosion(x,y,size=1) {
+  if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
+}
 const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand(.4,2),speed:rand(12,90),twinkle:rand(0,TAU)}));
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
@@ -98,7 +128,8 @@ let announce = '', latestImpact = null;
 
 function reset() {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
-  enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[];
+  enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
+  terrain.exit(); caveWasActive=false;
   grid.clear();
   score=0;wave=1;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;
@@ -113,6 +144,8 @@ function updateHud() {
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
   $('#wave').textContent='VAGUE '+wave;
+  $('#terrainStatus').hidden = !terrain.active;
+  $('#terrainStatus').textContent = '🪨 GALERIES · '+terrain.craters.length+' CRATÈRES';
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
 function mutableAsteroid() {
@@ -153,6 +186,7 @@ function impactResult(result,target) {
   const zone = localX < target.sprite.width*.26 ? 'motor' : (localY < target.sprite.height*.25 || localY > target.sprite.height*.75 ? 'wing' : 'hull');
   particlesAt(p.x,p.y,zone,zone==='hull'?12:18,18);
   sound.play('impact');
+  spawnSpriteExplosion(p.x,p.y,.5);
   decals.push({target,x:localX,y:localY,life:1.2,age:0,zone});
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
 }
@@ -169,7 +203,7 @@ function launchMissile() {
   if(gameOver||paused||player.ammo<=0)return;
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
-  for(let i=0;i<player.missileLevel;i++) missiles.push({sprite:ships.missile,x:player.x+58,y:player.y+18+i*10-5,vx:345,vy:(i-(player.missileLevel-1)/2)*75,age:0});
+  for(let i=0;i<player.missileLevel;i++) missiles.push({kind:'missile',sprite:ships.missile,x:player.x+58,y:player.y+18+i*10-5,vx:345,vy:(i-(player.missileLevel-1)/2)*75,age:0});
 }
 function dropBonus(enemy) {
   const kinds=['laser','missile','heal','shield','protection'];
@@ -227,10 +261,35 @@ function advanceProjectile(b, dt, targets, friendly) {
     Math.min(b.x,b.x+dx)-5,Math.min(b.y,b.y+dy)-5,
     Math.max(b.x,b.x+dx)+b.sprite.width+5,Math.max(b.y,b.y+dy)+b.sprite.height+5
   ):targets;
-  if(!nearby.length) {b.x+=dx;b.y+=dy;return b.x>W+80||b.x< -80||b.y< -50||b.y>H+50;}
+  if(!nearby.length && !terrain.active) {b.x+=dx;b.y+=dy;return b.x>W+80||b.x< -80||b.y< -50||b.y>H+50;}
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/4));
   for(let step=0;step<steps;step++) {
     b.x+=dx/steps;b.y+=dy/steps;
+    if (terrain.active) {
+      const hit = terrain.collideEntity(b);
+      if (hit) {
+        const point = terrain.firstWorldImpact(hit);
+        if (point) {
+          const crater = b.kind === 'missile' ? 30 : friendly ? 15 : 8;
+          const removed = terrain.carve(point.x, point.y, crater);
+          if (removed && friendly) {
+            score += Math.max(1, Math.round(removed / 25));
+            if (terrain.craters.length % 13 === 0) {
+              const kinds=['laser','missile','heal','shield','protection'];
+              powerups.push({type:kinds[Math.floor(Math.random()*kinds.length)],sprite:ships.shield,
+                x:point.screenX, y:point.y, vx:-72, hp:1});
+            }
+            updateHud();
+          }
+          particlesAt(point.screenX, point.y, 'motor', b.kind === 'missile' ? 31 : 12);
+          shockwaves.push({x:point.screenX,y:point.y,age:0,life:.42,size:crater,color:'#ff914c'});
+          spawnSpriteExplosion(point.screenX,point.y, b.kind === 'missile' ? .95 : .5);
+          sound.play(b.kind === 'missile' ? 'explosion' : 'impact');
+          if (b.kind === 'missile' && Math.random()<.3) { player.ammo++; updateHud(); }
+        }
+        return true;
+      }
+    }
     for(const target of nearby) {
       if(target.hp<=0 || (friendly && !enemies.includes(target)))continue;
       // AABB is handled in collision.js, but the real test is the sprite's opaque-pixel mask.
@@ -251,6 +310,13 @@ function advanceMissile(b,dt) {
 }
 function update(dt) {
   elapsed+=dt;
+  const phase = elapsed >= 9 ? (elapsed - 9) % 70 : -1;
+  const inside = phase >= 0 && phase < 32;
+  if (inside && !caveWasActive) { terrain.enter(); msg('☄️ GÉANTE CAVERNE — CREUSE UN PASSAGE !',2.6); sound.play('boss'); updateHud(); }
+  if (!inside && caveWasActive) { terrain.exit(); msg('🌌 ESPACE LIBRE !',1.8); updateHud(); }
+  caveWasActive = inside;
+  terrain.update(dt);
+  updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
@@ -290,6 +356,18 @@ function update(dt) {
     const r=check(enemy,player);
     if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
+  if(terrain.active && !gameOver) {
+    const collision = terrain.collideEntity(player);
+    if (collision) {
+      const p = terrain.firstWorldImpact(collision);
+      if (p) { particlesAt(p.screenX,p.y,'motor',75); spawnSpriteExplosion(p.screenX,p.y,1.9); }
+      player.hp = 0;
+      gameOver = true;
+      sound.play('explosion');
+      msg('💥 COLLISION PAROI — ONE SHOT !',1e8);
+      updateHud();
+    }
+  }
   for(const item of [...powerups]) {
     item.x+=item.vx*dt;
     if(check(player,item).hit){
@@ -304,6 +382,7 @@ function update(dt) {
   particles=particles.filter(p=>p.age<p.life);
   decals=decals.filter(d=>{d.age+=dt;return d.age<d.life&&d.target.hp>0;});
   shockwaves=shockwaves.filter(w=>{w.age+=dt;return w.age<w.life;});
+  bursts=bursts.filter(f=>{f.age+=dt;return f.age<f.life;});
   for(const star of stars){star.x-=star.speed*dt;if(star.x<0){star.x+=W;star.y=rand(0,H);}}
   for(const cloud of clouds){cloud.x-=cloud.speed*dt;if(cloud.x<-cloud.r)cloud.x=W+cloud.r;}
 }
@@ -331,6 +410,7 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
+  terrain.draw(ctx, W);
   for(const item of powerups){drawEntity(item);ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffffff';
     ctx.fillText(({laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+'})[item.type]||'+',item.x+16,item.y+21);}
   for(const rocket of missiles)drawEntity(rocket);
@@ -341,6 +421,12 @@ function render() {
   if(player.shield>0){
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(player.x+37,player.y+23,52,36,0,0,TAU);ctx.stroke();
+  }
+  if (artFrames?.fx) for (const fx of bursts) {
+    const frame = artFrames.fx[Math.min(artFrames.fx.length-1,Math.floor(fx.age/fx.life*artFrames.fx.length))];
+    const w=frame.width*fx.size,h=frame.height*fx.size;
+    ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=Math.max(.15,1-fx.age/fx.life);
+    ctx.drawImage(frame.image,fx.x-w/2,fx.y-h/2,w,h);ctx.restore();
   }
   for(const d of decals) {
     const x=Math.round(d.target.x+d.x),y=Math.round(d.target.y+d.y);
@@ -393,4 +479,4 @@ $('#soundToggle').addEventListener('click',()=>{sound.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>sound.unlock(),{once:true});
 
-reset();requestAnimationFrame(frame);
+reset();loadGameArt().then(useArt);requestAnimationFrame(frame);

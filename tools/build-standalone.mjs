@@ -7,6 +7,9 @@ const style = readFileSync(resolve(root, 'style.css'), 'utf8');
 const collision = readFileSync(resolve(root, 'src/collision.js'), 'utf8')
   .replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
 const spatial = readFileSync(resolve(root, 'src/spatial.js'), 'utf8').replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
+const terrain = readFileSync(resolve(root, 'src/terrain.js'), 'utf8').replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
+const art = readFileSync(resolve(root, 'src/art.js'), 'utf8').replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
+const atlas = readFileSync(resolve(root, 'assets/sprites/atlas.png')).toString('base64');
 const sound = readFileSync(resolve(root, 'src/sound.js'), 'utf8').replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
 const input = readFileSync(resolve(root, 'src/input.js'), 'utf8').replace(/\bexport\s+(?=(?:const|function|class)\b)/g, '');
 const game = readFileSync(resolve(root, 'src/game.js'), 'utf8')
@@ -14,7 +17,7 @@ const game = readFileSync(resolve(root, 'src/game.js'), 'utf8')
 const standalone = html
   .replace('<link rel="stylesheet" href="style.css">', `<style>\n${style}\n</style>`)
   .replace('<script type="module" src="src/game.js"></script>', '')
-  .replace('</body>', `<script>\n'use strict';\n${collision}\n${spatial}\n${sound}\n${input}\n${game}\n</script>\n</body>`);
+  .replace('</body>', `<script>\n'use strict';\nwindow.__ASH_RUSH_ATLAS__='data:image/png;base64,${atlas}';\n${collision}\n${spatial}\n${terrain}\n${art}\n${sound}\n${input}\n${game}\n</script>\n</body>`);
 if (standalone.includes('src/game.js') || standalone.includes('stylesheet" href="style.css')) throw Error('Standalone failed to inline files');
 writeFileSync(resolve(root, 'ash-rush-standalone.html'), standalone, 'utf8');
 console.log('Created ash-rush-standalone.html (all CSS & JavaScript in one file).');

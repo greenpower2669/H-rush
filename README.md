@@ -1,12 +1,22 @@
 # 🚀 Ash Rush — XY Collision Lab
 
-**Prototype 0.2.2** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
+**Prototype 0.3.0** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
 
 Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. Dépôt historique : `greenpower2669/H-rush` ; nom public du jeu : **Ash Rush**.
 
 ## Jouer
 
-**Interface épurée (v0.2.4)** : gameplay exclusivement avec le masque XY et `A & B` direct. Le sélecteur de méthode et les boutons du laboratoire ont été retirés : les commandes visibles servent seulement à piloter, lancer un missile, gérer le son et mettre en pause. La référence pixel par pixel et les projections X/Y restent disponibles **uniquement dans les tests techniques**, jamais comme modes de jeu.
+**Version 0.3 : vraies planches et galeries rocheuses.** Une planche **PNG 1024 × 1120** réunit **23 sprites** réellement extraits des planches d'Ash Rush (créées pour le jeu) : joueur 4 frames, éclaireur 4, manta 4, boss, astéroïde 5 phases, missiles 2, effets 2 et bouclier. Le raster dessiné et le masque de collision proviennent **exactement des mêmes pixels alpha**. La version autonome intègre cet atlas dans son HTML et l'APK l'embarque aussi en PNG.
+
+### Décor destructible et permanent
+
+- Au bout d'environ **9 secondes**, le vaisseau entre dans un astéroïde géant. La galerie occupe une partie des cycles de jeu, puis l'espace redevient libre. Évite les parois : **une collision du vaisseau avec une paroi tue immédiatement**, même avec bouclier ; tire pour creuser.
+- Les parois sont découpées en **32 tuiles de 128 × 540 pixels**, créées au besoin et conservées en mémoire. La première phase est une **hitbox des tuiles voisines** ; la confirmation a lieu par **AND sur les pixels réellement opaques**.
+- Les tirs creusent de petits cratères, les missiles des cratères plus larges. Le moteur utilise `AND NOT` sur le masque **et efface les mêmes pixels du Canvas**. Des bords incandescents dessinent l'excavation. Le forage rapporte des points et parfois des bonus.
+- Chaque forage est ajouté à une liste `{X,Y,rayon}` et sauvegardé dans le `localStorage` Android/WebView (`ashrush-cavern-damage-v1`) **au moment de l'impact**. Les tuiles sont reconstruites avec ces dégâts après fermeture, relance ou retour dans la galerie. La sauvegarde reste propre à cette installation d'application : la version test 0.3 s'installe à côté de la 0.2.
+- Le système conserve une référence pixel par pixel **uniquement pour les tests**. Pendant le jeu, seule la méthode **AABB → AND XY** fonctionne ; les anciens sélecteurs et boutons laboratoire ne reviennent pas.
+
+**Important :** les 23 images de la planche sont un atlas de **référence artistique rasterisée** ; leur taille logique et leur masque sont alignés. Les contours dessinés et les dégâts du terrain utilisent la même discrétisation. La fluidité et l'ergonomie sur smartphone doivent encore être validées réellement.
 
 
 Une **version autonome** `ash-rush-standalone.html` est également incluse : télécharger ce fichier et l’ouvrir directement dans un navigateur, même hors ligne.

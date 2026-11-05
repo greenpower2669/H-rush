@@ -66,3 +66,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
   .brand strong {font-size:13px;} .hud strong{font-size:10px;} .toolbar{margin-top:2px;}
   button,select{padding:3px 5px;font-size:10px;} #soundToggle{display:none;}
 }
+
+/* 0.3.0: cavern status and landscape-first clear HUD */
+.cave-status { color:#ffe2b0; border-color:#ff975c; background:#3a1731bd; }
+@media (orientation:landscape) and (max-height:520px) { .stage { max-height:84dvh; } .stage-top { left:8px; right:8px; top:8px; gap:4px; } .cave-status {font-size:9px;} }

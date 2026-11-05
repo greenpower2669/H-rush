@@ -1,6 +1,6 @@
 {
   "name": "ash-rush",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Ash Rush — spatial shoot'em up and XY binary collision laboratory",

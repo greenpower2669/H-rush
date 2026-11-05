@@ -53,10 +53,25 @@
 - [ ] Préparer une signature Android de production stable ; ne pas écraser les APK de test d'ancienne clé
 - [ ] Réévaluer le coût du préfiltre C selon les scènes ; activer automatiquement uniquement quand rentable
 
-## 2026-11-05 — UI sans sélecteur, AND uniquement (v0.2.4)
-- [x] Retirer le sélecteur A/B/C, les boutons « Voir les collisions » et « Comparer », et la fenêtre laboratoire
-- [x] Gameplay exclusivement `METHODS.BITMASK` : AABB puis `A & B` sur le masque XY, FX préservés
-- [x] Supprimer le rendu de diagnostic et son calcul en continu, commandes et sons inchangés
-- [x] Conserver méthodes de référence dans les tests techniques uniquement
-- [ ] Tester la jouabilité paysage et le FPS sur Samsung avec les futurs sprites et parois destructibles
-- [ ] Finaliser l'intégration des planches graphiques et la persistance des parois (non comprises dans la correction UI)
+## 2026-11-05 — interface joueur : méthode unique Fab
+- [x] Supprimer la barre d'outils du laboratoire : sélecteur A/B/C, bouton « Voir les collisions » et bouton « Comparer »
+- [x] Utiliser exclusivement `METHODS.BITMASK` (masques XY + `A & B`) pour les collisions en jeu
+- [x] Éliminer le rendu et les métriques du laboratoire durant le jeu pour alléger l'affichage
+- [x] Conserver l'oracle pixel par pixel uniquement dans les tests, sans commandes utilisateur
+- [ ] Finaliser les planches PNG utilisables, les parois destructibles et leur persistance (mission en cours, distincte de cette correction UI)
+- [ ] Recompiler et valider l'APK de la prochaine version sur Android réel
+
+## 2026-11-05 — Ash Rush 0.3.0 : planches animées et parois destructibles
+- [x] Extraire les 23 frames des planches graphiques originales et produire un véritable atlas PNG RGBA transparent
+- [x] Charger les sprites de gameplay et reconstruire leurs masques depuis la même image ; animation joueur / éclaireur / manta / missile
+- [x] Ajouter un intérieur d'astéroïde géant, galeries et parois à 32 blocs de 128 × 540
+- [x] Impact AND XY sur les parois, minage par laser/missile avec AND NOT, FX incendescents
+- [x] Une collision du joueur avec la paroi entraîne un one-shot ; le joueur peut dégager un passage
+- [x] Enregistrer durablement les cratères dans localStorage ; rejouer les impacts lors de la reconstruction d'une tuile
+- [x] Points et bonus occasionnels liés au forage, sons et contrôle paysage maintenus
+- [x] 18 tests Node passent localement, y compris pixel/mask cohérents après excavation et persistance
+- [ ] Vérifier en vrai sur Samsung la qualité des sprites découpés, l'animation, les parois, le paysage et la restitution des WAV
+- [ ] Mesurer l'impact FPS de la génération des tuiles au premier passage et améliorer si utile (préchargement en tâche idle)
+- [ ] Ajouter sauvegarde de progression et migration entre installations Android de packages de test différents
+- [ ] Remplacer la signature Android Debug variable par une signature stable de publication
+- [ ] Vérifier les permissions de GitHub et publier un APK 0.3 uniquement si CI + asset Release sont validés

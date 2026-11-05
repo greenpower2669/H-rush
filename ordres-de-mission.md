@@ -14,3 +14,11 @@ Livraison initiale : web HTML5/Canvas/CSS3 et JavaScript, sans dépendances, lic
 - Le XOR historique de Fab servait à la logique de tampons et d’affichage partiel d’une autre époque.
 - Projections X/Y en préfiltre optionnel, confirmation 2D obligatoire ; oracle pixel par pixel A maintenu.
 - AND NOT pour effacer les pixels ; tests + benchmark avant/après ; conserver le jeu complet, sons, paysage et APK Android testable.
+
+
+## Complément 05/11/2026 — correction livraison graphique et décor
+- Fab signale que les précédentes livraisons ~300 Ko n'employaient pas les planches visuelles ; installer **de vrais sprites extraits et animés**.
+- Ajouter régulièrement des scènes dans un astéroïde géant, **parois creusables en tirant**, contact mortel en un seul choc, détails de géologie et effets incandescents.
+- Conserver les zones détruites à la sortie et à la reprise du jeu. Persistance seulement locale au package Android actuellement ; documenter cette limitation.
+- Garder exclusivement AABB + AND, sans sélecteur ni bouton labo visible. Conserver smartphone paysage, vaisseau à droite du doigt, deuxième doigt missile, sons Space Fortress.
+- Livrer une APK réellement signée et vérifiée comme asset GitHub Release, pas un ZIP. Mesurer sa taille après intégration et ne jamais affirmer l'asset disponible avant sa vérification.

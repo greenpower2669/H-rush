@@ -43,3 +43,13 @@
   - denses (170) : XOR 3,61 ms, AND 3,57 ms, environ 1,01×
   - grands sprites partiels (90) : XOR 2,86 ms, AND 2,32 ms, environ 1,23×
 - Ces timings ne valident pas encore une augmentation du FPS ni les performances sur Android.
+
+
+## 2026-11-05 — chantier visuel 0.3.0, pré-validation locale
+- Extraction d'un atlas réel PNG 1024×1120 de 23 frames depuis les planches graphiques créées pour Ash Rush, remplaçant les formes Canvas provisoires par un raster PNG en jeu après chargement.
+- Tuiles géologiques déterministes 32 × (128×540), mémoire raster+masque, génération paresseuse au premier besoin ; forage par AND NOT et effacement pixel rigoureusement aligné.
+- Sauvegarde des événements de forage dans localStorage, relecture lors de la création de la tuile ; persistance testée en Node avec magasin simulé.
+- Tests locaux `npm test` : 18/18 avant CI. Le test est un oracle de cohérence pixel/masque sur deux tuiles traversées par un même cratère.
+- `npm run build:standalone` : un HTML autonome contient une copie base64 du PNG 249155 octets. Les WAV originaux Space Fortress restent disponibles en APK via fichiers individuels ; leur chargement est optionnel et dispose d'un secours synthétique.
+- Navigateurs headless locaux : capture et navigation indisponibles (`ERR_BLOCKED_BY_ADMINISTRATOR`) ; donc aucune validation visuelle en navigateur réel ni mesure FPS Android revendiquées ici.
+- Les 23 frames sont des extractions de planches conceptuelles (pas un art vectoriel refait manuellement). Certains halos/contours des planches doivent encore être revus visuellement sur téléphone.

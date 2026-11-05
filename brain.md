@@ -19,4 +19,9 @@ Invariants :
 11. Les masques 2D se comparent avec `A & B`, jamais via la construction `(A|B)^(A^B)` dans le moteur de jeu. L’usage ancien du XOR correspondait aux tampons graphiques incrémentaux, pas au test d’intersection moderne.
 12. En collision, énumérer les bits actifs une seule fois pour les coordonnées, le nombre et le centroïde ; pour effacer une région, appliquer AND NOT aux mots affectés.
 
-13. Gameplay : uniquement `METHODS.BITMASK` (AABB puis intersection `A & B` exacte). Les anciennes méthodes A et C servent seulement d'oracles techniques et ne sont jamais exposées dans les commandes du jeu.
+13. Gameplay : une seule méthode de collision autorisée, AABB → AND binaire 2D → coordonnées XY. L'ancien oracle A et les projections C ne servent qu'aux tests techniques, jamais à des modes sélectionnables par l'utilisateur.
+
+14. La planche graphique `assets/sprites/atlas.png` (23 frames) est **une ressource du jeu utilisée réellement**, décomposée par `src/art.js` ; chaque frame est rasterisée et son masque généré depuis les mêmes pixels alpha.
+15. La galerie géante est rendue par tuiles Canvas 128×540. Son état de collision, les pixels visuels et la sauvegarde des cratères sont synchronisés. La paroi détruite ne doit jamais se régénérer au retour dans la même installation.
+16. Seule l'intersection `AND` sur les tuiles voisines détermine le contact ; `AND NOT` retire les pixels de paroi. Contact du vaisseau avec la paroi = mort immédiate.
+17. Les tests utilisent des méthodes de référence, mais l'UI du joueur n'expose aucun menu de collisions. Maintenir les sons Space Fortress sans modifier leur projet source.
