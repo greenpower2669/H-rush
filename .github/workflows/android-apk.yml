@@ -29,10 +29,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Installer SDK Android 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Utiliser le SDK préinstallé sur le runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Tester les collisions et l'entrée tactile
         run: npm test
       - name: Construire le HTML autonome et vérifier la synchronisation
