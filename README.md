@@ -6,7 +6,9 @@ Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. D�
 
 ## Jouer
 
-Aucune dépendance npm. Un serveur local est nécessaire pour les modules JavaScript ES :
+Une **version autonome** `ash-rush-standalone.html` est également incluse : télécharger ce fichier et l’ouvrir directement dans un navigateur, même hors ligne.
+
+Pour développer avec les modules JavaScript ES, démarrer un serveur local :
 
 ```bash
 python3 -m http.server 8080
@@ -31,6 +33,7 @@ Les collisions calculent les pixels occupés du **même sprite réellement dessi
 
 ```bash
 npm test
+npm run build:standalone
 ```
 
 Les tests comparent A/B/C à 100 scénarios déterministes aléatoires et à des bords de mots (31/32/63/64), offsets négatifs et faux positifs de projections. Les mesures du bouton « Comparer » sont indicatives ; elles ne démontrent pas à elles seules une supériorité asymptotique. `performance.now()` compte le coût d'algorithme et d'extraction sur l'appareil.

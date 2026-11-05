@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Ash Rush — spatial shoot'em up and XY binary collision laboratory",
-  "scripts": { "test": "node --test", "serve": "python3 -m http.server 8080" },
+  "scripts": { "test": "node --test", "serve": "python3 -m http.server 8080", "build:standalone": "node tools/build-standalone.mjs" },
   "engines": { "node": ">=20" }
 }
