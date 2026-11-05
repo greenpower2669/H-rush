@@ -1,6 +1,7 @@
 import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from './collision.js';
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
+import { createMusicEngine, sceneMusic } from './music.js';
 import { touchTarget } from './input.js';
 import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
@@ -11,6 +12,7 @@ import { scoreRun } from './hall.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
+const music = createMusicEngine();
 const grid = new SpatialGrid(112);
 const universe = new OmegaUniverse(typeof localStorage === 'undefined' ? null : localStorage);
 const terrain = new OmegaTerrain(universe);
@@ -149,7 +151,7 @@ function reset(fromCheckpoint = false) {
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
-  gameOver=false;paused=false;latestImpact=null;
+  gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
   updateHud();
@@ -194,7 +196,7 @@ function closeHall() {
 }
 function finishRun(cause) {
   if(gameOver)return;
-  gameOver=true;
+  gameOver=true;music.scene('space');
   dragging=false;mainPointerId=null;keys.clear();
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
@@ -384,6 +386,7 @@ function update(dt) {
   elapsed+=dt;
   terrain.update(dt);
   const stage=terrain.lastStage;
+  music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
   if(stage.phase!==lastWorldPhase){
     if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);sound.play('boss');}
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
@@ -531,6 +534,7 @@ let lastTime=performance.now();
 function frame(now){
   const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
   if(!paused&&!gameOver) update(dt);
+  music.setPaused(paused);music.tick(dt);
   render();
   requestAnimationFrame(frame);
 }
@@ -538,7 +542,7 @@ function pointFromEvent(e){
   const r=canvas.getBoundingClientRect();
   return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
 }
-canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();
+canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();music.unlock();
   if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
   mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
 canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
@@ -547,7 +551,7 @@ window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
   if((e.key==='m'||e.key==='M'||e.key==='Shift')&&!e.repeat)launchMissile();
-  if(e.key===' '&&!e.repeat)sound.unlock();
+  if(e.key===' '&&!e.repeat){sound.unlock();music.unlock();}
   if(e.key==='Escape'){
     if(!$('#hallPanel').hidden)closeHall();
     else if(gameOver)return;
@@ -558,8 +562,8 @@ window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
-$('#restart').addEventListener('click',()=>{sound.unlock();reset(gameOver);});
-$('#endReplay').addEventListener('click',()=>{sound.unlock();reset(true);});
+$('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
+$('#endReplay').addEventListener('click',()=>{sound.unlock();music.unlock();reset(true);});
 $('#endHall').addEventListener('click',showHall);
 $('#hallButton').addEventListener('click',showHall);
 $('#hallClose').addEventListener('click',closeHall);
@@ -574,8 +578,8 @@ $('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
 $('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
 $('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
-$('#soundToggle').addEventListener('click',()=>{sound.setEnabled(!sound.enabled);$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
-$('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);});
-window.addEventListener('pointerdown',()=>sound.unlock(),{once:true});
+$('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled);sound.setEnabled(!sound.enabled);if(sound.enabled)music.unlock();$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
+$('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
+window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
 reset();loadGameArt().then(useArt);requestAnimationFrame(frame);

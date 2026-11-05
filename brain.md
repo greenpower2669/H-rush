@@ -36,3 +36,6 @@ Invariants :
 
 ## Convention de livraison (6 novembre 2026)
 Fab demande uniquement des fichiers `.apk` directement téléchargeables depuis les Releases de test. Suspendre la génération des `.aab`, y compris dans GitHub Actions, jusqu'à décision explicite de préparer une publication Google Play. Ne pas supprimer les anciennes Releases ou leurs fichiers historiques.
+
+## Audio CC0 Djipie (OMEGA 0.4.2)
+Musiques CC0 de Djipie : fichiers d'origine téléchargés durant la CI depuis OpenGameArt et contrôlés strictement contre les SHA-256 de la médiathèque. Quatre pistes par scène (espace, atmosphère/surface, caverne, boss/danger) avec fondu et volume commun aux SFX. Les fichiers sont intégrés hors ligne dans l'APK, jamais chargés depuis Internet pendant le jeu ; ne pas republier les sons privés Sonniss. Aucun AAB avant nouvelle autorisation.

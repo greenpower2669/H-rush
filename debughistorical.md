@@ -62,3 +62,7 @@
 - Un test a révélé que les cratères traversant une frontière avaient une coordonnée locale négative et étaient rejetés à la restauration ; validation corrigée. Les tests de redémarrage passent.
 - Android et AAB : build, signature Debug, vérification SHA-256 et publication à établir via GitHub Actions pour le commit final. Installation et performance sur Samsung encore à valider, comme l'usage réel des fichiers d'export/import via le sélecteur système.
 - Fonctionnalités non validées : planètes libres, 40 palettes de graphismes uniques, boss multi-écrans, IA de factions, fragments physiques, monde multijoueur, Hall of Fame mondial, continuité au-delà du domaine exact de `Number` JavaScript.
+
+## 2026-11-06 — OMEGA 0.4.2, musique CC0
+- Sources consultées dans Djipie et OpenGameArt : Space Echo OGG, Action_A MP3, Battle MP3, Horror MP3, CC0. Quatre SHA-256 Djipie contrôlés obligatoirement par le script de CI.
+- La logique musicale et les transitions disposent de nouveaux tests simulés Node. Les tests physiques Android, la disponibilité des téléchargements externes et l'intégrité de l'APK doivent être vérifiés dans GitHub Actions avant d'annoncer une livraison.

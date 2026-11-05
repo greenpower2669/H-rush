@@ -115,3 +115,11 @@
 - [x] Ne pas déclencher une republication de la version 0.4.1 par un simple changement de workflow.
 - [ ] Publication Google Play / génération `.aab` : à reprendre uniquement sur nouvelle demande expresse de Fab.
 - [ ] Préparer la prochaine version fonctionnelle et son APK direct, sans modifier les Releases historiques.
+
+## 2026-11-06 — bande-son Djipie 0.4.2
+- [x] Sélectionner quatre compositions CC0, sources et SHA-256 du catalogue Djipie.
+- [x] Programmer musique dynamique avec fondu, pause, volume/muet, activation tactile et changement de biomes/boss.
+- [x] Préparer téléchargement public vérifié SHA-256 et inclusion Android dans le seul APK (aucun AAB).
+- [ ] Confirmer par GitHub Actions le téléchargement, les tests et les quatre pistes dans l'APK signé.
+- [ ] Tester sur Samsung la lecture réelle, volume, retour de veille et performances en paysage.
+- [ ] Sélectionner après écoute d'autres musiques et jingles CC0, par civilisation et situation.

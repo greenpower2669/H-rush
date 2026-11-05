@@ -101,3 +101,6 @@ ordres-de-mission.md Mission d'origine
 - Prototype testé par 13 tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
 
 Licence : **MIT**. Copyright © 2026 Fabrice Gourdant.
+
+## 🎵 Musiques Djipie CC0 — OMEGA 0.4.2
+Quatre morceaux CC0 indexés dans Djipie sont téléchargés depuis OpenGameArt pendant GitHub Actions et vérifiés par SHA-256 avant intégration dans l'APK autonome. `Space Echo` — Centurion_of_war (espace) ; `Action_A` — drakzlin (atmosphère, surface) ; `Horror` — drakzlin (cavernes) ; `Battle` — drakzlin (boss/danger). Transitions fondues, audio démarrant au premier geste, volume et bouton Son communs avec les FX. Aucun téléchargement pendant le jeu. L'HTML autonome seul ne contient pas les quatre musiques ; les sources et leurs SHA-256 figurent dans `tools/fetch-djipie-cc0.py`. Source et licence : https://opengameart.org/content/space-echo et https://opengameart.org/content/music-loops-0, CC0-1.0.

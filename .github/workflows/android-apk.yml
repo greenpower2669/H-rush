@@ -1,6 +1,4 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
-# Google Play différé à la demande de Fab : aucun AAB construit ou publié.
-# Les modifications de workflow seules ne déclenchent pas de republication des anciennes Releases.
 on:
   push:
     branches: [main]
@@ -73,14 +71,24 @@ jobs:
           assert '<script>' in html
           assert 'import {' not in html.split('<script>')[-1]
           PY
+      - name: Télécharger la musique CC0 depuis les sources publiques et vérifier Djipie
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/fetch-djipie-cc0.py
+          test -s assets/music/djipie/space_echo.ogg
+          test -s assets/music/djipie/battle.mp3
+          test -s assets/music/djipie/action_a.mp3
+          test -s assets/music/djipie/horror.mp3
       - name: Embarquer jeu, atlas réellement découpé et WAV SpaceFortress
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites}
+          mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites,music/djipie}
           cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
           cp assets/sprites/atlas.png android-app/app/src/main/assets/assets/sprites/atlas.png
           cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
+          cp assets/music/djipie/* android-app/app/src/main/assets/assets/music/djipie/
           test -s android-app/app/src/main/assets/assets/sprites/atlas.png
           test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
       - name: Compiler APK de test uniquement
@@ -90,26 +98,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.1-preview-debug.apk
+          APK=AshRush-Omega-v0.4.2-music-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegahall' versionCode='41' versionName='0.4.1'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegamusic' versionCode='42' versionName='0.4.2'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-omega-entries.txt
+          for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.1-preview-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.2-music-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
             assert b'function finishRun' in html and b'id="gameOverPanel"' in html
             assert b'function adaptSpecies' in html and b'function insertHallEntry' in html
+            assert b'function sceneMusic' in html and b'function createMusicEngine' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
+            for filename in ('space_echo.ogg','action_a.mp3','battle.mp3','horror.mp3'):
+              assert len(apk.read('assets/assets/music/djipie/'+filename)) > 100000
           PY
-          test "$(stat -c %s "$APK")" -gt 550000
+          test "$(stat -c %s "$APK")" -gt 5500000
           sha256sum "$APK" > SHA256SUMS.txt
       - name: Publier uniquement APK direct sur GitHub Releases
         shell: bash
@@ -117,14 +129,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.1-omega-preview
-          APK=AshRush-Omega-v0.4.1-preview-debug.apk
+          TAG=v0.4.2-music-preview
+          APK=AshRush-Omega-v0.4.2-music-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.1 - Game Over et Hall of Fame" \
-              --notes "OMEGA 0.4.1 : Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegahall indépendant des anciennes installations pour éviter conflit de signature. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
+              --title "Ash Rush OMEGA 0.4.2 - musiques CC0 Djipie" \
+              --notes "OMEGA 0.4.2 : 4 musiques CC0 issues du catalogue Djipie, contrôlées SHA-256, transitions selon environnement et danger. Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegamusic indépendant des anciennes installations pour éviter conflit de signature. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
