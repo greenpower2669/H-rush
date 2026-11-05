@@ -30,3 +30,13 @@
 - [ ] Vérifier les tirs ultrarapides et collisions mobiles continues (swept motion des deux objets)
 - [ ] Publier une URL GitHub Pages après vérification des permissions et paramètres
 - [ ] Ajouter des effets audio, des variations de boss, davantage d'obstacles et équilibrage
+
+## Android 0.2.1 — état vérifié le 5 novembre 2026
+- [x] Vaisseau à droite du doigt, deuxième doigt = missile, interface paysage
+- [x] Wrapper Android WebView local, fonctionnement hors connexion
+- [x] 10/10 tests JS sur GitHub Actions
+- [x] Compilation Gradle et signature Android Debug (schéma v2) vérifiées : run 42088822394
+- [x] APK direct dans la Release v0.2.1-android-preview (30 229 octets)
+- [ ] Tests physiques Samsung : paysage, multitouch, sons, fluidité, retour de veille
+- [ ] Remplacer la signature debug éphémère par une clé stable de production
+- [ ] Exporter les vrais sprites PNG transparents depuis les planches de référence
