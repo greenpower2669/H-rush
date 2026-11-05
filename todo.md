@@ -74,4 +74,4 @@
 - [ ] Mesurer l'impact FPS de la génération des tuiles au premier passage et améliorer si utile (préchargement en tâche idle)
 - [ ] Ajouter sauvegarde de progression et migration entre installations Android de packages de test différents
 - [ ] Remplacer la signature Android Debug variable par une signature stable de publication
-- [ ] Vérifier les permissions de GitHub et publier un APK 0.3 uniquement si CI + asset Release sont validés
+- [x] GitHub Actions 42115175545 : 22/22 tests, HTML autonome identique, Gradle Android, signature et assets inclus ; APK AshRush-v0.3.0-asteroid-debug.apk 806648 octets sur Release v0.3.0-asteroid-preview, SHA-256 f35514abb1dd2957eee6553c6e758ca96624dc7a82fd1434bf407fae2fece908
