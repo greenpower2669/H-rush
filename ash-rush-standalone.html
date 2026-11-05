@@ -57,6 +57,32 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 @media (orientation:landscape) and (max-height:520px) { .app {padding:3px 6px;} .header { margin:0 0 3px; } .stage { max-height:78vh; margin:auto; } .toolbar {margin-top:4px;} .below,.fineprint,footer{display:none;} button,select{padding:6px 8px;} }
 @media (max-width:700px) { .hud {flex-wrap:wrap;} .hud>div {min-width:36px;} #soundVolume{width:62px;} }
 
+/* V0.2.1 : le paysage remplit la zone utile ; commandes maintenues hors du jeu. */
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px) {
+  html, body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; }
+  .app { box-sizing:border-box; height:100dvh; max-width:none; width:100%; display:flex; flex-direction:column;
+    padding: env(safe-area-inset-top, 2px) max(7px, env(safe-area-inset-right)) env(safe-area-inset-bottom, 2px) max(7px, env(safe-area-inset-left)); }
+  .header { margin:0 0 3px; min-height:26px; flex:0 0 auto; flex-wrap:nowrap; }
+  .brand-icon, .brand small { display:none; }
+  .brand strong { font-size:16px; letter-spacing:.05em; }
+  .hud { flex:1; flex-wrap:nowrap; justify-content:flex-end; gap:8px; }
+  .hud small { font-size:8px; }
+  .hud strong { font-size:11px; }
+  main { display:flex; flex-direction:column; flex:1; min-height:0; }
+  .stage { flex:1; min-height:0; max-height:none; width:100%; aspect-ratio:auto; border-radius:8px; margin:0; }
+  .toolbar { flex:0 0 auto; margin:4px 0 0; flex-wrap:nowrap; gap:4px; }
+  .toolbar-group { flex-wrap:nowrap; gap:4px; }
+  .toolbar label, #benchmark, #restart, #soundVolume, .below, footer { display:none; }
+  button, select { font-size:11px; padding:5px 7px; border-radius:7px; white-space:nowrap; }
+  .stage-top { top:5px; left:6px; right:6px; }
+  .pill { font-size:9px; }
+  .lab-overlay { top:30px; left:5px; max-width:55%; }
+}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:360px) {
+  .brand strong {font-size:13px;} .hud strong{font-size:10px;} .toolbar{margin-top:2px;}
+  button,select{padding:3px 5px;font-size:10px;} #soundToggle{display:none;}
+}
+
 </style>
   
 </head>
@@ -403,6 +429,18 @@ function createSoundEngine() {
   };
 }
 
+/** Position du vaisseau à droite du doigt, en coordonnées logiques. */
+function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worldHeight = 540) {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  // 88px de séparation horizontale, dont 74px de vaisseau + une petite marge.
+  // Le pilote touche plutôt la partie gauche de l'écran : le vaisseau reste devant son doigt.
+  const clearance = Math.max(88, shipWidth + 14);
+  return {
+    x: clamp(point.x + clearance, 10, worldWidth - shipWidth - 15),
+    y: clamp(point.y - shipHeight * 0.5, 35, worldHeight - shipHeight - 15),
+  };
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const grid = new SpatialGrid(112);
@@ -663,8 +701,9 @@ function update(dt) {
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
-    player.x+=(clamp(pointer.x-player.sprite.width*.45,10,W-player.sprite.width-15)-player.x)*Math.min(1,dt*16);
-    player.y+=(clamp(pointer.y-player.sprite.height*.5,32,H-player.sprite.height-20)-player.y)*Math.min(1,dt*16);
+    const target = touchTarget(pointer, player.sprite.width, player.sprite.height, W, H);
+    player.x+=(target.x-player.x)*Math.min(1,dt*16);
+    player.y+=(target.y-player.y)*Math.min(1,dt*16);
   } else {
     const diagonal=Math.hypot(dx,dy)||1;
     player.x=clamp(player.x+dx/diagonal*325*dt,10,W-player.sprite.width-15);
@@ -820,6 +859,7 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden && !paused && !gameOver) { paused=true;$('#pause').textContent='▶ Reprendre'; } });
 $('#labToggle').addEventListener('click',()=>{lab=!lab;$('#labOverlay').hidden=!lab;$('#labToggle').setAttribute('aria-pressed',String(lab));});
 $('#method').addEventListener('change',e=>{mode=e.target.value;});
 $('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
