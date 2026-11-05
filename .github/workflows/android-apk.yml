@@ -52,7 +52,9 @@ jobs:
           npm run build:standalone
           git diff --exit-code -- ash-rush-standalone.html
       - name: Préparer le HTML embarqué
-        run: cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
+        run: |
+          mkdir -p android-app/app/src/main/assets
+          cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
       - name: Compiler APK debug installable
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
