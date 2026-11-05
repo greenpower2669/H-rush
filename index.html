@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#070d2d">
-  <meta name="description" content="Ash Rush : mini shoot'em up et laboratoire de collisions binaires pixel-précises.">
+  <meta name="description" content="Ash Rush : univers procédural personnel et collisions binaires AND exactes.">
   <title>Ash Rush 🚀 · XY Collision Lab</title>
   <link rel="stylesheet" href="style.css">
   <script type="module" src="src/game.js"></script>
@@ -14,7 +14,7 @@
     <header class="header">
       <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
-        <div><small>SCORE</small><strong id="score">000000</strong></div>
+        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>RECORD</small><strong id="distance">0.0 km</strong></div>
         <div><small>COQUE</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
@@ -24,19 +24,29 @@
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.3.0</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · OMEGA 0.4.0</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
+      <section id="omegaPanel" class="omega-panel" hidden aria-label="Univers personnel OMEGA">
+        <div class="omega-heading"><strong>🌌 MON UNIVERS PERSONNEL</strong><button id="omegaClose" aria-label="Fermer">✕</button></div>
+        <p>Graine unique : <code id="seedLabel"></code></p>
+        <p>Famille actuelle : <strong id="worldLabel"></strong> · Record : <strong id="recordLabel"></strong></p>
+        <p>Les cratères et découvertes sont conservés sur cet appareil. Exporte ton univers pour le transférer.</p>
+        <div class="omega-buttons"><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
+        <input id="omegaImportFile" type="file" accept="application/json,.json" hidden aria-label="Importer une sauvegarde OMEGA">
+        <textarea id="omegaCopy" hidden aria-label="Texte de sauvegarde à copier ou coller" spellcheck="false"></textarea>
+        <div id="omegaMessage" role="status"></div>
+      </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; dans l’astéroïde géant, les missiles creusent de grosses galeries ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.3.0 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.0 — licence MIT · 2026</footer>
   </div>
 </body>
 </html>

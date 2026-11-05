@@ -74,4 +74,38 @@
 - [ ] Mesurer l'impact FPS de la génération des tuiles au premier passage et améliorer si utile (préchargement en tâche idle)
 - [ ] Ajouter sauvegarde de progression et migration entre installations Android de packages de test différents
 - [ ] Remplacer la signature Android Debug variable par une signature stable de publication
-- [x] GitHub Actions 42115175545 : 22/22 tests, HTML autonome identique, Gradle Android, signature et assets inclus ; APK AshRush-v0.3.0-asteroid-debug.apk 806648 octets sur Release v0.3.0-asteroid-preview, SHA-256 f35514abb1dd2957eee6553c6e758ca96624dc7a82fd1434bf407fae2fece908
+- [ ] Vérifier les permissions de GitHub et publier un APK 0.3 uniquement si CI + asset Release sont validés
+
+## H-RUSH OMEGA — mission générale, progression par jalons
+### OMEGA 0.4.0 — noyau procédural jouable
+- [x] Seed personnelle cryptographique 128 bits, profil local stable, dérivation des régions par coordonnées
+- [x] Enchaîner continûment espace, entrée atmosphérique, surface en rase-mottes, intérieur planétaire, sortie
+- [x] 40 identités procédurales de mondes comme base des combinaisons, à détailler artistiquement
+- [x] Cache de tuiles de terrain 128px, gravure réelle AND NOT et cicatrices par coordonnées locales
+- [x] Parois oscillantes avec fréquences/amplitudes/phases différentes, barrière pleine forable au laser standard
+- [x] Collisions de gameplay exclusivement par `A & B` avec positions exactes et masques synchronisés
+- [x] Score de distance maximale non exploitable par aller-retour + points combat/minage/découverte
+- [x] Sauvegarde JSON locale et export/import navigateur + Android SAF, sans permission réseau
+- [x] 20 archétypes de combat sous forme de profils + mouvements et armes différenciées (sprites génériques teintés)
+- [x] Réutiliser l'atlas réellement intégré ; retirer 22 625 pixels parasites de fond opaque des planches
+- [x] Conserver audio WAV Space Fortress / fallback, tactile paysage, 2e doigt missiles, fichiers de référence
+- [x] Tests de reproductibilité, continuité, mur percé, persistance et non-régression (26 réussis localement)
+- [ ] Valider APK 0.4.0 et AAB, empreinte SHA-256, signature et assets dans GitHub Actions
+- [ ] Tester la sensation de pilotage et les FPS sur Samsung réel, notamment avec 1000 projectiles
+- [ ] Vérifier un export/restauration vers une autre installation Android sur appareil physique
+
+### OMEGA 0.5 et suivantes — fonctionnalités encore à réaliser
+- [ ] Construire des planches de sprites réellement distinctes pour les 20 archétypes, boss modulaires et leurs anims physiques
+- [ ] Composer les 40 familles avec végétation, villes, océans, biomes et civilisations visuellement uniques
+- [ ] Rendre les transitions planétaires libres et navigables au lieu de sections horizontales scénarisées
+- [ ] Débris à physique, parois stratifiées, réactions en chaîne, pistons à contraintes et télégraphie renforcée
+- [ ] Dégâts localisés aux organes des vaisseaux, démembrement et perte de fonctions selon l'impact XY
+- [ ] Simulation de factions (alliances, hostilité, réparation, constructions et histoire persistante)
+- [ ] Boss gigantesques multi-écrans et niveaux internes destructibles, points faibles
+- [ ] Ambiances sonores procédurales par biome et civilisation, musiques adaptatives originales, licences traçables
+- [ ] Passer sauvegarde de cratères vers IndexedDB/SQLite paginé, crash safety, migration des anciennes installations
+- [ ] Accélérer les grands masques avec WebAssembly/SIMD si mesures prouvent un bénéfice et tuilage physique
+- [ ] Tester l'antitunneling exact des collisions de deux objets mobiles rapides (swept XY)
+- [ ] Déploiement Android signature production stable, AAB signé, éventuelle publication Play Store
+- [ ] Hall of Fame mondial avec serveur, opt-in et mécanismes anti-triche
+- [ ] Équilibrage du forage avec laser de base et préavis sur les passages, sans mort injuste

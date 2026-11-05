@@ -54,9 +54,11 @@
 - Navigateurs headless locaux : capture et navigation indisponibles (`ERR_BLOCKED_BY_ADMINISTRATOR`) ; donc aucune validation visuelle en navigateur réel ni mesure FPS Android revendiquées ici.
 - Les 23 frames sont des extractions de planches conceptuelles (pas un art vectoriel refait manuellement). Certains halos/contours des planches doivent encore être revus visuellement sur téléphone.
 
-## 2026-11-05 — APK 0.3.0 publié et vérifié
-- GitHub Actions 42115175545 : 22/22 tests OK, compilation Android Gradle réussie, signature Debug valide, archive APK inspectée.
-- Fichiers vérifiés dans APK : assets/assets/sprites/atlas.png, assets/assets/audio/spacefortress/kinetic_release.wav, assets/ash-rush-standalone.html.
-- APK confirmé par GitHub Release : https://github.com/greenpower2669/H-rush/releases/download/v0.3.0-asteroid-preview/AshRush-v0.3.0-asteroid-debug.apk ; 806648 octets, SHA-256 f35514abb1dd2957eee6553c6e758ca96624dc7a82fd1434bf407fae2fece908.
-- Package Android de test fr.fab.ashrush.cavernpreview, versionName 0.3.0, versionCode 30 ; distinct des versions de test précédentes. Sauvegarde locale propre à ce package.
-- Validation physique Samsung et performances en paysage restent à faire ; l'APK est un aperçu Debug, pas une livraison Play Store.
+## 2026-11-05 — OMEGA 0.4.0 — essais locaux et limites
+- Ancienne `CaveTerrain` limitée à 4 096 px préservée dans les tests de 0.3 ; nouveau `OmegaTerrain` streamé par blocs de 128px, sans limite de niveau prédéterminée.
+- Node 22 : 26 tests réussis à ce stade, y compris 128-bit seed et régions, continuité des niveaux, oscillations, mur intégral, forage au laser, and bitmap après AND NOT, cicatrices persistantes et score monotone. Benchmarks numériques Android non réalisés.
+- Chromium headless : vérifié le lancement de l'HTML autonome et le panneau de sauvegarde, puis vérifié les rendus de l'espace, d'une surface et de la galerie avec une barrière intégrale. Deux défauts corrigés pendant le smoke test : `import`/`export` résiduels dans HTML autonome ; frame d'animation négative au démarrage.
+- PNG source 0.3 : 22 625 pixels de fond bleu-nuit opaques ont été effacés sur les bordures des sprites, pour retirer les rectangles noirs du rendu et du masque ; le traitement est documenté dans `tools/clean-atlas.py`. Les images de référence originales restent dans l'historique Git.
+- Un test a révélé que les cratères traversant une frontière avaient une coordonnée locale négative et étaient rejetés à la restauration ; validation corrigée. Les tests de redémarrage passent.
+- Android et AAB : build, signature Debug, vérification SHA-256 et publication à établir via GitHub Actions pour le commit final. Installation et performance sur Samsung encore à valider, comme l'usage réel des fichiers d'export/import via le sélecteur système.
+- Fonctionnalités non validées : planètes libres, 40 palettes de graphismes uniques, boss multi-écrans, IA de factions, fragments physiques, monde multijoueur, Hall of Fame mondial, continuité au-delà du domaine exact de `Number` JavaScript.

@@ -25,3 +25,11 @@ Invariants :
 15. La galerie géante est rendue par tuiles Canvas 128×540. Son état de collision, les pixels visuels et la sauvegarde des cratères sont synchronisés. La paroi détruite ne doit jamais se régénérer au retour dans la même installation.
 16. Seule l'intersection `AND` sur les tuiles voisines détermine le contact ; `AND NOT` retire les pixels de paroi. Contact du vaisseau avec la paroi = mort immédiate.
 17. Les tests utilisent des méthodes de référence, mais l'UI du joueur n'expose aucun menu de collisions. Maintenir les sons Space Fortress sans modifier leur projet source.
+
+## Invariants OMEGA 0.4
+18. Une graine cryptographique de 128 bits identifie chaque univers personnel. Les régions sont dérivées de la graine et des coordonnées via `src/universe.js`; aucune variation de terrain ne repose sur la consommation séquentielle d'un RNG à chaque frame.
+19. Les terrains de `src/omega-terrain.js` sont chargés par tuiles (cache RAM borné). Les déplacements des barrières utilisent le même arrondi XY pour le raster affiché et le masque `A & B`.
+20. Les cicatrices persistent dans les coordonnées intrinsèques des tuiles ou des parois, et le masque ET le rendu sont modifiés par un même cratère. Les enregistrements chevauchant une frontière de tuile acceptent des coordonnées locales négatives dans les cicatrices.
+21. Le record de distance est strictement monotone ; score distance = maximum de distance seulement. Récompenses de destruction et de découverte sont conservées dans le profil.
+22. Le mode OMEGA est un premier parcours horizontal procédural à phases, pas encore une simulation géographique libre de planètes ni 40 mondes artistiquement terminés. Les 20 profils adverses partagent encore des familles de sprites.
+23. Ne pas modifier les mémoires de Djipie ou de SpaceFortressVs au titre de la mission OMEGA. La sonothèque WAV attribuée est réutilisée telle quelle, sans dupliquer les mémoires des projets.

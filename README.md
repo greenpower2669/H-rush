@@ -101,3 +101,43 @@ ordres-de-mission.md Mission d'origine
 - Prototype testé par 13 tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
 
 Licence : **MIT**. Copyright © 2026 Fabrice Gourdant.
+
+---
+
+## 🌌 OMEGA 0.4.0 — premier socle de l'univers personnel (5 novembre 2026)
+
+**Il s'agit d'une étape jouable, et non de la réalisation de toutes les ambitions OMEGA.** Les versions 0.3.0 et précédentes restent accessibles dans GitHub Releases.
+
+### Le monde qui t'appartient
+
+- Au premier lancement, `crypto.getRandomValues` crée **16 octets aléatoires (128 bits)** ; la graine reste dans le stockage local de l'application. Elle est affichée sous **🌌 Univers** et peut être exportée/restaurée au format JSON. Sans disponibilité du générateur cryptographique, l'application refuse de créer une fausse graine prétendument sécurisée.
+- Une même graine et les mêmes coordonnées produisent les mêmes **régions, famille visuelle, relief, barrières, fréquence et phase des parois oscillantes**. Le générateur utilise SplitMix64 avec `BigInt` et des dérivations sur les coordonnées ; deux graines produisent statistiquement des mondes différents.
+- Chaque région de 5 120 unités suit une **progression de gameplay** espace → atmosphère → surface (rase-mottes) → profondeur minérale → sortie vers l'espace. La génération se poursuit en coordonnées croissantes sans longueur prédéterminée, dans les limites numériques de JavaScript. Il ne s'agit pas encore d'une exploration planétaire libre dans plusieurs directions.
+- Les **40 familles de mondes** sont des identités procédurales (palettes, tonalités, reliefs et nom) ; les 40 environnements artistiques complets restent à produire.
+- Les **20 archétypes** disposent de profils paramétrés de vitesse, vie, armes, couleur et mouvement (poursuite, zigzag, serpent, patrouille, etc.), utilisant provisoirement les mêmes planches de base : leurs sprites distinctifs et comportements sociaux avancés restent à réaliser.
+
+### Terrain vivant et collision fidèle
+
+- Tuiles de roche de **128×540 pixels**, générées à la demande, conservées dans un cache borné à 18 tuiles ; deux couches utilisent le même raster alpha pour afficher la roche et tester les collisions.
+- Trois dispositifs de paroi oscillante par région, dont une **barrière métallique qui ferme toute la section**. Le déplacement vertical est appliqué simultanément au dessin et au masque, en coordonnées entières. La cadence et la phase dépendent de la graine de l'univers.
+- Le laser de base creuse une brèche de rayon **60 pixels logiques** sur la barrière (épaisseur 40 px), ce qui permet le passage du vaisseau ; le missile ouvre une brèche plus grande, rayon 70 px. Les matériaux stratifiés et réactions en chaîne sont des développements futurs.
+- La collision en jeu reste exclusivement **AABB puis masque XY `A & B`**. Les anciennes méthodes de référence sont conservées uniquement dans les tests. Les tirs rapides parcourent leur trajectoire par petits pas. Chaque cratère utilise `AND NOT` et supprime exactement les mêmes pixels du dessin. Les cicatrices des parois mobiles sont stockées en coordonnées locales : elles bougent avec la paroi et sont retrouvées après redémarrage.
+- Les fragments physiques, les dégâts par organes des boss et les collisions continues totalement robustes pour deux objets mobiles restent à étudier.
+
+### Sauvegarde / restauration et score
+
+- Le profil local conserve la graine, l'avancée du parcours, le record de distance, les points, les régions découvertes et les cicatrices des tuiles/barrières ; écriture groupée sur disque environ toutes les 0,6 s et lors de la pause. Après redémarrage, le jeu reprend légèrement avant le dernier point pour éviter une réapparition dans la paroi.
+- Les points de distance proviennent de **la plus grande distance jamais atteinte** : revenir en arrière ne permet pas de marquer des points supplémentaires.
+- Le panneau **🌌 Univers** permet l'export JSON et la restauration. Sur Android, la sauvegarde et le chargement utilisent le sélecteur de fichiers du système (Storage Access Framework), sans permission INTERNET. Le fichier exporté sert aussi à déplacer ton univers vers une autre installation.
+- Si le stockage n'est pas disponible ou plein, une alerte apparaît dans le panneau. Les événements stockés sont plafonnés (16 000 cicatrices) dans ce premier format, à remplacer plus tard par un stockage IndexedDB ou SQLite paginé.
+
+### Vérification
+
+```sh
+npm test
+npm run build:standalone
+```
+
+Le build inclut la **planche de sprites en PNG nettoyée et transparente**, ainsi que l'assemblage HTML/CSS/JavaScript sans instructions `import` ou `export` de module. `npm test` valide notamment : génération déterministe, continuité des tuiles, passage par une paroi pleine puis percée au laser, égalité du masque binaire et de l'alpha, persistance des cratères sur plusieurs blocs, et record de distance non exploitable. La vidéo/l'interaction dans le navigateur a été vérifiée sur Chromium headless ; mesures mobiles réelles à effectuer.
+
+La Release Android produit un **APK de test Debug**, autonome et signé temporairement par GitHub Actions, et un **AAB non signé** destiné seulement à la préparation d'une future version Play Store. La signature de production n'est pas encore configurée. Cette version utilise `fr.fab.ashrush.omegapreview`, installable à côté des anciennes versions, et n'importe pas automatiquement leurs anciennes sauvegardes.

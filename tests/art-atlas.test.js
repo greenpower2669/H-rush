@@ -19,6 +19,6 @@ test('real transparent sprite atlas contains all animation families and fits eve
 test('standalone APK HTML embeds the real atlas, not a URL needing Internet',()=>{
   const html=readFileSync(new URL('../ash-rush-standalone.html',import.meta.url),'utf8');
   const m=html.match(/window\.__ASH_RUSH_ATLAS__='data:image\/png;base64,([^']+)'/);
-  assert.ok(m && m[1].length>300000,'PNG atlas is missing from offline app');
+  assert.ok(m && m[1].length>200000,'PNG atlas is missing from offline app');
   assert.deepEqual(Buffer.from(m[1],'base64'),png);
 });

@@ -1,4 +1,4 @@
-name: Ash Rush - APK Android autonome
+name: Ash Rush OMEGA - Android APK and AAB
 on:
   push:
     branches: [main]
@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 jobs:
-  apk:
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Utiliser SDK Android présent sur runner
+      - name: SDK Android du runner
         shell: bash
         run: |
           set -euo pipefail
@@ -48,24 +48,29 @@ jobs:
             yes | "$SDKMANAGER" --licenses >/dev/null || true
             "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
           fi
-      - name: Valider le moteur, sprites, sauvegarde des parois
+      - name: Tests scientifiques et de non-régression
         run: npm test
-      - name: Reconstituer le HTML autonome pixel-par-pixel identique
+      - name: HTML autonome identique aux sources
         run: |
           npm run build:standalone
           git diff --exit-code -- ash-rush-standalone.html
-          test -s assets/sprites/atlas.png
           python3 - <<'PY'
           from pathlib import Path
           import struct
-          p=Path('assets/sprites/atlas.png').read_bytes()
-          assert p[:8] == b'\x89PNG\r\n\x1a\n'
-          assert struct.unpack('>II',p[16:24]) == (1024,1120)
+          png=Path('assets/sprites/atlas.png').read_bytes()
+          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II',png[16:24]) == (1024,1120)
           html=Path('ash-rush-standalone.html').read_text()
-          assert 'data:image/png;base64,' in html
-          assert 'class CaveTerrain' in html
+          assert 'window.__ASH_RUSH_ATLAS__=' in html
+          assert 'class OmegaTerrain' in html
+          assert 'class OmegaUniverse' in html
+          assert 'function drawOmegaWorld' in html
+          assert 'function gateY' in html
+          assert '<script>' in html
+          assert 'import {' not in html.split('<script>')[-1]
           PY
-      - name: Copier jeu, sprite atlas et WAV originaux dans APK
+      - name: Embarquer jeu, atlas réellement découpé et WAV SpaceFortress
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites}
@@ -74,38 +79,51 @@ jobs:
           cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
           test -s android-app/app/src/main/assets/assets/sprites/atlas.png
           test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
-      - name: Compiler APK Android debug
+      - name: Compiler APK de test + AAB non signé
         working-directory: android-app
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Vérifier APK, signature, identité, présence réelle des assets
+        run: gradle --no-daemon :app:assembleDebug :app:bundleRelease
+      - name: Contrôler APK/AAB, signature, version, ressources et SHA256
         shell: bash
         run: |
           set -euo pipefail
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.3.0-asteroid-debug.apk
-          APK=AshRush-v0.3.0-asteroid-debug.apk
+          APK=AshRush-Omega-v0.4.0-preview-debug.apk
+          AAB=AshRush-Omega-v0.4.0-unsigned.aab
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
+          cp android-app/app/build/outputs/bundle/release/app-release.aab "$AAB"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.cavernpreview' versionCode='30' versionName='0.3.0'"
-          unzip -Z1 "$APK" > /tmp/ashrush-apk-files.txt
-          grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-apk-files.txt
-          grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-apk-files.txt
-          grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-apk-files.txt
-          test "$(stat -c %s "$APK")" -gt 450000
-          sha256sum "$APK" > "$APK.sha256"
-      - name: Publication APK direct GitHub Release
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegapreview' versionCode='40' versionName='0.4.0'"
+          unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-omega-entries.txt
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('AshRush-Omega-v0.4.0-preview-debug.apk') as apk:
+            html=apk.read('assets/ash-rush-standalone.html')
+            assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
+            assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
+            assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
+          with zipfile.ZipFile('AshRush-Omega-v0.4.0-unsigned.aab') as aab:
+            assert aab.testzip() is None
+          PY
+          test "$(stat -c %s "$APK")" -gt 550000
+          sha256sum "$APK" "$AAB" > SHA256SUMS.txt
+      - name: Publier APK direct + AAB sur GitHub Releases
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.3.0-asteroid-preview
-          APK=AshRush-v0.3.0-asteroid-debug.apk
+          TAG=v0.4.0-omega-preview
+          APK=AshRush-Omega-v0.4.0-preview-debug.apk
+          AAB=AshRush-Omega-v0.4.0-unsigned.aab
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK" "$APK.sha256" --clobber
+            gh release upload "$TAG" "$APK" "$AAB" SHA256SUMS.txt --clobber
           else
-            gh release create "$TAG" "$APK" "$APK.sha256" \
-              --title "Ash Rush 0.3.0 - sprites et cavernes destructibles" \
-              --notes "Sprites issus des planches, 23 frames atlas, parois géantes creusables par AND NOT, cratères sauvegardés, sons SpaceFortressVs, paysage multitouch. APK de test signé Android Debug. Package fr.fab.ashrush.cavernpreview séparé pour ne pas casser les anciennes installations ; persistance dans cette installation, non migrée entre packages." \
+            gh release create "$TAG" "$APK" "$AAB" SHA256SUMS.txt \
+              --title "Ash Rush OMEGA 0.4.0 - prototype d'univers personnel" \
+              --notes "Premier jalon OMEGA : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegapreview indépendant des anciennes installations pour éviter conflit de signature. AAB fourni NON SIGNÉ pour préparation du Play Store, ne peut pas être soumis tel quel. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

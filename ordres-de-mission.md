@@ -22,3 +22,8 @@ Livraison initiale : web HTML5/Canvas/CSS3 et JavaScript, sans dépendances, lic
 - Conserver les zones détruites à la sortie et à la reprise du jeu. Persistance seulement locale au package Android actuellement ; documenter cette limitation.
 - Garder exclusivement AABB + AND, sans sélecteur ni bouton labo visible. Conserver smartphone paysage, vaisseau à droite du doigt, deuxième doigt missile, sons Space Fortress.
 - Livrer une APK réellement signée et vérifiée comme asset GitHub Release, pas un ZIP. Mesurer sa taille après intégration et ne jamais affirmer l'asset disponible avant sa vérification.
+
+## 2026-11-05 — Mission globale H-RUSH OMEGA
+Concepteur : Fabrice Gourdant. Étendre Ash Rush à un univers 2D personnel généré à partir d'une graine unique de >=128 bits ; sauvegarder et retrouver le même terrain, ses découvertes et ses cicatrices ; 40 familles de mondes, 20 archétypes d'ennemis, 12 niveaux d'organisation cosmique, paysages/planètes explorables, parois oscillantes pouvant bloquer et nécessiter le forage avec l'arme de base, destruction des sprites via AND NOT, musique et bruitages, boss multi-écrans et records de distance non exploitables par aller-retour. Conserver exclusivement la collision `A & B` en gameplay, les sprites réels, l'APK paysage et les commandes multitouch. Versions jouables à chaque étape, données validées et dépôt préservé.
+
+**Premier jalon confié à OMEGA 0.4.0 :** seed, génération régionale, parois mobiles destructibles, score, sauvegarde/transport, 20 profils paramétrés, rendu de phases et test d'Android ; toutes les ambitions avancées sont reportées avec traçabilité à `todo.md`.

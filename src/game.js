@@ -3,15 +3,21 @@ import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { touchTarget } from './input.js';
 import { loadGameArt } from './art.js';
-import { CaveTerrain } from './terrain.js';
+import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
+import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
+import { drawOmegaWorld } from './omega-visuals.js';
+import { speciesFor, movementDelta } from './ecology.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const grid = new SpatialGrid(112);
-const terrain = new CaveTerrain(typeof localStorage === 'undefined' ? null : localStorage);
+const universe = new OmegaUniverse(typeof localStorage === 'undefined' ? null : localStorage);
+const terrain = new OmegaTerrain(universe);
 let artFrames = null;
 let bursts = [];
-let caveWasActive = false;
+let lastWorldPhase = null;
+let lastWarnedGate = null;
+let stageHudClock = 0;
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d', { alpha: false });
 const $ = selector => document.querySelector(selector);
@@ -105,7 +111,7 @@ function useArt(frames) {
 }
 function updateSpriteAnimations() {
   if (!artFrames) return;
-  const frame = Math.floor(elapsed * 11);
+  const frame = Math.max(0, Math.floor(elapsed * 11));
   player.sprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
@@ -129,9 +135,10 @@ let announce = '', latestImpact = null;
 function reset() {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
-  terrain.exit(); caveWasActive=false;
+  terrain.flush(); terrain.scroll=Math.max(0,universe.state.distance-260); terrain.active=true;
+  lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
-  score=0;wave=1;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
+  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
@@ -144,10 +151,13 @@ function updateHud() {
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
   $('#wave').textContent='VAGUE '+wave;
-  $('#terrainStatus').hidden = !terrain.active;
-  $('#terrainStatus').textContent = '🪨 GALERIES · '+terrain.craters.length+' CRATÈRES';
+  const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
+  $('#terrainStatus').hidden = false;
+  $('#terrainStatus').textContent = ({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family;
+  $('#distance').textContent = (universe.maxDistance/1000).toFixed(1)+' km';
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
+function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
@@ -156,10 +166,13 @@ function mutableAsteroid() {
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
   return {...original,image,mask:copy};
 }
-function spawnEnemy(kind='scout') {
+function spawnEnemy(kind='scout',species=null) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
   const y = rand(52,H-65-s.height);
-  enemies.push({kind,sprite:s,x:W+10,y,vy:kind==='manta'?rand(-40,40):0,vx:kind==='boss'?-28:rand(-115,-55),hp:kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2,maxHp:kind==='boss'?35:kind==='asteroid'?5:3,phase:rand(0,TAU),fire:rand(.8,2.4),age:0});
+  const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
+  enemies.push({kind,species,sprite:s,x:W+10,y,vy:kind==='manta'?rand(-40,40):0,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0});
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
@@ -211,7 +224,9 @@ function dropBonus(enemy) {
   powerups.push({type,sprite:ships.shield,x:enemy.x,y:enemy.y,vx:-90,hp:1});
 }
 function fireEnemy(enemy) {
-  enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,vx:enemy.kind==='boss'?-270:-210,vy:enemy.kind==='boss'?rand(-125,125):rand(-35,35)});
+  const burst=enemy.species?.weapon==='burst'?3:1;
+  for(let i=0;i<burst;i++)enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
+    vx:enemy.kind==='boss'?-270:-210,vy:(i-(burst-1)/2)*95+(enemy.kind==='boss'?rand(-60,60):rand(-25,25))});
 }
 function playerDamage(r) {
   if(invulnerable>0) return;
@@ -244,14 +259,14 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:.58,age:0,size:enemy.kind==='boss'?75:34,color:'#ffb062'});
     sound.play('explosion');
     if(enemy.kind==='asteroid')dropBonus(enemy);
-    score+=enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100;
+    reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss') { bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3); }
     else if(kills%11===0) powerups.push({sprite:ships.shield,x:enemy.x,y:enemy.y,vx:-85});
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
   } else if(enemy.kind==='boss') {
-    score+=5;updateHud();
+    reward(5);
   }
 }
 function advanceProjectile(b, dt, targets, friendly) {
@@ -270,16 +285,15 @@ function advanceProjectile(b, dt, targets, friendly) {
       if (hit) {
         const point = terrain.firstWorldImpact(hit);
         if (point) {
-          const crater = b.kind === 'missile' ? 30 : friendly ? 15 : 8;
-          const removed = terrain.carve(point.x, point.y, crater);
+          const crater = hit.kind==='gate' ? (b.kind==='missile' ? MISSILE_GATE_RADIUS : LASER_GATE_RADIUS) : b.kind === 'missile' ? 30 : friendly ? 15 : 8;
+          const removed = terrain.carveImpact(hit,point,crater);
           if (removed && friendly) {
-            score += Math.max(1, Math.round(removed / 25));
-            if (terrain.craters.length % 13 === 0) {
+            reward(Math.max(1, Math.round(removed / 25)));
+            if (universe.scarCount % 13 === 0) {
               const kinds=['laser','missile','heal','shield','protection'];
               powerups.push({type:kinds[Math.floor(Math.random()*kinds.length)],sprite:ships.shield,
                 x:point.screenX, y:point.y, vx:-72, hp:1});
             }
-            updateHud();
           }
           particlesAt(point.screenX, point.y, 'motor', b.kind === 'missile' ? 31 : 12);
           shockwaves.push({x:point.screenX,y:point.y,age:0,life:.42,size:crater,color:'#ff914c'});
@@ -310,12 +324,16 @@ function advanceMissile(b,dt) {
 }
 function update(dt) {
   elapsed+=dt;
-  const phase = elapsed >= 9 ? (elapsed - 9) % 70 : -1;
-  const inside = phase >= 0 && phase < 32;
-  if (inside && !caveWasActive) { terrain.enter(); msg('☄️ GÉANTE CAVERNE — CREUSE UN PASSAGE !',2.6); sound.play('boss'); updateHud(); }
-  if (!inside && caveWasActive) { terrain.exit(); msg('🌌 ESPACE LIBRE !',1.8); updateHud(); }
-  caveWasActive = inside;
   terrain.update(dt);
+  const stage=terrain.lastStage;
+  if(stage.phase!==lastWorldPhase){
+    if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);sound.play('boss');}
+    lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
+  }
+  stageHudClock-=dt;
+  if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
+  const block=terrain.nextBlockedGate();
+  if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);sound.play('boss');}
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
@@ -336,14 +354,19 @@ function update(dt) {
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
     if(bossWave){spawnEnemy('boss');bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-    else {spawnEnemy(Math.random()>.67?'manta':Math.random()>.76?'asteroid':'scout');spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+    else {const species=speciesFor(universe.seed,stage.region,spawnCount);spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
   }
   for(const enemy of enemies){
     enemy.age+=dt; enemy.x+=enemy.vx*dt;
-    if(enemy.kind==='manta'||enemy.kind==='boss')enemy.y+=Math.sin(enemy.age*3+enemy.phase)*16*dt;
+    if(enemy.species)enemy.y+=movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt);
+    else if(enemy.kind==='manta'||enemy.kind==='boss')enemy.y+=Math.sin(enemy.age*3+enemy.phase)*16*dt;
     enemy.y=clamp(enemy.y,35,H-enemy.sprite.height-15);
     enemy.fire-=dt;
-    if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){fireEnemy(enemy);enemy.fire=enemy.kind==='boss'?rand(.36,.7):rand(1.4,3);}
+    if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
+      if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
+      else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
+      enemy.fire=enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3);
+    }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
   enemies=enemies.filter(e=>e.hp>0);
@@ -356,7 +379,7 @@ function update(dt) {
     const r=check(enemy,player);
     if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
-  if(terrain.active && !gameOver) {
+  if (!gameOver) {
     const collision = terrain.collideEntity(player);
     if (collision) {
       const p = terrain.firstWorldImpact(collision);
@@ -387,9 +410,7 @@ function update(dt) {
   for(const cloud of clouds){cloud.x-=cloud.speed*dt;if(cloud.x<-cloud.r)cloud.x=W+cloud.r;}
 }
 function drawBackground() {
-  const gradient=ctx.createLinearGradient(0,0,W,H);
-  gradient.addColorStop(0,'#080d30');gradient.addColorStop(.55,'#111746');gradient.addColorStop(1,'#080d27');
-  ctx.fillStyle=gradient;ctx.fillRect(0,0,W,H);
+  drawOmegaWorld(ctx,universe.seed,terrain.scroll,elapsed,W,H);
   for(const c of clouds){
     const grad=ctx.createRadialGradient(c.x,c.y,10,c.x,c.y,c.r);
     grad.addColorStop(0,c.color+'55');grad.addColorStop(1,c.color+'00');
@@ -397,12 +418,12 @@ function drawBackground() {
   }
   for(const s of stars){ctx.globalAlpha=.4+.5*(Math.sin(elapsed*1.8+s.twinkle)**2);ctx.fillStyle='#c6ebff';ctx.fillRect(s.x,s.y,s.size,s.size);}
   ctx.globalAlpha=1;
-  const line=ctx.createLinearGradient(0,0,W,0);line.addColorStop(0,'#28dbe400');line.addColorStop(.45,'#49bfff40');line.addColorStop(1,'#28dbe400');
-  ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,H-30);ctx.lineTo(W,H-30);ctx.stroke();
+  // Horizon and rocky silhouette are owned by the seeded OMEGA renderer and terrain masks.
 }
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
+  if(o.hue)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
   ctx.drawImage(o.sprite.image,x,y);
 
   ctx.restore();
@@ -448,7 +469,7 @@ function render() {
 }
 let lastTime=performance.now();
 function frame(now){
-  const dt=Math.min((now-lastTime)/1000,.033);lastTime=now;
+  const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
   if(!paused&&!gameOver) update(dt);
   render();
   requestAnimationFrame(frame);
@@ -470,10 +491,20 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;});
-document.addEventListener('visibilitychange',()=>{ if(document.hidden && !paused && !gameOver) { paused=true;$('#pause').textContent='▶ Reprendre'; } });
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();reset();});
+$('#omegaMenu').addEventListener('click',()=>{const panel=$('#omegaPanel');panel.hidden=!panel.hidden;paused=!panel.hidden||paused;$('#seedLabel').textContent=universe.seed;$('#omegaMessage').textContent=universe.persistenceWarning||'';$('#worldLabel').textContent=universe.region(terrain.lastStage.region).family;$('#recordLabel').textContent=(universe.maxDistance/1000).toFixed(2)+' km';if(!panel.hidden)terrain.flush();});
+$('#omegaClose').addEventListener('click',()=>{$('#omegaPanel').hidden=true;paused=false;$('#pause').textContent='⏸ Pause';});
+$('#omegaExport').addEventListener('click',()=>{const json=universe.exportText();$('#omegaCopy').value=json;$('#omegaCopy').hidden=false;
+  if(window.AshRushAndroid?.saveUniverse){window.AshRushAndroid.saveUniverse(json);return;}
+  const blob=new Blob([json],{type:'application/json'}),link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);link.download='AshRush-univers-'+universe.seed.slice(0,8)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+});
+$('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
+$('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
+$('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
 $('#soundToggle').addEventListener('click',()=>{sound.setEnabled(!sound.enabled);$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);});
