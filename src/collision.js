@@ -148,13 +148,13 @@ export function collide(maskA, ax, ay, maskB, bx, by, method = METHODS.BITMASK, 
         // Two unsigned 32-bit lanes = a 64-pixel batch. Avoid BigInt allocation in the hot path.
         const a0 = readMaskRow(maskA, y - ay, x - ax);
         const b0 = readMaskRow(maskB, y - by, x - bx);
-        const c0 = (a0 | b0), d0 = (a0 ^ b0);
-        capture((c0 ^ d0) & rangeMask(n0), x, y);
+        // Direct binary intersection; retain all common bits for exact X/Y impact positions.
+        capture((a0 & b0) & rangeMask(n0), x, y);
         stats.blocks++;
         if (n1 > 0) {
           const a1 = readMaskRow(maskA, y - ay, x + 32 - ax);
           const b1 = readMaskRow(maskB, y - by, x + 32 - bx);
-          capture(((a1 | b1) ^ (a1 ^ b1)) & rangeMask(n1), x + 32, y);
+          capture((a1 & b1) & rangeMask(n1), x + 32, y);
           stats.blocks++;
         }
       }
