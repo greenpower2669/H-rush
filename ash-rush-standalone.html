@@ -441,7 +441,7 @@ const HALL_SIZE = 10;
 const safeInt = n => Number.isSafeInteger(n) && n >= 0;
 function validRun(run) {
   return !!run && typeof run === 'object' && ['combat','wall'].includes(run.cause) &&
-    ['string'].includes(typeof run.world) && run.world.length <= 100 &&
+    typeof run.world === 'string' && run.world.length <= 100 &&
     typeof run.time === 'string' && /^\d{4}-\d\d-\d\dT/.test(run.time) && run.time.length <= 32 &&
     ['score','points','newDistance','maxDistance','kills','seconds','region'].every(k => safeInt(run[k]));
 }
@@ -1264,7 +1264,7 @@ let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
-let runBaseScore = 0, runBaseMaxDistance = 0, pauseBeforeHall = false;
+let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 
 function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
@@ -1273,7 +1273,7 @@ function reset(fromCheckpoint = false) {
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
   terrain.time=0;terrain.active=true;
-  runBaseScore=universe.totalScore;runBaseMaxDistance=universe.maxDistance;
+  runBaseScore=universe.totalScore;runBaseMaxDistance=universe.maxDistance;runBasePoints=universe.state.points;
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
@@ -1332,11 +1332,9 @@ function finishRun(cause) {
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
   const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
-  const entry={score:earned,points:Math.max(0,universe.state.points-Math.floor(runBaseScore)),
+  const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
     newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
     region:s.region,world:identity.family,cause,time:new Date().toISOString()};
-  // points are a descriptive subset; the ranked score is the actual total-score delta.
-  entry.points=earned;
   const rank=universe.recordRun(entry);
   $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
   $('#endScore').textContent=earned.toLocaleString('fr-FR');
