@@ -52,3 +52,11 @@
 - [ ] Tester sur Samsung (FPS, CPU, précision aux contacts, multitouch, son) et comparer à 0.2.1
 - [ ] Préparer une signature Android de production stable ; ne pas écraser les APK de test d'ancienne clé
 - [ ] Réévaluer le coût du préfiltre C selon les scènes ; activer automatiquement uniquement quand rentable
+
+## 2026-11-05 — UI sans sélecteur, AND uniquement (v0.2.4)
+- [x] Retirer le sélecteur A/B/C, les boutons « Voir les collisions » et « Comparer », et la fenêtre laboratoire
+- [x] Gameplay exclusivement `METHODS.BITMASK` : AABB puis `A & B` sur le masque XY, FX préservés
+- [x] Supprimer le rendu de diagnostic et son calcul en continu, commandes et sons inchangés
+- [x] Conserver méthodes de référence dans les tests techniques uniquement
+- [ ] Tester la jouabilité paysage et le FPS sur Samsung avec les futurs sprites et parois destructibles
+- [ ] Finaliser l'intégration des planches graphiques et la persistance des parois (non comprises dans la correction UI)

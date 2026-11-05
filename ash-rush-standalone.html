@@ -32,19 +32,13 @@ canvas { display:block; width:100%; height:100%; touch-action:none; user-select:
 .stage-top { position:absolute; top:13px; left:14px; right:14px; display:flex; justify-content:space-between; pointer-events:none; }
 .pill { background:#061329b8; border:1px solid #4889a966; border-radius:25px; padding:4px 9px; font-size:11px; letter-spacing:.11em; font-weight:750; color:#b2f0ff; }
 .announcement { position:absolute; left:0; right:0; top:36%; text-align:center; color:#fff6af; font-weight:900; font-size:clamp(19px,4.2vw,50px); text-shadow:0 0 15px #fb6a9a,0 3px 2px #1a2150; pointer-events:none; letter-spacing:.09em; }
-.lab-overlay { position:absolute; top:48px; left:14px; pointer-events:none; max-width:min(365px,63%); background:#04152adc; border:1px solid #4ed3f8b0; border-radius:10px; padding:10px 12px; box-shadow:0 0 18px #00d8ff3a; }
-.lab-title { font-size:13px; font-weight:800; color:#b4f3ff; display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; }
-.lab-title span { color:#fdde7b; }
-.lab-text,.last-impact { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; margin-top:6px; color:#e6f4fe; line-height:1.55; font-variant-numeric:tabular-nums; }
-.last-impact { color:#fbd781; }
-.toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.toolbar { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap; }
 .toolbar-group { display:flex; gap:9px; flex-wrap:wrap; align-items:center; }
 .toolbar label { font-size:12px; color:#a7cae4; }
 .toolbar button { font-weight:700; }
 .below { display:flex; flex-direction:column; gap:6px; margin:8px 2px 0; }
 .help { color:#c5d6ef; font-size:13px; line-height:1.6; margin:6px 0; }
 .fineprint { color:#7d93b9; font-size:11px; margin:0; line-height:1.5; }
-.bench-output { white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; line-height:1.65; padding:12px; background:#081a34; border:1px solid #406f91; border-radius:10px; overflow:auto; }
 footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 @media(max-width:700px) { .app { padding:8px 6px 18px; } .header { flex-wrap:wrap; padding:3px 6px; } .brand strong { font-size:23px; } .brand-icon { font-size:23px; } .hud { flex:1; justify-content:flex-end; } .hud small { font-size:9px; } .hud strong { font-size:12px; } .toolbar { margin:10px 3px; } button,select { padding:10px 8px; font-size:12px; } .stage { border-radius:10px; } .pill { font-size:9px; } .lab-overlay { top:37px; left:6px; padding:5px 6px; } .lab-title,.lab-text,.last-impact { font-size:9px; } }
 @media (max-width:400px) { .brand small { font-size:8px; } .hud { gap:8px; } .hud strong { font-size:11px; } }
@@ -72,11 +66,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
   .stage { flex:1; min-height:0; max-height:none; width:100%; aspect-ratio:auto; border-radius:8px; margin:0; }
   .toolbar { flex:0 0 auto; margin:4px 0 0; flex-wrap:nowrap; gap:4px; }
   .toolbar-group { flex-wrap:nowrap; gap:4px; }
-  .toolbar label, #benchmark, #restart, #soundVolume, .below, footer { display:none; }
+  .toolbar label, #restart, #soundVolume, .below, footer { display:none; }
   button, select { font-size:11px; padding:5px 7px; border-radius:7px; white-space:nowrap; }
   .stage-top { top:5px; left:6px; right:6px; }
   .pill { font-size:9px; }
-  .lab-overlay { top:30px; left:5px; max-width:55%; }
 }
 @media (orientation:landscape) and (pointer:coarse) and (max-height:360px) {
   .brand strong {font-size:13px;} .hud strong{font-size:10px;} .toolbar{margin-top:2px;}
@@ -89,7 +82,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 <body>
   <div class="app">
     <header class="header">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>XY COLLISION LAB · FAB</small></span></div>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
         <div><small>SCORE</small><strong id="score">000000</strong></div>
         <div><small>COQUE</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
@@ -101,31 +94,19 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2.2</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2.4</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
-        <div id="labOverlay" class="lab-overlay" hidden>
-          <div class="lab-title">🔬 COLLISIONS XY <span id="labModeLabel">B · MASQUES</span></div>
-          <div id="labText" class="lab-text">En attente…</div>
-          <div id="lastImpact" class="last-impact">Impact : aucun</div>
-        </div>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group">
-          <button id="labToggle" aria-pressed="false">🔬 Voir les collisions</button>
-          <label for="method">Méthode</label>
-          <select id="method" aria-label="Algorithme de détection"><option value="A">A · Pixel par pixel</option><option value="B" selected>B · Masques XY 2D</option><option value="C">C · Axes X/Y + 2D</option></select>
-          <button id="benchmark">⏱ Comparer</button>
-        </div>
         <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
         <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> poser le premier doigt à gauche : le vaisseau reste à sa droite pour rester visible, et tire automatiquement ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
-        <div id="benchmarkOutput" class="bench-output" role="status" hidden></div>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2.2 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2.4 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -545,10 +526,7 @@ function sprite(w, h, paint) {
   const g = c.getContext('2d');
   paint(g, w, h);
   const mask = maskFromImageData(g.getImageData(0, 0, w, h));
-  const overlay = document.createElement('canvas'); overlay.width = w; overlay.height = h;
-  const og = overlay.getContext('2d');
-  og.drawImage(c, 0, 0); og.globalCompositeOperation = 'source-in'; og.fillStyle = '#22f4ff'; og.fillRect(0, 0, w, h);
-  return { image: c, overlay, mask, width: w, height: h };
+  return { image: c, mask, width: w, height: h };
 }
 function path(g, color, points) {
   g.fillStyle = color; g.beginPath();
@@ -609,19 +587,19 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
-let mode = METHODS.BITMASK, lab = false, paused = false, gameOver = false;
+let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
-let announce = '', latestImpact = null, stats = newStats(), fps = 60, lastTestArea = null;
+let announce = '', latestImpact = null;
 
 function reset() {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[];
   grid.clear();
   score=0;wave=1;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
-  stats=newStats();fps=60;gameOver=false;paused=false;latestImpact=null;lastTestArea=null;
+  gameOver=false;paused=false;latestImpact=null;
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
-  $('#pause').textContent='⏸ Pause'; $('#benchmarkOutput').hidden=true;
+  $('#pause').textContent='⏸ Pause';
   updateHud();
 }
 function updateHud() {
@@ -637,10 +615,9 @@ function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
   image.getContext('2d').drawImage(original.image,0,0);
-  const overlay=document.createElement('canvas');overlay.width=original.width;overlay.height=original.height;
-  overlay.getContext('2d').drawImage(original.overlay,0,0);
+
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
-  return {...original,image,overlay,mask:copy};
+  return {...original,image,mask:copy};
 }
 function spawnEnemy(kind='scout') {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
@@ -662,9 +639,7 @@ function choosePixel(result) {
   return best;
 }
 function check(a,b) {
-  const r=collide(a.sprite.mask,a.x,a.y,b.sprite.mask,b.x,b.y,mode,stats);
-  if(lab && r.bounds.x1>r.bounds.x0 && r.bounds.y1>r.bounds.y0)lastTestArea={...r.bounds,at:elapsed};
-  return r;
+  return collide(a.sprite.mask,a.x,a.y,b.sprite.mask,b.x,b.y,METHODS.BITMASK);
 }
 function impactResult(result,target) {
   const p=choosePixel(result);
@@ -720,7 +695,6 @@ function hitEnemy(enemy,r) {
     for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py, span=Math.floor(Math.sqrt(radius*radius-dy*dy));
       g.clearRect(px-span,yy,span*2+1,1);
     }g.restore();
-    const o=enemy.sprite.overlay.getContext('2d');o.save();for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py,span=Math.floor(Math.sqrt(radius*radius-dy*dy));o.clearRect(px-span,yy,span*2+1,1);}o.restore();
     particlesAt(point.x,point.y,'motor',12);
     shockwaves.push({x:point.x,y:point.y,life:.36,age:0,size:12,color:'#ffab54'});
   }
@@ -772,7 +746,7 @@ function advanceMissile(b,dt) {
   return stopped||b.age>4;
 }
 function update(dt) {
-  elapsed+=dt;stats=newStats();
+  elapsed+=dt;
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
@@ -847,16 +821,7 @@ function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
   ctx.drawImage(o.sprite.image,x,y);
-  if(lab){ctx.globalAlpha=.22;ctx.drawImage(o.sprite.overlay,x,y);ctx.globalAlpha=.75;ctx.lineWidth=1;ctx.strokeStyle='#68dbff';ctx.setLineDash([3,3]);ctx.strokeRect(x+.5,y+.5,o.sprite.width,o.sprite.height);ctx.setLineDash([]);}
-  ctx.restore();
-}
-function drawLabAxes(obj){
-  const {mask}=obj.sprite;
-  const x=Math.round(obj.x),y=Math.round(obj.y);
-  ctx.save();ctx.globalAlpha=.9;ctx.fillStyle='#ffdd68';
-  for(let i=0;i<mask.width;i++)if(mask.xProjection[i>>>5]&(1<<(i&31)))ctx.fillRect(x+i,y-5,1,3);
-  ctx.fillStyle='#8dffb8';
-  for(let j=0;j<mask.height;j++)if(mask.yProjection[j>>>5]&(1<<(j&31)))ctx.fillRect(x-5,y+j,3,1);
+
   ctx.restore();
 }
 function render() {
@@ -889,32 +854,12 @@ function render() {
   ctx.restore();
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
-  if(lab){
-    if(lastTestArea && elapsed-lastTestArea.at<.25){
-      ctx.save();ctx.strokeStyle='#f5dd6b';ctx.lineWidth=1;ctx.setLineDash([5,3]);
-      ctx.strokeRect(lastTestArea.x0+.5,lastTestArea.y0+.5,lastTestArea.x1-lastTestArea.x0,lastTestArea.y1-lastTestArea.y0);
-      ctx.restore();
-    }
-    drawLabAxes(player);
-    for(const obj of enemies.slice(0,3))drawLabAxes(obj);
-    // Exact impacted world pixel shown in red; ring remains anchored at that pixel.
-    if(latestImpact&&elapsed-latestImpact.at<3){
-      ctx.fillStyle='#ff344e';ctx.fillRect(latestImpact.x,latestImpact.y,3,3);
-      ctx.strokeStyle='#fff680';ctx.beginPath();ctx.arc(latestImpact.x,latestImpact.y,11,0,TAU);ctx.stroke();
-    }
-  }
   $('#announcement').textContent=announcementTime>0?announce:'';
-  if(lab){
-    $('#labModeLabel').textContent=mode==='A'?'A · PIXELS':mode==='B'?'B · BITMASK 2D':'C · AXES + 2D';
-    $('#labText').textContent=`Objets: ${enemies.length} · Tirs: ${bullets.length+enemyShots.length} · Missiles: ${missiles.length}\nCandidats: ${stats.candidates} · AABB rejetées: ${stats.bboxRejected}\nAxes rejetés: ${stats.axisRejected} · Blocs 32b: ${stats.blocks}\nPixels testés: ${stats.pixels} · Contacts: ${stats.contacts}\nCollision: ${stats.timeMs.toFixed(2)} ms/image · ~${Math.round(fps)} IPS`;
-    $('#lastImpact').textContent=latestImpact?`Impact (${latestImpact.x},${latestImpact.y}) · ${latestImpact.zone} · ${latestImpact.count} px actifs`:'Impact : aucun';
-  }
 }
 let lastTime=performance.now();
 function frame(now){
   const dt=Math.min((now-lastTime)/1000,.033);lastTime=now;
   if(!paused&&!gameOver) update(dt);
-  fps=fps*.95+(dt>0?1/dt:fps)*.05;
   render();
   requestAnimationFrame(frame);
 }
@@ -937,8 +882,6 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && !paused && !gameOver) { paused=true;$('#pause').textContent='▶ Reprendre'; } });
-$('#labToggle').addEventListener('click',()=>{lab=!lab;$('#labOverlay').hidden=!lab;$('#labToggle').setAttribute('aria-pressed',String(lab));});
-$('#method').addEventListener('change',e=>{mode=e.target.value;});
 $('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();reset();});
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
@@ -946,27 +889,6 @@ $('#soundToggle').addEventListener('click',()=>{sound.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>sound.unlock(),{once:true});
 
-// Equal fixed inputs for all three methods: benchmark numbers are comparative, not a speed guarantee.
-$('#benchmark').addEventListener('click',()=>{
-  const samples=[];
-  const a=ships.boss.mask,b=ships.laser.mask,c=ships.scout.mask,d=ships.asteroid.mask;
-  for(let i=0;i<800;i++){
-    const x=(i*37)%190,y=(i*59)%115;
-    samples.push(i%2?[a,0,0,c,x-40,y-28]:[a,0,0,b,x-15,y-10]);
-    if(i%8===0)samples.push([d,0,0,c,x-25,y-25]);
-  }
-  const lines=[];let reference=null;
-  for(const method of ['A','B','C']){
-    const totals=newStats(),before=performance.now();let hits=0,pixels=0;
-    for(const [m,ax,ay,n,bx,by] of samples){const r=collide(m,ax,ay,n,bx,by,method,totals);hits+=+r.hit;pixels+=r.count;}
-    const ms=performance.now()-before;
-    lines.push(`${method}  ${ms.toFixed(2).padStart(9)} ms · ${String(hits).padStart(4)} contacts · ${String(pixels).padStart(5)} px · ${totals.blocks} blocs · ${totals.pixels} tests px`);
-    if(reference===null)reference=`${hits}:${pixels}`;
-    else if(reference!==`${hits}:${pixels}`)lines.push('⚠ Divergence de résultats — vérifier le moteur !');
-  }
-  $('#benchmarkOutput').hidden=false;
-  $('#benchmarkOutput').textContent=`800+ cas identiques, sur cet appareil (plus petit = plus rapide)\n${lines.join('\n')}\nNote : C paie un préfiltrage, utile seulement si celui-ci rejette assez de cas.`;
-});
 reset();requestAnimationFrame(frame);
 
 </script>

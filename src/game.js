@@ -1,4 +1,4 @@
-import { maskFromImageData, collide, newStats, forEachImpact, METHODS, eraseDisc } from './collision.js';
+import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from './collision.js';
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { touchTarget } from './input.js';
@@ -30,10 +30,7 @@ function sprite(w, h, paint) {
   const g = c.getContext('2d');
   paint(g, w, h);
   const mask = maskFromImageData(g.getImageData(0, 0, w, h));
-  const overlay = document.createElement('canvas'); overlay.width = w; overlay.height = h;
-  const og = overlay.getContext('2d');
-  og.drawImage(c, 0, 0); og.globalCompositeOperation = 'source-in'; og.fillStyle = '#22f4ff'; og.fillRect(0, 0, w, h);
-  return { image: c, overlay, mask, width: w, height: h };
+  return { image: c, mask, width: w, height: h };
 }
 function path(g, color, points) {
   g.fillStyle = color; g.beginPath();
@@ -94,19 +91,19 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
-let mode = METHODS.BITMASK, lab = false, paused = false, gameOver = false;
+let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
-let announce = '', latestImpact = null, stats = newStats(), fps = 60, lastTestArea = null;
+let announce = '', latestImpact = null;
 
 function reset() {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[];
   grid.clear();
   score=0;wave=1;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
-  stats=newStats();fps=60;gameOver=false;paused=false;latestImpact=null;lastTestArea=null;
+  gameOver=false;paused=false;latestImpact=null;
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
-  $('#pause').textContent='⏸ Pause'; $('#benchmarkOutput').hidden=true;
+  $('#pause').textContent='⏸ Pause';
   updateHud();
 }
 function updateHud() {
@@ -122,10 +119,9 @@ function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
   image.getContext('2d').drawImage(original.image,0,0);
-  const overlay=document.createElement('canvas');overlay.width=original.width;overlay.height=original.height;
-  overlay.getContext('2d').drawImage(original.overlay,0,0);
+
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
-  return {...original,image,overlay,mask:copy};
+  return {...original,image,mask:copy};
 }
 function spawnEnemy(kind='scout') {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
@@ -147,9 +143,7 @@ function choosePixel(result) {
   return best;
 }
 function check(a,b) {
-  const r=collide(a.sprite.mask,a.x,a.y,b.sprite.mask,b.x,b.y,mode,stats);
-  if(lab && r.bounds.x1>r.bounds.x0 && r.bounds.y1>r.bounds.y0)lastTestArea={...r.bounds,at:elapsed};
-  return r;
+  return collide(a.sprite.mask,a.x,a.y,b.sprite.mask,b.x,b.y,METHODS.BITMASK);
 }
 function impactResult(result,target) {
   const p=choosePixel(result);
@@ -205,7 +199,6 @@ function hitEnemy(enemy,r) {
     for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py, span=Math.floor(Math.sqrt(radius*radius-dy*dy));
       g.clearRect(px-span,yy,span*2+1,1);
     }g.restore();
-    const o=enemy.sprite.overlay.getContext('2d');o.save();for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py,span=Math.floor(Math.sqrt(radius*radius-dy*dy));o.clearRect(px-span,yy,span*2+1,1);}o.restore();
     particlesAt(point.x,point.y,'motor',12);
     shockwaves.push({x:point.x,y:point.y,life:.36,age:0,size:12,color:'#ffab54'});
   }
@@ -257,7 +250,7 @@ function advanceMissile(b,dt) {
   return stopped||b.age>4;
 }
 function update(dt) {
-  elapsed+=dt;stats=newStats();
+  elapsed+=dt;
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
@@ -332,16 +325,7 @@ function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
   ctx.drawImage(o.sprite.image,x,y);
-  if(lab){ctx.globalAlpha=.22;ctx.drawImage(o.sprite.overlay,x,y);ctx.globalAlpha=.75;ctx.lineWidth=1;ctx.strokeStyle='#68dbff';ctx.setLineDash([3,3]);ctx.strokeRect(x+.5,y+.5,o.sprite.width,o.sprite.height);ctx.setLineDash([]);}
-  ctx.restore();
-}
-function drawLabAxes(obj){
-  const {mask}=obj.sprite;
-  const x=Math.round(obj.x),y=Math.round(obj.y);
-  ctx.save();ctx.globalAlpha=.9;ctx.fillStyle='#ffdd68';
-  for(let i=0;i<mask.width;i++)if(mask.xProjection[i>>>5]&(1<<(i&31)))ctx.fillRect(x+i,y-5,1,3);
-  ctx.fillStyle='#8dffb8';
-  for(let j=0;j<mask.height;j++)if(mask.yProjection[j>>>5]&(1<<(j&31)))ctx.fillRect(x-5,y+j,3,1);
+
   ctx.restore();
 }
 function render() {
@@ -374,32 +358,12 @@ function render() {
   ctx.restore();
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
-  if(lab){
-    if(lastTestArea && elapsed-lastTestArea.at<.25){
-      ctx.save();ctx.strokeStyle='#f5dd6b';ctx.lineWidth=1;ctx.setLineDash([5,3]);
-      ctx.strokeRect(lastTestArea.x0+.5,lastTestArea.y0+.5,lastTestArea.x1-lastTestArea.x0,lastTestArea.y1-lastTestArea.y0);
-      ctx.restore();
-    }
-    drawLabAxes(player);
-    for(const obj of enemies.slice(0,3))drawLabAxes(obj);
-    // Exact impacted world pixel shown in red; ring remains anchored at that pixel.
-    if(latestImpact&&elapsed-latestImpact.at<3){
-      ctx.fillStyle='#ff344e';ctx.fillRect(latestImpact.x,latestImpact.y,3,3);
-      ctx.strokeStyle='#fff680';ctx.beginPath();ctx.arc(latestImpact.x,latestImpact.y,11,0,TAU);ctx.stroke();
-    }
-  }
   $('#announcement').textContent=announcementTime>0?announce:'';
-  if(lab){
-    $('#labModeLabel').textContent=mode==='A'?'A · PIXELS':mode==='B'?'B · BITMASK 2D':'C · AXES + 2D';
-    $('#labText').textContent=`Objets: ${enemies.length} · Tirs: ${bullets.length+enemyShots.length} · Missiles: ${missiles.length}\nCandidats: ${stats.candidates} · AABB rejetées: ${stats.bboxRejected}\nAxes rejetés: ${stats.axisRejected} · Blocs 32b: ${stats.blocks}\nPixels testés: ${stats.pixels} · Contacts: ${stats.contacts}\nCollision: ${stats.timeMs.toFixed(2)} ms/image · ~${Math.round(fps)} IPS`;
-    $('#lastImpact').textContent=latestImpact?`Impact (${latestImpact.x},${latestImpact.y}) · ${latestImpact.zone} · ${latestImpact.count} px actifs`:'Impact : aucun';
-  }
 }
 let lastTime=performance.now();
 function frame(now){
   const dt=Math.min((now-lastTime)/1000,.033);lastTime=now;
   if(!paused&&!gameOver) update(dt);
-  fps=fps*.95+(dt>0?1/dt:fps)*.05;
   render();
   requestAnimationFrame(frame);
 }
@@ -422,8 +386,6 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && !paused && !gameOver) { paused=true;$('#pause').textContent='▶ Reprendre'; } });
-$('#labToggle').addEventListener('click',()=>{lab=!lab;$('#labOverlay').hidden=!lab;$('#labToggle').setAttribute('aria-pressed',String(lab));});
-$('#method').addEventListener('change',e=>{mode=e.target.value;});
 $('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();reset();});
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
@@ -431,25 +393,4 @@ $('#soundToggle').addEventListener('click',()=>{sound.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>sound.unlock(),{once:true});
 
-// Equal fixed inputs for all three methods: benchmark numbers are comparative, not a speed guarantee.
-$('#benchmark').addEventListener('click',()=>{
-  const samples=[];
-  const a=ships.boss.mask,b=ships.laser.mask,c=ships.scout.mask,d=ships.asteroid.mask;
-  for(let i=0;i<800;i++){
-    const x=(i*37)%190,y=(i*59)%115;
-    samples.push(i%2?[a,0,0,c,x-40,y-28]:[a,0,0,b,x-15,y-10]);
-    if(i%8===0)samples.push([d,0,0,c,x-25,y-25]);
-  }
-  const lines=[];let reference=null;
-  for(const method of ['A','B','C']){
-    const totals=newStats(),before=performance.now();let hits=0,pixels=0;
-    for(const [m,ax,ay,n,bx,by] of samples){const r=collide(m,ax,ay,n,bx,by,method,totals);hits+=+r.hit;pixels+=r.count;}
-    const ms=performance.now()-before;
-    lines.push(`${method}  ${ms.toFixed(2).padStart(9)} ms · ${String(hits).padStart(4)} contacts · ${String(pixels).padStart(5)} px · ${totals.blocks} blocs · ${totals.pixels} tests px`);
-    if(reference===null)reference=`${hits}:${pixels}`;
-    else if(reference!==`${hits}:${pixels}`)lines.push('⚠ Divergence de résultats — vérifier le moteur !');
-  }
-  $('#benchmarkOutput').hidden=false;
-  $('#benchmarkOutput').textContent=`800+ cas identiques, sur cet appareil (plus petit = plus rapide)\n${lines.join('\n')}\nNote : C paie un préfiltrage, utile seulement si celui-ci rejette assez de cas.`;
-});
 reset();requestAnimationFrame(frame);

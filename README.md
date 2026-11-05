@@ -6,6 +6,9 @@ Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. D�
 
 ## Jouer
 
+**Interface épurée (v0.2.4)** : gameplay exclusivement avec le masque XY et `A & B` direct. Le sélecteur de méthode et les boutons du laboratoire ont été retirés : les commandes visibles servent seulement à piloter, lancer un missile, gérer le son et mettre en pause. La référence pixel par pixel et les projections X/Y restent disponibles **uniquement dans les tests techniques**, jamais comme modes de jeu.
+
+
 Une **version autonome** `ash-rush-standalone.html` est également incluse : télécharger ce fichier et l’ouvrir directement dans un navigateur, même hors ligne.
 
 Pour développer avec les modules JavaScript ES, démarrer un serveur local :

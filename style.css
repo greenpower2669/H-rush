@@ -23,19 +23,13 @@ canvas { display:block; width:100%; height:100%; touch-action:none; user-select:
 .stage-top { position:absolute; top:13px; left:14px; right:14px; display:flex; justify-content:space-between; pointer-events:none; }
 .pill { background:#061329b8; border:1px solid #4889a966; border-radius:25px; padding:4px 9px; font-size:11px; letter-spacing:.11em; font-weight:750; color:#b2f0ff; }
 .announcement { position:absolute; left:0; right:0; top:36%; text-align:center; color:#fff6af; font-weight:900; font-size:clamp(19px,4.2vw,50px); text-shadow:0 0 15px #fb6a9a,0 3px 2px #1a2150; pointer-events:none; letter-spacing:.09em; }
-.lab-overlay { position:absolute; top:48px; left:14px; pointer-events:none; max-width:min(365px,63%); background:#04152adc; border:1px solid #4ed3f8b0; border-radius:10px; padding:10px 12px; box-shadow:0 0 18px #00d8ff3a; }
-.lab-title { font-size:13px; font-weight:800; color:#b4f3ff; display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; }
-.lab-title span { color:#fdde7b; }
-.lab-text,.last-impact { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; margin-top:6px; color:#e6f4fe; line-height:1.55; font-variant-numeric:tabular-nums; }
-.last-impact { color:#fbd781; }
-.toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.toolbar { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:12px; flex-wrap:wrap; }
 .toolbar-group { display:flex; gap:9px; flex-wrap:wrap; align-items:center; }
 .toolbar label { font-size:12px; color:#a7cae4; }
 .toolbar button { font-weight:700; }
 .below { display:flex; flex-direction:column; gap:6px; margin:8px 2px 0; }
 .help { color:#c5d6ef; font-size:13px; line-height:1.6; margin:6px 0; }
 .fineprint { color:#7d93b9; font-size:11px; margin:0; line-height:1.5; }
-.bench-output { white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; line-height:1.65; padding:12px; background:#081a34; border:1px solid #406f91; border-radius:10px; overflow:auto; }
 footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 @media(max-width:700px) { .app { padding:8px 6px 18px; } .header { flex-wrap:wrap; padding:3px 6px; } .brand strong { font-size:23px; } .brand-icon { font-size:23px; } .hud { flex:1; justify-content:flex-end; } .hud small { font-size:9px; } .hud strong { font-size:12px; } .toolbar { margin:10px 3px; } button,select { padding:10px 8px; font-size:12px; } .stage { border-radius:10px; } .pill { font-size:9px; } .lab-overlay { top:37px; left:6px; padding:5px 6px; } .lab-title,.lab-text,.last-impact { font-size:9px; } }
 @media (max-width:400px) { .brand small { font-size:8px; } .hud { gap:8px; } .hud strong { font-size:11px; } }
@@ -63,11 +57,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
   .stage { flex:1; min-height:0; max-height:none; width:100%; aspect-ratio:auto; border-radius:8px; margin:0; }
   .toolbar { flex:0 0 auto; margin:4px 0 0; flex-wrap:nowrap; gap:4px; }
   .toolbar-group { flex-wrap:nowrap; gap:4px; }
-  .toolbar label, #benchmark, #restart, #soundVolume, .below, footer { display:none; }
+  .toolbar label, #restart, #soundVolume, .below, footer { display:none; }
   button, select { font-size:11px; padding:5px 7px; border-radius:7px; white-space:nowrap; }
   .stage-top { top:5px; left:6px; right:6px; }
   .pill { font-size:9px; }
-  .lab-overlay { top:30px; left:5px; max-width:55%; }
 }
 @media (orientation:landscape) and (pointer:coarse) and (max-height:360px) {
   .brand strong {font-size:13px;} .hud strong{font-size:10px;} .toolbar{margin-top:2px;}

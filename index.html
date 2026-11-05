@@ -12,7 +12,7 @@
 <body>
   <div class="app">
     <header class="header">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>XY COLLISION LAB · FAB</small></span></div>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
         <div><small>SCORE</small><strong id="score">000000</strong></div>
         <div><small>COQUE</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
@@ -24,31 +24,19 @@
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2.2</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2.4</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
-        <div id="labOverlay" class="lab-overlay" hidden>
-          <div class="lab-title">🔬 COLLISIONS XY <span id="labModeLabel">B · MASQUES</span></div>
-          <div id="labText" class="lab-text">En attente…</div>
-          <div id="lastImpact" class="last-impact">Impact : aucun</div>
-        </div>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group">
-          <button id="labToggle" aria-pressed="false">🔬 Voir les collisions</button>
-          <label for="method">Méthode</label>
-          <select id="method" aria-label="Algorithme de détection"><option value="A">A · Pixel par pixel</option><option value="B" selected>B · Masques XY 2D</option><option value="C">C · Axes X/Y + 2D</option></select>
-          <button id="benchmark">⏱ Comparer</button>
-        </div>
         <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
         <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> poser le premier doigt à gauche : le vaisseau reste à sa droite pour rester visible, et tire automatiquement ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
-        <div id="benchmarkOutput" class="bench-output" role="status" hidden></div>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2.2 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2.4 — licence MIT · 2026</footer>
   </div>
 </body>
 </html>
