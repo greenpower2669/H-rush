@@ -34,9 +34,17 @@ jobs:
         run: |
           set -euo pipefail
           echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          fi
+          test -x "$SDKMANAGER"
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/aapt" ]; then
+            yes | "$SDKMANAGER" --licenses >/dev/null || true
+            "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+          else
+            echo "SDK Android 35 et Build Tools 35 déjà disponibles."
+          fi
       - name: Tester les collisions et l'entrée tactile
         run: npm test
       - name: Construire le HTML autonome et vérifier la synchronisation
