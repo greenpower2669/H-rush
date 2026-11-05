@@ -997,7 +997,8 @@ async function loadGameArt() {
   try {
     await image.decode();
     if (image.naturalWidth !== 1024 || image.naturalHeight !== 1120) throw new Error('Unexpected atlas geometry');
-    return framesFromAtlas(image);  } catch {
+    return framesFromAtlas(image);
+  } catch {
     // Offline standalone HTML opened without an atlas retains reliable vector fallback.
     return null;
   }
