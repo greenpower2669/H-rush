@@ -48,7 +48,7 @@
 - [x] Comparer l'oracle pixel par pixel et les modes A/B/C (13 tests, dont 100 cratères)
 - [x] Comparer le moteur historique au moteur AND sur Node 22 (`npm run bench`, mesures dans debughistorical.md)
 - [x] Préserver sons, FX, commandes tactiles paysage et génération HTML autonome
-- [x] GitHub Actions 42096290323 : 13 tests, HTML synchronisé, Gradle, signature v2 et publication vérifiés ; prérelease v0.2.2-android-preview, APK 30 517 octets, SHA-256 `4acebbdfa0ac1faaa948bb6a622bdceb26a33ff388f220c6d3548c3720699ff7`
+- [ ] Vérifier le workflow GitHub Actions de la v0.2.2 et l'APK réellement publié avec hash et signature
 - [ ] Tester sur Samsung (FPS, CPU, précision aux contacts, multitouch, son) et comparer à 0.2.1
 - [ ] Préparer une signature Android de production stable ; ne pas écraser les APK de test d'ancienne clé
 - [ ] Réévaluer le coût du préfiltre C selon les scènes ; activer automatiquement uniquement quand rentable

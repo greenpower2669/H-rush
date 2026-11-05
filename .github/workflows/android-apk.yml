@@ -6,6 +6,7 @@ on:
       - 'android-app/**'
       - 'ash-rush-standalone.html'
       - 'src/**'
+      - 'assets/audio/**'
       - 'tests/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
@@ -57,6 +58,9 @@ jobs:
         run: |
           mkdir -p android-app/app/src/main/assets
           cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
+          mkdir -p android-app/app/src/main/assets/assets/audio/spacefortress
+          cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
+          test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
       - name: Compiler APK debug installable
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
@@ -64,25 +68,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.2-preview-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.2-preview-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.2-preview-debug.apk | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.2-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.preview' versionCode='22' versionName='0.2.2'"
-          sha256sum AshRush-v0.2.2-preview-debug.apk > AshRush-v0.2.2-preview-debug.apk.sha256
-          test -s AshRush-v0.2.2-preview-debug.apk
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.3-sfx-preview-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.3-sfx-preview-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.3-sfx-preview-debug.apk | head -8
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.3-sfx-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.sfxpreview' versionCode='23' versionName='0.2.3'"
+          sha256sum AshRush-v0.2.3-sfx-preview-debug.apk > AshRush-v0.2.3-sfx-preview-debug.apk.sha256
+          test -s AshRush-v0.2.3-sfx-preview-debug.apk
       - name: Publication directe sur GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=v0.2.2-android-preview
+          TAG=v0.2.3-sfx-android-preview
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" AshRush-v0.2.2-preview-debug.apk AshRush-v0.2.2-preview-debug.apk.sha256 --clobber
+            gh release upload "$TAG" AshRush-v0.2.3-sfx-preview-debug.apk AshRush-v0.2.3-sfx-preview-debug.apk.sha256 --clobber
           else
-            gh release create "$TAG" AshRush-v0.2.2-preview-debug.apk AshRush-v0.2.2-preview-debug.apk.sha256 \
-              --title "Ash Rush 0.2.2 - collisions AND (APK de test)" \
-              --notes "AND binaire direct, FX XY conservés, contrôle tactile paysage et sons. APK hors connexion. Package fr.fab.ashrush.preview indépendant de l'ancienne version pour éviter un conflit de clés debug différentes. Signature Android Debug CI, test uniquement." \
+            gh release create "$TAG" AshRush-v0.2.3-sfx-preview-debug.apk AshRush-v0.2.3-sfx-preview-debug.apk.sha256 \
+              --title "Ash Rush 0.2.3 - sons Space Fortress (APK de test)" \
+              --notes "FX sonores originaux de SpaceFortressVs embarqués hors ligne, collisions AND et paysage conservés. Package fr.fab.ashrush.sfxpreview indépendant de la précédente version de test. Signature Debug CI." \
               --prerelease --target "$GITHUB_SHA"
           fi
-          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx 'AshRush-v0.2.2-preview-debug.apk'
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx 'AshRush-v0.2.3-sfx-preview-debug.apk'

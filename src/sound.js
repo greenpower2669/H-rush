@@ -1,11 +1,39 @@
-/** Ash Rush SFX — original, synthesized at runtime: no external audio, offline and license-safe. */
+/**
+ * Ash Rush SFX — synthesized fallback with selected SpaceFortressVs originals.
+ * Three original PCM WAV cues are copied from SpaceFortressVs with attribution.
+ * If external audio cannot load (e.g. standalone HTML opened alone), synth still works offline.
+ */
+export const SPACE_FORTRESS_CUES = Object.freeze({
+  missile: 'kinetic_charge.wav',
+  boss: 'kinetic_charge.wav',
+  pickup: 'kinetic_ready.wav',
+  shield: 'kinetic_ready.wav',
+  explosion: 'kinetic_release.wav',
+});
+const SPACE_FORTRESS_AUDIO_DIR = 'assets/audio/spacefortress/';
+
 export function createSoundEngine() {
-  let context = null, master = null, enabled = true, volume = 0.28;
-  const previous = new Map();
+  let context = null, master = null, enabled = true, volume = 0.28, samplesInitialized = false;
+  const previous = new Map(), pools = new Map();
   const intervals = { laser: 80, impact: 55, missile: 160, explosion: 130, pickup: 80, shield: 120, damage: 180, boss: 600, graze: 150 };
+
+  function initializeSamples() {
+    if (samplesInitialized || typeof Audio === 'undefined') return;
+    samplesInitialized = true;
+    for (const filename of new Set(Object.values(SPACE_FORTRESS_CUES))) {
+      const tracks = Array.from({ length: 3 }, () => {
+        const audio = new Audio(SPACE_FORTRESS_AUDIO_DIR + filename);
+        audio.preload = 'auto';
+        try { audio.load(); } catch { /* loading failure leaves synthesized fallback */ }
+        return audio;
+      });
+      pools.set(filename, { tracks, next: 0 });
+    }
+  }
+
   function unlock() {
-    if (!enabled) return;
-    if(typeof window==='undefined') return;
+    if (!enabled || typeof window === 'undefined') return;
+    initializeSamples();
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     try {
@@ -18,7 +46,9 @@ export function createSoundEngine() {
       if (context.state === 'suspended') void context.resume().catch(() => {});
     } catch { /* Browsers may deny audio; gameplay continues. */ }
   }
+
   function voice(type, from, to, seconds, gain, delay = 0) {
+    if (!context || !master || context.state !== 'running') return;
     const start = context.currentTime + delay;
     const osc = context.createOscillator();
     const amp = context.createGain();
@@ -31,13 +61,37 @@ export function createSoundEngine() {
     osc.start(start); osc.stop(start + seconds + 0.01);
     osc.onended = () => { osc.disconnect(); amp.disconnect(); };
   }
+
+  function playSample(name) {
+    const filename = SPACE_FORTRESS_CUES[name];
+    const pool = pools.get(filename);
+    if (!pool) return false;
+    // A missing or invalid WAV must never suppress the fallback oscillator sound.
+    for (let trial = 0; trial < pool.tracks.length; trial++) {
+      const idx = (pool.next + trial) % pool.tracks.length;
+      const audio = pool.tracks[idx];
+      if (audio.error || audio.readyState < 2) continue;
+      pool.next = (idx + 1) % pool.tracks.length;
+      try {
+        audio.pause(); audio.currentTime = 0;
+        audio.volume = Math.min(1, volume * 1.7);
+        const promise = audio.play();
+        if (promise?.catch) void promise.catch(() => {});
+        return true;
+      } catch { /* use synth fallback below */ }
+    }
+    return false;
+  }
+
   function play(name) {
     if (!enabled) return;
     unlock();
-    if (!context || context.state !== 'running') return;
-    const now = performance.now(), last = previous.get(name) ?? -Infinity;
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const last = previous.get(name) ?? -Infinity;
     if (now - last < (intervals[name] ?? 100)) return;
     previous.set(name, now);
+    if (playSample(name)) return;
+    if (!context || context.state !== 'running') return;
     switch (name) {
       case 'laser': voice('sawtooth', 940, 250, 0.105, 0.09); break;
       case 'missile': voice('sawtooth', 210, 60, 0.34, 0.22); voice('triangle', 680, 180, 0.27, 0.08); break;
@@ -50,11 +104,21 @@ export function createSoundEngine() {
       case 'graze': voice('sine', 980, 490, 0.12, 0.025); break;
     }
   }
+
   return {
     unlock, play,
     get enabled() { return enabled; },
     get volume() { return volume; },
-    setEnabled(value) { enabled = !!value; if (enabled) unlock(); if (master) master.gain.value = enabled ? volume : 0; },
-    setVolume(value) { volume = Math.min(0.7, Math.max(0, Number(value) || 0)); if (master) master.gain.value = enabled ? volume : 0; },
+    setEnabled(value) {
+      enabled = !!value;
+      if (enabled) unlock();
+      if (master) master.gain.value = enabled ? volume : 0;
+      if (!enabled) for (const pool of pools.values()) for (const audio of pool.tracks) audio.pause();
+    },
+    setVolume(value) {
+      volume = Math.min(0.7, Math.max(0, Number(value) || 0));
+      if (master) master.gain.value = enabled ? volume : 0;
+      for (const pool of pools.values()) for (const audio of pool.tracks) audio.volume = Math.min(1, volume * 1.7);
+    },
   };
 }
