@@ -141,3 +141,10 @@ npm run build:standalone
 Le build inclut la **planche de sprites en PNG nettoyée et transparente**, ainsi que l'assemblage HTML/CSS/JavaScript sans instructions `import` ou `export` de module. `npm test` valide notamment : génération déterministe, continuité des tuiles, passage par une paroi pleine puis percée au laser, égalité du masque binaire et de l'alpha, persistance des cratères sur plusieurs blocs, et record de distance non exploitable. La vidéo/l'interaction dans le navigateur a été vérifiée sur Chromium headless ; mesures mobiles réelles à effectuer.
 
 La Release Android produit un **APK de test Debug**, autonome et signé temporairement par GitHub Actions, et un **AAB non signé** destiné seulement à la préparation d'une future version Play Store. La signature de production n'est pas encore configurée. Cette version utilise `fr.fab.ashrush.omegapreview`, installable à côté des anciennes versions, et n'importe pas automatiquement leurs anciennes sauvegardes.
+
+### Publication Android OMEGA 0.4.0 validée sur CI
+- [APK Android autonome direct](https://github.com/greenpower2669/H-rush/releases/download/v0.4.0-omega-preview/AshRush-Omega-v0.4.0-preview-debug.apk) (SHA-256 `7a65e6233d22637b4519a6a1f34a0808f65f6b9c2c895d2856e6bdd7da1fc8da`)
+- [AAB non signé](https://github.com/greenpower2669/H-rush/releases/download/v0.4.0-omega-preview/AshRush-Omega-v0.4.0-unsigned.aab) (SHA-256 `d595d576d13a8b816b29cdb0b48e8d910220a18aad9b9dd2df906b9ca85e80ed`).
+- [GitHub Actions GREEN — 30 tests et vérification de ressources](https://github.com/greenpower2669/H-rush/actions/runs/42123495427).
+
+**Attention :** l’APK est un prototype Debug, signé temporairement et non destiné au Play Store. L’AAB est non signé et ne constitue pas une application installable. Pour une signature stable il faut la configurer ultérieurement avec une clé conservée hors du dépôt. Les mondes procéduraux avancés restent en développement.

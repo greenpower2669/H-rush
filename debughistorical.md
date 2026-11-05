@@ -62,3 +62,10 @@
 - Un test a révélé que les cratères traversant une frontière avaient une coordonnée locale négative et étaient rejetés à la restauration ; validation corrigée. Les tests de redémarrage passent.
 - Android et AAB : build, signature Debug, vérification SHA-256 et publication à établir via GitHub Actions pour le commit final. Installation et performance sur Samsung encore à valider, comme l'usage réel des fichiers d'export/import via le sélecteur système.
 - Fonctionnalités non validées : planètes libres, 40 palettes de graphismes uniques, boss multi-écrans, IA de factions, fragments physiques, monde multijoueur, Hall of Fame mondial, continuité au-delà du domaine exact de `Number` JavaScript.
+
+### Clôture technique du jalon OMEGA 0.4.0 — CI confirmé
+- Commit validé : `488d89db7a3e37ee15c6ae09bacbe020832f79eb`.
+- GitHub Actions run `42123495427` : 30 tests GREEN ; HTML autonome reconstruit identique ; assets intégrés ; `:app:assembleDebug` et `:app:bundleRelease` OK ; signature Debug Android contrôlée ; publication Release GREEN.
+- Prérelease : `v0.4.0-omega-preview`. APK `AshRush-Omega-v0.4.0-preview-debug.apk` : 754268 octets ; SHA-256 `7a65e6233d22637b4519a6a1f34a0808f65f6b9c2c895d2856e6bdd7da1fc8da`.
+- AAB `AshRush-Omega-v0.4.0-unsigned.aab` : 718020 octets ; SHA-256 `d595d576d13a8b816b29cdb0b48e8d910220a18aad9b9dd2df906b9ca85e80ed` ; **non signé, préparation Play Store uniquement**.
+- APK compilé avec package parallèle `fr.fab.ashrush.omegapreview`, versionCode 40. Aucune validation d'installation physique Samsung à ce stade.
