@@ -120,6 +120,6 @@
 - [x] Sélectionner quatre compositions CC0, sources et SHA-256 du catalogue Djipie.
 - [x] Programmer musique dynamique avec fondu, pause, volume/muet, activation tactile et changement de biomes/boss.
 - [x] Préparer téléchargement public vérifié SHA-256 et inclusion Android dans le seul APK (aucun AAB).
-- [ ] Confirmer par GitHub Actions le téléchargement, les tests et les quatre pistes dans l'APK signé.
+- [x] GitHub Actions 42133059313 : 33/33 tests, quatre musiques CC0 téléchargées avec SHA-256 validés, signature Android, APK 8 535 710 octets publié, SHA-256 `7c4f167fa3c85d182f49cd8b3b9d0c2ee350f721a91ecf9cb2d7d6d2c063a626`.
 - [ ] Tester sur Samsung la lecture réelle, volume, retour de veille et performances en paysage.
 - [ ] Sélectionner après écoute d'autres musiques et jingles CC0, par civilisation et situation.
