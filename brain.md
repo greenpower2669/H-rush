@@ -14,3 +14,7 @@ Invariants :
 
 8. Toute dégradation de sprite doit modifier le masque partagé avec la physique à la même résolution logique ; jamais modifier uniquement le visuel.
 9. Les sons de cette version sont originaux, synthétisés en Web Audio ; les sons privés de Djipie restent référencés et soumis aux licences et à la provenance.
+
+10. Le vaisseau suit le premier doigt avec un décalage horizontal positif pour rester visible ; le deuxième doigt lance les missiles. Le paysage est privilégié en natif.
+11. Les masques 2D se comparent avec `A & B`, jamais via la construction `(A|B)^(A^B)` dans le moteur de jeu. L’usage ancien du XOR correspondait aux tampons graphiques incrémentaux, pas au test d’intersection moderne.
+12. En collision, énumérer les bits actifs une seule fois pour les coordonnées, le nombre et le centroïde ; pour effacer une région, appliquer AND NOT aux mots affectés.

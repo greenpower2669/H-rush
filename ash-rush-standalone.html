@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#070d2d">
   <meta name="description" content="Ash Rush : mini shoot'em up et laboratoire de collisions binaires pixel-précises.">
   <title>Ash Rush 🚀 · XY Collision Lab</title>
@@ -101,7 +101,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · V0.2.1</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <div id="labOverlay" class="lab-overlay" hidden>
           <div class="lab-title">🔬 COLLISIONS XY <span id="labModeLabel">B · MASQUES</span></div>
@@ -118,14 +118,14 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </div>
         <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
-      <div class="portrait-tip" role="note">📱 Pour mieux jouer, tourne le téléphone en <strong>paysage</strong>.</div>
+      <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> glisser le vaisseau et maintenir le premier doigt pour tirer automatiquement ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> poser le premier doigt à gauche : le vaisseau reste à sa droite pour rester visible, et tire automatiquement ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <div id="benchmarkOutput" class="bench-output" role="status" hidden></div>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype 0.2.1 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -214,7 +214,7 @@ function popcount(bits) {
 
 /**
  * Check two sprites at integer top-left world positions.
- * A: per-pixel baseline; B: 64-bit block pairs; C: X/Y prefilter then B.
+ * A: per-pixel baseline; B: two 32-bit lanes/64 pixels via direct AND; C: optional X/Y prefilter + 2D AND.
  * Every nonzero segment retains ALL impacted pixels as a compact bitmask.
  * FX may use result.first (actual impacted pixel), centroid, or each segment bit.
  */
@@ -249,9 +249,9 @@ function collide(maskA, ax, ay, maskB, bx, by, method = METHODS.BITMASK, totalSt
     word >>>= 0;
     if (!word) return;
     segments.push({ x: worldX, y: worldY, bits: word });
-    const bitCount = popcount(word);
-    result.count += bitCount;
+    // Count and localize set bits in one traversal; the original word remains in segments.
     while (word) {
+      result.count++;
       const bit = 31 - Math.clz32((word & -word) >>> 0);
       const px = worldX + bit;
       if (!result.first) result.first = { x: px, y: worldY };
@@ -279,13 +279,12 @@ function collide(maskA, ax, ay, maskB, bx, by, method = METHODS.BITMASK, totalSt
         // Two unsigned 32-bit lanes = a 64-pixel batch. Avoid BigInt allocation in the hot path.
         const a0 = readMaskRow(maskA, y - ay, x - ax);
         const b0 = readMaskRow(maskB, y - by, x - bx);
-        const c0 = (a0 | b0), d0 = (a0 ^ b0);
-        capture((c0 ^ d0) & rangeMask(n0), x, y);
+        capture((a0 & b0 & rangeMask(n0)) >>> 0, x, y);
         stats.blocks++;
         if (n1 > 0) {
           const a1 = readMaskRow(maskA, y - ay, x + 32 - ax);
           const b1 = readMaskRow(maskB, y - by, x + 32 - bx);
-          capture(((a1 | b1) ^ (a1 ^ b1)) & rangeMask(n1), x + 32, y);
+          capture((a1 & b1 & rangeMask(n1)) >>> 0, x + 32, y);
           stats.blocks++;
         }
       }
@@ -317,10 +316,24 @@ function eraseDisc(mask, centerX, centerY, radius) {
   const x0 = Math.max(0, cx-r), x1 = Math.min(mask.width-1, cx+r);
   const y0 = Math.max(0, cy-r), y1 = Math.min(mask.height-1, cy+r);
   let cleared = 0;
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if ((x-cx)**2 + (y-cy)**2 > radius**2) continue;
-    const w = y * mask.stride + (x >>> 5), bit = 1 << (x & 31);
-    if (mask.rows[w] & bit) { mask.rows[w] &= ~bit; cleared++; }
+  // Clear only occupied words intersecting the disc: 32 pixels per AND NOT.
+  // Rebuild affected X/Y projections below; they can only lose occupied positions.
+  for (let y = y0; y <= y1; y++) {
+    const dy = y - cy;
+    if (dy * dy > radius * radius) continue;
+    const span = Math.floor(Math.sqrt(radius * radius - dy * dy));
+    let x = Math.max(0, cx - span);
+    const lastX = Math.min(mask.width - 1, cx + span);
+    while (x <= lastX) {
+      const bitOffset = x & 31;
+      const chunkLength = Math.min(32 - bitOffset, lastX - x + 1);
+      const removalBits = (rangeMask(chunkLength) << bitOffset) >>> 0;
+      const index = y * mask.stride + (x >>> 5);
+      const before = mask.rows[index];
+      cleared += popcount(before & removalBits);
+      mask.rows[index] = (before & ~removalBits) >>> 0;
+      x += chunkLength;
+    }
   }
   if (!cleared) return 0;
   for (let y = y0; y <= y1; y++) {

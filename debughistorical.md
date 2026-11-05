@@ -25,9 +25,21 @@
 - Mesures FPS/CPU/RAM sur smartphone, orientation et multitouch réel : toujours à vérifier.
 
 ## 2026-11-05 — APK Android 0.2.1 vérifié
-- GitHub Actions 42088822394 : tous les jobs/étapes réussis après corrections de CI. 10 tests JS OK.
-- Android Gradle compile fr.fab.ashrush versionName=0.2.1 versionCode=21, minSdk=26 targetSdk=35.
-- apksigner : schéma v2 valide, certificat CN=Android Debug (clé CI de test, non pérenne).
-- Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.2.1-android-preview
-- APK : AshRush-v0.2.1-debug.apk, 30229 octets, SHA-256 d2aeb17d3fd3226e31027cad47b38b8efc5922c35b07acafc9c817468b752fed.
-- Non vérifié sur appareil réel : fluidité, commandes, orientation et restitution sonore.
+- GitHub Actions 42088822394 : toutes les étapes réussies, 10 tests JS OK.
+- Android Gradle compile `fr.fab.ashrush`, versionName 0.2.1, versionCode 21, minSdk 26, targetSdk 35.
+- apksigner : schéma v2 valide, certificat CN=Android Debug, clé CI non pérenne.
+- Release 0.2.1 : https://github.com/greenpower2669/H-rush/releases/tag/v0.2.1-android-preview
+- APK ancien : AshRush-v0.2.1-debug.apk ; SHA-256 `d2aeb17d3fd3226e31027cad47b38b8efc5922c35b07acafc9c817468b752fed`.
+- L'installation sur téléphone physique reste à vérifier.
+
+## 2026-11-05 — collision AND directe 0.2.2 (tests locaux)
+- Retrait du calcul historique `(A | B) ^ (A ^ B)` du moteur ; `A & B` direct pour 2 lanes 32 bits, résultats A/B/C identiques.
+- `capture()` ne fait plus `popcount` + parcours, mais un seul parcours des bits pour nombre et XY ; `forEachImpact()` reste disponible pour les effets.
+- Cratères : masques de suppression par mots, `before & ~removalBits`, puis contrôle des projections X et Y.
+- `npm test` : 13/13 tests Node réussis, dont 100 cratères aléatoires et contrôle de tous les pixels/projections.
+- `npm run bench` : médianes de 9 séries sur Node 22, masques préconstruits ; les résultats varieront selon machine/JIT :
+  - clairsemées (340 collisions) : XOR 0,92 ms, AND 0,80 ms, environ 1,15×
+  - normales (300) : XOR 1,94 ms, AND 1,70 ms, environ 1,14×
+  - denses (170) : XOR 3,61 ms, AND 3,57 ms, environ 1,01×
+  - grands sprites partiels (90) : XOR 2,86 ms, AND 2,32 ms, environ 1,23×
+- Ces timings ne valident pas encore une augmentation du FPS ni les performances sur Android.

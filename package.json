@@ -1,9 +1,9 @@
 {
   "name": "ash-rush",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "description": "Ash Rush — spatial shoot'em up and XY binary collision laboratory",
-  "scripts": { "test": "node --test", "serve": "python3 -m http.server 8080", "build:standalone": "node tools/build-standalone.mjs" },
+  "scripts": { "test": "node --test", "bench": "node benchmarks/compare.mjs", "serve": "python3 -m http.server 8080", "build:standalone": "node tools/build-standalone.mjs" },
   "engines": { "node": ">=20" }
 }

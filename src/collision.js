@@ -83,7 +83,7 @@ function popcount(bits) {
 
 /**
  * Check two sprites at integer top-left world positions.
- * A: per-pixel baseline; B: 64-bit block pairs; C: X/Y prefilter then B.
+ * A: per-pixel baseline; B: two 32-bit lanes/64 pixels via direct AND; C: optional X/Y prefilter + 2D AND.
  * Every nonzero segment retains ALL impacted pixels as a compact bitmask.
  * FX may use result.first (actual impacted pixel), centroid, or each segment bit.
  */
@@ -118,9 +118,9 @@ export function collide(maskA, ax, ay, maskB, bx, by, method = METHODS.BITMASK, 
     word >>>= 0;
     if (!word) return;
     segments.push({ x: worldX, y: worldY, bits: word });
-    const bitCount = popcount(word);
-    result.count += bitCount;
+    // Count and localize set bits in one traversal; the original word remains in segments.
     while (word) {
+      result.count++;
       const bit = 31 - Math.clz32((word & -word) >>> 0);
       const px = worldX + bit;
       if (!result.first) result.first = { x: px, y: worldY };
@@ -148,13 +148,12 @@ export function collide(maskA, ax, ay, maskB, bx, by, method = METHODS.BITMASK, 
         // Two unsigned 32-bit lanes = a 64-pixel batch. Avoid BigInt allocation in the hot path.
         const a0 = readMaskRow(maskA, y - ay, x - ax);
         const b0 = readMaskRow(maskB, y - by, x - bx);
-        const c0 = (a0 | b0), d0 = (a0 ^ b0);
-        capture((c0 ^ d0) & rangeMask(n0), x, y);
+        capture((a0 & b0 & rangeMask(n0)) >>> 0, x, y);
         stats.blocks++;
         if (n1 > 0) {
           const a1 = readMaskRow(maskA, y - ay, x + 32 - ax);
           const b1 = readMaskRow(maskB, y - by, x + 32 - bx);
-          capture(((a1 | b1) ^ (a1 ^ b1)) & rangeMask(n1), x + 32, y);
+          capture((a1 & b1 & rangeMask(n1)) >>> 0, x + 32, y);
           stats.blocks++;
         }
       }
@@ -186,10 +185,24 @@ export function eraseDisc(mask, centerX, centerY, radius) {
   const x0 = Math.max(0, cx-r), x1 = Math.min(mask.width-1, cx+r);
   const y0 = Math.max(0, cy-r), y1 = Math.min(mask.height-1, cy+r);
   let cleared = 0;
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if ((x-cx)**2 + (y-cy)**2 > radius**2) continue;
-    const w = y * mask.stride + (x >>> 5), bit = 1 << (x & 31);
-    if (mask.rows[w] & bit) { mask.rows[w] &= ~bit; cleared++; }
+  // Clear only occupied words intersecting the disc: 32 pixels per AND NOT.
+  // Rebuild affected X/Y projections below; they can only lose occupied positions.
+  for (let y = y0; y <= y1; y++) {
+    const dy = y - cy;
+    if (dy * dy > radius * radius) continue;
+    const span = Math.floor(Math.sqrt(radius * radius - dy * dy));
+    let x = Math.max(0, cx - span);
+    const lastX = Math.min(mask.width - 1, cx + span);
+    while (x <= lastX) {
+      const bitOffset = x & 31;
+      const chunkLength = Math.min(32 - bitOffset, lastX - x + 1);
+      const removalBits = (rangeMask(chunkLength) << bitOffset) >>> 0;
+      const index = y * mask.stride + (x >>> 5);
+      const before = mask.rows[index];
+      cleared += popcount(before & removalBits);
+      mask.rows[index] = (before & ~removalBits) >>> 0;
+      x += chunkLength;
+    }
   }
   if (!cleared) return 0;
   for (let y = y0; y <= y1; y++) {

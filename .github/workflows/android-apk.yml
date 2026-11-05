@@ -5,6 +5,8 @@ on:
     paths:
       - 'android-app/**'
       - 'ash-rush-standalone.html'
+      - 'src/**'
+      - 'tests/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
@@ -58,25 +60,29 @@ jobs:
       - name: Compiler APK debug installable
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
-      - name: Vérifier APK, signature et empreinte
+      - name: Vérifier APK, signature, identité et empreinte
         shell: bash
         run: |
           set -euo pipefail
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.1-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.1-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.1-debug.apk | head -8
-          sha256sum AshRush-v0.2.1-debug.apk > AshRush-v0.2.1-debug.apk.sha256
-          test -s AshRush-v0.2.1-debug.apk
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.2-preview-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.2-preview-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.2-preview-debug.apk | head -8
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.2-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.preview' versionCode='22' versionName='0.2.2'"
+          sha256sum AshRush-v0.2.2-preview-debug.apk > AshRush-v0.2.2-preview-debug.apk.sha256
+          test -s AshRush-v0.2.2-preview-debug.apk
       - name: Publication directe sur GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=v0.2.1-android-preview
+          TAG=v0.2.2-android-preview
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" AshRush-v0.2.1-debug.apk AshRush-v0.2.1-debug.apk.sha256 --clobber
+            gh release upload "$TAG" AshRush-v0.2.2-preview-debug.apk AshRush-v0.2.2-preview-debug.apk.sha256 --clobber
           else
-            gh release create "$TAG" AshRush-v0.2.1-debug.apk AshRush-v0.2.1-debug.apk.sha256 \
-              --title "Ash Rush 0.2.1 — APK paysage (test)" --notes "APK Android autonome hors ligne, écran paysage, vaisseau à droite du doigt. Signé avec la clé debug du CI : destiné aux essais, pas une version Play Store." --prerelease --target "$GITHUB_SHA"
+            gh release create "$TAG" AshRush-v0.2.2-preview-debug.apk AshRush-v0.2.2-preview-debug.apk.sha256 \
+              --title "Ash Rush 0.2.2 - collisions AND (APK de test)" \
+              --notes "AND binaire direct, FX XY conservés, contrôle tactile paysage et sons. APK hors connexion. Package fr.fab.ashrush.preview indépendant de l'ancienne version pour éviter un conflit de clés debug différentes. Signature Android Debug CI, test uniquement." \
+              --prerelease --target "$GITHUB_SHA"
           fi
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx 'AshRush-v0.2.2-preview-debug.apk'

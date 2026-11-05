@@ -31,12 +31,24 @@
 - [ ] Publier une URL GitHub Pages après vérification des permissions et paramètres
 - [ ] Ajouter des effets audio, des variations de boss, davantage d'obstacles et équilibrage
 
-## Android 0.2.1 — état vérifié le 5 novembre 2026
-- [x] Vaisseau à droite du doigt, deuxième doigt = missile, interface paysage
-- [x] Wrapper Android WebView local, fonctionnement hors connexion
-- [x] 10/10 tests JS sur GitHub Actions
-- [x] Compilation Gradle et signature Android Debug (schéma v2) vérifiées : run 42088822394
-- [x] APK direct dans la Release v0.2.1-android-preview (30 229 octets)
-- [ ] Tests physiques Samsung : paysage, multitouch, sons, fluidité, retour de veille
-- [ ] Remplacer la signature debug éphémère par une clé stable de production
-- [ ] Exporter les vrais sprites PNG transparents depuis les planches de référence
+## 2026-11-05 — Android 0.2.1 — état vérifié sur GitHub
+- [x] Commande tactile : vaisseau décalé à droite du doigt, gardé dans l’aire de jeu
+- [x] Interface CSS adaptée aux écrans paysage et immersive Android
+- [x] Wrapper Android WebView local et workflow de compilation APK direct
+- [x] Deux tests supplémentaires de positionnement tactile
+- [x] GitHub Actions 42088822394 : compilation réussie et 10 tests JS OK
+- [x] Prérelease v0.2.1-android-preview : APK vérifié sur GitHub, SHA-256 et signature Debug v2 contrôlées
+- [ ] Tester sur téléphone Android physique, navigation système, écran paysage et multitouch
+- [ ] Remplacer la signature debug de CI par une signature stable pour la livraison de production
+
+## 2026-11-05 — mission 0.2.2 : XOR historique → AND
+- [x] Remplacer les doubles XOR par `A & B` sur deux blocs `Uint32` (64 pixels par itération), avec AABB conservées
+- [x] Un seul parcours des bits communs pour count, XY et centre ; conserver les segments pour les FX
+- [x] AND NOT pour supprimer les pixels des cratères, mises à jour des projections X/Y
+- [x] Comparer l'oracle pixel par pixel et les modes A/B/C (13 tests, dont 100 cratères)
+- [x] Comparer le moteur historique au moteur AND sur Node 22 (`npm run bench`, mesures dans debughistorical.md)
+- [x] Préserver sons, FX, commandes tactiles paysage et génération HTML autonome
+- [ ] Vérifier le workflow GitHub Actions de la v0.2.2 et l'APK réellement publié avec hash et signature
+- [ ] Tester sur Samsung (FPS, CPU, précision aux contacts, multitouch, son) et comparer à 0.2.1
+- [ ] Préparer une signature Android de production stable ; ne pas écraser les APK de test d'ancienne clé
+- [ ] Réévaluer le coût du préfiltre C selon les scènes ; activer automatiquement uniquement quand rentable

@@ -1,12 +1,8 @@
 # 🚀 Ash Rush — XY Collision Lab
 
-**Prototype 0.2.1** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
+**Prototype 0.2.2** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
 
 Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. Dépôt historique : `greenpower2669/H-rush` ; nom public du jeu : **Ash Rush**.
-
-## Android 0.2.1 — APK test direct
-
-[**AshRush-v0.2.1-debug.apk**](https://github.com/greenpower2669/H-rush/releases/download/v0.2.1-android-preview/AshRush-v0.2.1-debug.apk) : APK autonome, hors connexion, plein écran paysage, vaisseau à droite du premier doigt, deuxième doigt pour missiles. Package `fr.fab.ashrush`, versionCode 21. Compilation et signature debug v2 vérifiées par [GitHub Actions](https://github.com/greenpower2669/H-rush/actions/runs/42088822394). Pas encore testé sur téléphone réel ; la signature debug n'est pas une clé de mise à jour permanente.
 
 ## Jouer
 
@@ -21,6 +17,22 @@ python3 -m http.server 8080
 
 Clavier : flèches ou ZQSD/WASD pour le déplacement ; espace pour tirer ; Échap pour mettre en pause. Téléphone : glisser le doigt sur l'aire de jeu et le maintenir pour tirer. Le score, la vie, le bouclier et une vague de boss sont présents. **Deuxième doigt**, touche `M` ou bouton 🚀 : missile à tête chercheuse, avec munitions et multiplicateur.
 
+## Nouveautés 0.2.2 — collision AND, Android, paysage et contrôle décalé
+
+- Le vaisseau se positionne à droite du doigt principal (+88 pixels logiques), avec les bords du terrain protégés. Le deuxième doigt déclenche toujours les missiles.
+- Mise en page paysage immersive sur smartphone (HUD compact, commandes accessibles).
+- Wrapper Android WebView local, orientation `sensorLandscape`, sans permission INTERNET : `android-app/` (aperçu 0.2.2 sous identifiant de paquet parallèle).
+- Workflow GitHub Actions pour compiler, vérifier la signature debug et publier un fichier APK direct **si les autorisations le permettent**. APK de test signé debug, pas Play Store ; ne pas annoncer publié tant que la Release n’est pas vérifiée.
+
+### Migration du calcul binaire
+
+- B et C intersectent directement les masques avec **AND**, par blocs de 32 bits (deux mots par boucle, jusqu’à 64 pixels) après AABB ; le mode C conserve le préfiltre X/Y sans le confondre avec une preuve 2D.
+- `capture` accumule le nombre et les coordonnées des bits actifs en **un seul parcours** ; segments `{x,y,bits}` conservés pour les FX.
+- Les cratères utilisent `rows[word] &= ~removalBits` (**AND NOT**), puis actualisent les projections des seules rangées/colonnes touchées.
+- `benchmarks/legacy-xor.mjs` conserve uniquement le moteur historique pour les mesures comparatives et n’est jamais chargé par le jeu.
+- `npm run bench` compare les deux noyaux dans Node sur des masques préconstruits : microbenchmarks indicatifs, **pas** une mesure FPS/Android.
+- Le paquet Android de test 0.2.2 utilise un identifiant **parallèle** `fr.fab.ashrush.preview` pour éviter d’écraser la 0.2.1 signée par une autre clé Debug CI. La signature stable de production reste à établir.
+
 ## Nouveautés 0.2 — localité, effets et audio
 
 - Grille spatiale de proximité, calculée à chaque image : une munition n’examine que les cibles traversant son rectangle balayé ; la confirmation reste pixel-précise par masques binaires.
@@ -34,7 +46,7 @@ Clavier : flèches ou ZQSD/WASD pour le déplacement ; espace pour tirer ; Écha
 ## Trois méthodes dans le laboratoire
 
 - **A :** référence pixel par pixel, vérifiant les deux masques.
-- **B :** intersection binaire dans la zone commune, deux mots `Uint32` par lot de 64 pixels. Le calcul pédagogique `(A | B) ^ (A ^ B)` correspond exactement à `A & B`.
+- **B :** intersection binaire dans la zone commune, deux mots `Uint32` par lot de 64 pixels. Le moteur effectue directement `A & B` sur chacun des deux mots `Uint32` et conserve les bits communs pour récupérer leurs coordonnées. Les doubles XOR appartenaient à une ancienne technique de tampon graphique, documentée dans `benchmarks/legacy-xor.mjs` uniquement.
 - **C :** projections d'occupation sur X/Y, préfiltrage puis **obligatoirement** confirmation par le masque 2D.
 
 Cliquer sur **🔬 Voir les collisions** pour afficher rectangles englobants, masques cyan, projections jaunes/vertes, zone 2D candidate, pixel d'impact rouge, coordonnées, nombres de blocs et de pixels, et coût de calcul. Cliquer sur **⏱ Comparer** pour rejouer les mêmes paires de sprites sur chaque méthode.
@@ -48,6 +60,7 @@ Les collisions calculent les pixels occupés du **même sprite réellement dessi
 ```bash
 npm test
 npm run build:standalone
+npm run bench
 ```
 
 Les tests comparent A/B/C à 100 scénarios déterministes aléatoires et à des bords de mots (31/32/63/64), offsets négatifs et faux positifs de projections. Les mesures du bouton « Comparer » sont indicatives ; elles ne démontrent pas à elles seules une supériorité asymptotique. `performance.now()` compte le coût d'algorithme et d'extraction sur l'appareil.
@@ -72,6 +85,6 @@ ordres-de-mission.md Mission d'origine
 - Projections X/Y : elles détectent seulement une condition **nécessaire** de contact. Croiser X et Y ne suffit pas pour conclure à l'intersection 2D.
 - Le mode B lit des paires de blocs de 32 bits, soit **64 pixels par itération**, sans SIMD matériel explicite. BigInt, SIMD/Wasm, tuilage, cache dynamique et vraie destruction de silhouette restent à étudier.
 - Le nombre de « blocs » correspond aux mots 32 bits vérifiés, pas aux paires 64 bits. Les compteurs de temps dépendent du navigateur, du matériel et de la charge.
-- Prototype testé par 8 tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
+- Prototype testé par 13 tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
 
 Licence : **MIT**. Copyright © 2026 Fabrice Gourdant.

@@ -7,3 +7,10 @@ Priorités : silhouettes issues d'un bit par pixel occupé ; translation XY ; ap
 Précision complémentaire de Fab : même sur écrans à forte densité, l'image, ses axes et son masque doivent rester parfaitement alignés ; les étincelles et la destruction visible doivent démarrer sur la carlingue au point réellement touché, avec un FX entourant précisément cette zone. Ne jamais vendre l'alignement de la seule projection X/Y comme une preuve de collision 2D.
 
 Livraison initiale : web HTML5/Canvas/CSS3 et JavaScript, sans dépendances, licence MIT. Futures expériences : effets de frôlement, dégâts incrémentaux, sprites haute résolution, tuilage et performance à milliers de tirs ; réutilisation potentielle du moteur dans PrimeMax, sans mélanger les projets.
+
+## Addendum 05/11/2026 — AND direct / ancien XOR réservé au graphique incrémental
+- La méthode actuelle de collision est `impact = A & B`, directement sur les mots de la zone commune AABB.
+- Les coordonnées XY de tous les bits actifs sont restituées depuis le masque d’intersection, puis utilisées pour les FX et les cratères.
+- Le XOR historique de Fab servait à la logique de tampons et d’affichage partiel d’une autre époque.
+- Projections X/Y en préfiltre optionnel, confirmation 2D obligatoire ; oracle pixel par pixel A maintenu.
+- AND NOT pour effacer les pixels ; tests + benchmark avant/après ; conserver le jeu complet, sons, paysage et APK Android testable.
