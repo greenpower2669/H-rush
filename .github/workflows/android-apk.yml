@@ -71,7 +71,7 @@ jobs:
           cp android-app/app/build/outputs/apk/debug/app-debug.apk AshRush-v0.2.4-and-preview-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs AshRush-v0.2.4-and-preview-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.4-and-preview-debug.apk | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.4-and-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.andpreview' versionCode='23' versionName='0.2.4'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging AshRush-v0.2.4-and-preview-debug.apk | grep -q "package: name='fr.fab.ashrush.andpreview' versionCode='24' versionName='0.2.4'"
           sha256sum AshRush-v0.2.4-and-preview-debug.apk > AshRush-v0.2.4-and-preview-debug.apk.sha256
           test -s AshRush-v0.2.4-and-preview-debug.apk
       - name: Publication directe sur GitHub Releases
