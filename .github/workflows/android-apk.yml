@@ -66,6 +66,9 @@ jobs:
           assert 'class OmegaUniverse' in html
           assert 'function drawOmegaWorld' in html
           assert 'function gateY' in html
+          assert 'function finishRun' in html
+          assert 'function insertHallEntry' in html
+          assert 'id="endReplay"' in html
           assert '<script>' in html
           assert 'import {' not in html.split('<script>')[-1]
           PY
@@ -86,25 +89,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.0-preview-debug.apk
-          AAB=AshRush-Omega-v0.4.0-unsigned.aab
+          APK=AshRush-Omega-v0.4.1-preview-debug.apk
+          AAB=AshRush-Omega-v0.4.1-unsigned.aab
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           cp android-app/app/build/outputs/bundle/release/app-release.aab "$AAB"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegapreview' versionCode='40' versionName='0.4.0'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegahall' versionCode='41' versionName='0.4.1'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-omega-entries.txt
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.0-preview-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.1-preview-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
+            assert b'function finishRun' in html and b'id="gameOverPanel"' in html
+            assert b'function adaptSpecies' in html and b'function insertHallEntry' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
-          with zipfile.ZipFile('AshRush-Omega-v0.4.0-unsigned.aab') as aab:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.1-unsigned.aab') as aab:
             assert aab.testzip() is None
           PY
           test "$(stat -c %s "$APK")" -gt 550000
@@ -115,15 +120,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.0-omega-preview
-          APK=AshRush-Omega-v0.4.0-preview-debug.apk
-          AAB=AshRush-Omega-v0.4.0-unsigned.aab
+          TAG=v0.4.1-omega-preview
+          APK=AshRush-Omega-v0.4.1-preview-debug.apk
+          AAB=AshRush-Omega-v0.4.1-unsigned.aab
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "$AAB" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" "$AAB" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.0 - prototype d'univers personnel" \
-              --notes "Premier jalon OMEGA : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegapreview indépendant des anciennes installations pour éviter conflit de signature. AAB fourni NON SIGNÉ pour préparation du Play Store, ne peut pas être soumis tel quel. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
+              --title "Ash Rush OMEGA 0.4.1 - Game Over et Hall of Fame" \
+              --notes "OMEGA 0.4.1 : Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegahall indépendant des anciennes installations pour éviter conflit de signature. AAB fourni NON SIGNÉ pour préparation du Play Store, ne peut pas être soumis tel quel. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

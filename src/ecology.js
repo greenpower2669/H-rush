@@ -2,7 +2,7 @@
  * Visuals reuse the actual animated sprite atlas with per-role hue variation.
  * Future missions will add 20 unique hand-drawn atlases and faction relations.
  */
-import { keyedFloat } from './universe.js';
+import { keyedFloat, regionIdentity } from './universe.js';
 
 export const SPECIES = Object.freeze([
   ['Chasseur ionique','scout','zigzag','single',2,98,15],
@@ -42,4 +42,30 @@ export function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'patrol':return Math.sin(age*1.8+phase)*24*dt;
     default:return 0;
   }
+}
+
+/** Contextual variants are stable for a given seed, region, encounter and situation.
+ * Reuse the same 20 logical archetypes, but mutate combat traits by location.
+ * Enemy morphologies are still shared pending dedicated artist sprite sheets.
+ */
+export function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal') {
+  const identity = regionIdentity(seed,region);
+  const draw = keyedFloat(seed,region*100000 + encounter,173);
+  const phaseMods = {
+    space: {speed:1.15, hp:1, moves:['zigzag','pursuit','wave'], weapon:'rapid'},
+    atmosphere: {speed:1.04,hp:1,moves:['wave','serpent','zigzag'],weapon:'burst'},
+    surface: {speed:.84,hp:1.2,moves:['patrol','slow','pursuit'],weapon:'burst'},
+    interior: {speed:.91,hp:1.3,moves:['serpent','pursuit','patrol'],weapon:'rapid'},
+    exit: {speed:1.23,hp:.9,moves:['pursuit','zigzag','serpent'],weapon:'single'},
+  };
+  const m=phaseMods[phase] || phaseMods.space;
+  const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
+  const variation = .83 + draw*.38;
+  const movement=draw>.68 ? m.moves[(identity.faction+encounter)%m.moves.length] : spec.movement;
+  const weapon=spec.weapon==='none' ? 'none' : draw>.58 ? m.weapon : spec.weapon;
+  return {...spec, speed:Math.max(25,Math.round(spec.speed*m.speed*variation*aggressive)),
+    hp:Math.max(1,Math.round(spec.hp*m.hp*(.92+draw*.26))),
+    movement,weapon,hue:(spec.hue+identity.tone*.35+encounter*9)%360,
+    faction:identity.faction,phase,trait:['éclaireur','blindé','furieux','furtif','sentinelle'][(identity.faction+Math.floor(draw*5))%5],
+    fireRate:condition==='low-hp' ? 1.23 : (phase==='interior'?.82:1)};
 }

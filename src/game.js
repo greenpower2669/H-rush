@@ -6,7 +6,8 @@ import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
 import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
 import { drawOmegaWorld } from './omega-visuals.js';
-import { speciesFor, movementDelta } from './ecology.js';
+import { speciesFor, adaptSpecies, movementDelta } from './ecology.js';
+import { scoreRun } from './hall.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
@@ -131,11 +132,20 @@ let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
+let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 
-function reset() {
+function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
-  terrain.flush(); terrain.scroll=Math.max(0,universe.state.distance-260); terrain.active=true;
+  terrain.flush();
+  terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
+    : Math.max(0,universe.state.distance-260);
+  terrain.time=0;terrain.active=true;
+  runBaseScore=universe.totalScore;runBaseMaxDistance=universe.maxDistance;runBasePoints=universe.state.points;
+  $('#gameOverPanel').hidden=true;
+  $('#hallPanel').hidden=true;
+  $('#omegaPanel').hidden=true;
+  dragging=false;mainPointerId=null;keys.clear();
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -157,6 +167,54 @@ function updateHud() {
   $('#distance').textContent = (universe.maxDistance/1000).toFixed(1)+' km';
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
+function showHall() {
+  const tbody=$('#hallBody');tbody.replaceChildren();
+  const records=universe.hall;
+  if(!records.length) {
+    const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;
+    td.textContent='Aucun record pour le moment. Une première mission t’attend !';tr.append(td);tbody.append(tr);
+  }
+  records.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    for(const value of [String(i+1),r.score.toLocaleString('fr-FR'),(r.newDistance/1000).toFixed(2)+' km',String(r.kills),r.world]) {
+      const td=document.createElement('td');td.textContent=value;tr.append(td);
+    }
+    tbody.append(tr);
+  });
+  $('#hallMessage').textContent=universe.persistenceWarning || 'Classement conservé avec la graine et les cratères de ton univers.';
+  pauseBeforeHall=paused;paused=true;
+  $('#omegaPanel').hidden=true;
+  $('#hallPanel').hidden=false;
+  $('#hallClose').focus();
+}
+function closeHall() {
+  $('#hallPanel').hidden=true;
+  if(!gameOver) paused=pauseBeforeHall;
+  $('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';
+}
+function finishRun(cause) {
+  if(gameOver)return;
+  gameOver=true;
+  dragging=false;mainPointerId=null;keys.clear();
+  terrain.flush();
+  const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
+  const earned=scoreRun(runBaseScore,universe.totalScore);
+  const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
+  const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
+    newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
+    region:s.region,world:identity.family,cause,time:new Date().toISOString()};
+  const rank=universe.recordRun(entry);
+  $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
+  $('#endScore').textContent=earned.toLocaleString('fr-FR');
+  $('#endDetails').textContent=`${kills} ennemis détruits · ${ (newDistance/1000).toFixed(2)} km nouveaux · ${identity.family}` +
+    (rank>=0?` · 🏆 n° ${rank+1}`:'');
+  msg('',0);
+  $('#gameOverPanel').hidden=false;
+  $('#omegaPanel').hidden=true;
+  $('#hallPanel').hidden=true;
+  $('#endReplay').focus();
+  updateHud();
+}
 function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
@@ -234,7 +292,7 @@ function playerDamage(r) {
   if(player.shield>0){player.shield--;particlesAt(latestImpact.x,latestImpact.y,'shield',22);sound.play('shield');}
   else {player.hp--;sound.play('damage');}
   invulnerable=.9;
-  if(player.hp<=0) { gameOver=true; msg('MISSION TERMINÉE · ↻ REJOUER',1e8); particlesAt(player.x+40,player.y+23,'hull',90); }
+  if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
 }
 function hitEnemy(enemy,r) {
@@ -354,7 +412,10 @@ function update(dt) {
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
     if(bossWave){spawnEnemy('boss');bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-    else {const species=speciesFor(universe.seed,stage.region,spawnCount);spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+    else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+      const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
+      const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
+      spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
   }
   for(const enemy of enemies){
     enemy.age+=dt; enemy.x+=enemy.vx*dt;
@@ -365,7 +426,7 @@ function update(dt) {
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
       else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
-      enemy.fire=enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3);
+      enemy.fire=(enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
@@ -385,9 +446,8 @@ function update(dt) {
       const p = terrain.firstWorldImpact(collision);
       if (p) { particlesAt(p.screenX,p.y,'motor',75); spawnSpriteExplosion(p.screenX,p.y,1.9); }
       player.hp = 0;
-      gameOver = true;
       sound.play('explosion');
-      msg('💥 COLLISION PAROI — ONE SHOT !',1e8);
+      finishRun('wall');
       updateHud();
     }
   }
@@ -488,13 +548,21 @@ window.addEventListener('keydown',e=>{
   keys.add(e.key);
   if((e.key==='m'||e.key==='M'||e.key==='Shift')&&!e.repeat)launchMissile();
   if(e.key===' '&&!e.repeat)sound.unlock();
-  if(e.key==='Escape'){paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';}
+  if(e.key==='Escape'){
+    if(!$('#hallPanel').hidden)closeHall();
+    else if(gameOver)return;
+    else {paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';}
+  }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
-$('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
-$('#restart').addEventListener('click',()=>{sound.unlock();reset();});
+$('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
+$('#restart').addEventListener('click',()=>{sound.unlock();reset(gameOver);});
+$('#endReplay').addEventListener('click',()=>{sound.unlock();reset(true);});
+$('#endHall').addEventListener('click',showHall);
+$('#hallButton').addEventListener('click',showHall);
+$('#hallClose').addEventListener('click',closeHall);
 $('#omegaMenu').addEventListener('click',()=>{const panel=$('#omegaPanel');panel.hidden=!panel.hidden;paused=!panel.hidden||paused;$('#seedLabel').textContent=universe.seed;$('#omegaMessage').textContent=universe.persistenceWarning||'';$('#worldLabel').textContent=universe.region(terrain.lastStage.region).family;$('#recordLabel').textContent=(universe.maxDistance/1000).toFixed(2)+' km';if(!panel.hidden)terrain.flush();});
 $('#omegaClose').addEventListener('click',()=>{$('#omegaPanel').hidden=true;paused=false;$('#pause').textContent='⏸ Pause';});
 $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText();$('#omegaCopy').value=json;$('#omegaCopy').hidden=false;

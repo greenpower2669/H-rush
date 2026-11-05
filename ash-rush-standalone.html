@@ -92,6 +92,34 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #omegaMessage {color:#ffcd8e;font-size:12px;margin-top:7px;}
 @media(orientation:landscape) and (max-height:400px){ .omega-panel{padding:8px 11px;} .omega-panel p{margin:5px 0;} .omega-panel button{font-size:11px;} }
 
+/* OMEGA 0.4.1 : visible death screen, replay and personal leaderboard in landscape. */
+[hidden] { display:none !important; }
+.end-screen {position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  overflow:auto;padding:12px;background:linear-gradient(120deg,#02091ae9,#1a0726e9 60%,#061a2dea);
+  text-align:center;color:#fff;}
+.end-content {width:min(94%,540px);max-height:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.end-eyebrow {font-size:11px;color:#75e9ff;letter-spacing:.24em;font-weight:800;}
+.end-screen h2 {font-size:clamp(32px,7vw,69px);line-height:1;margin:0;color:#fff2b6;
+  text-shadow:0 0 14px #ff4e88,0 0 35px #ec4c83;letter-spacing:.08em;}
+.end-screen p {margin:0;color:#ffb9ae;font-weight:700;}
+.end-score {font-size:12px;letter-spacing:.08em;color:#b7dfff;display:flex;gap:9px;align-items:baseline;}
+.end-score strong {font-size:clamp(21px,4vw,35px);color:white;font-variant-numeric:tabular-nums;}
+.end-details {font-size:12px;color:#c9eaf5;}
+.end-actions {display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.end-actions button {font-size:clamp(13px,2vw,19px);font-weight:850;padding:9px 17px;border-color:#70dbff;}
+.end-actions .action-primary {background:#116f87;color:#fff;box-shadow:0 0 20px #24e0f95b;}
+.end-screen small {color:#bbd2dc;font-size:10px;}
+.hall-panel {z-index:60;}
+.hall-table-wrap {max-height:48vh;overflow:auto;}
+.hall-table {width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
+.hall-table th,.hall-table td {border-bottom:1px solid #39647e;padding:8px;text-align:left;}
+.hall-table th {color:#9ce8ff;position:sticky;top:0;background:#102943;}
+.hall-table td:nth-child(2){color:#fff3b6;font-weight:800;font-variant-numeric:tabular-nums;}
+@media (orientation:landscape) and (max-height:380px) {
+  .end-content{gap:4px;} .end-screen h2{font-size:30px;} .end-screen small{display:none;}
+  .end-actions button{padding:5px 12px;}
+}
+
 </style>
   
 </head>
@@ -110,12 +138,29 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · OMEGA 0.4.0</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · OMEGA 0.4.1</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
+        <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
+          <div class="end-content">
+            <div class="end-eyebrow">🚀 H-RUSH OMEGA</div>
+            <h2>GAME OVER</h2>
+            <p id="endCause">Vaisseau détruit</p>
+            <div class="end-score">SCORE DE LA PARTIE <strong id="endScore">0</strong></div>
+            <div class="end-details" id="endDetails"></div>
+            <div class="end-actions"><button id="endReplay" class="action-primary">↻ REJOUER</button><button id="endHall">🏆 HALL OF FAME</button></div>
+            <small>Ton univers et les brèches creusées restent sauvegardés.</small>
+          </div>
+        </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
+      <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
+        <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
+        <p>Les meilleures parties de cet univers. Records locaux, exportés avec la sauvegarde OMEGA.</p>
+        <div class="hall-table-wrap"><table class="hall-table"><thead><tr><th>#</th><th>Score</th><th>Distance nouvelle</th><th>Vict.</th><th>Monde</th></tr></thead><tbody id="hallBody"></tbody></table></div>
+        <p id="hallMessage" role="status"></p>
+      </section>
       <section id="omegaPanel" class="omega-panel" hidden aria-label="Univers personnel OMEGA">
         <div class="omega-heading"><strong>🌌 MON UNIVERS PERSONNEL</strong><button id="omegaClose" aria-label="Fermer">✕</button></div>
         <p>Graine unique : <code id="seedLabel"></code></p>
@@ -132,7 +177,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.0 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.1 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -389,6 +434,35 @@ class SpatialGrid {
   }
 }
 
+/** Personal Hall of Fame — compact, deterministic ranking, shared with OMEGA exports.
+ * Server-side global ranking is deliberately not claimed here.
+ */
+const HALL_SIZE = 10;
+const safeInt = n => Number.isSafeInteger(n) && n >= 0;
+function validRun(run) {
+  return !!run && typeof run === 'object' && ['combat','wall'].includes(run.cause) &&
+    ['string'].includes(typeof run.world) && run.world.length <= 100 &&
+    typeof run.time === 'string' && /^\d{4}-\d\d-\d\dT/.test(run.time) && run.time.length <= 32 &&
+    ['score','points','newDistance','maxDistance','kills','seconds','region'].every(k => safeInt(run[k]));
+}
+function normalizeHall(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.filter(validRun).slice(0,50).sort((a,b) =>
+    b.score - a.score || b.newDistance - a.newDistance || b.kills - a.kills || a.time.localeCompare(b.time)
+  ).slice(0,HALL_SIZE).map(x => ({
+    score:x.score,points:x.points,newDistance:x.newDistance,maxDistance:x.maxDistance,
+    kills:x.kills,seconds:x.seconds,region:x.region,world:x.world,cause:x.cause,time:x.time
+  }));
+}
+function insertHallEntry(entries, entry) {
+  if (!validRun(entry)) throw Error('Entrée Hall of Fame invalide');
+  return normalizeHall([...normalizeHall(entries),entry]);
+}
+/** A run gains only its newly earned lifetime score, never repeated mileage. */
+function scoreRun(start, end) {
+  return Math.max(0,Math.floor(end)-Math.floor(start));
+}
+
 /** H-RUSH OMEGA: deterministic, per-installation 128-bit universe and durable discoveries. */
 const OMEGA_KEY = 'ashrush-omega-universe-v1';
 const REGION_SIZE = 5120;
@@ -452,6 +526,7 @@ function validateUniverseState(input) {
   if (!input || typeof input !== 'object' || input.format !== 1 || !isSeed128(input.seed)) throw Error('Sauvegarde OMEGA invalide.');
   if (!positive(input.distance) || !positive(input.maxDistance) || !positive(input.points) || !positive(input.discoveries)) throw Error('Progression OMEGA invalide.');
   if (!input.scars || typeof input.scars !== 'object' || Array.isArray(input.scars)) throw Error('Dégâts OMEGA invalides.');
+  if (input.hall !== undefined && (!Array.isArray(input.hall) || input.hall.length > 10 || input.hall.some(run => !validRun(run)))) throw Error('Hall of Fame invalide.');
   if (Object.keys(input.scars).length > 3000) throw Error('Sauvegarde trop grande.');
   let count = 0;
   for (const [id, edits] of Object.entries(input.scars)) {
@@ -466,8 +541,9 @@ class OmegaUniverse {
     this.storage = storage;
     let restored = null;
     try { const raw = storage?.getItem(OMEGA_KEY); if (raw) restored = validateUniverseState(JSON.parse(raw)); } catch { /* corrupt external state is ignored; new profile below */ }
-    this.state = restored || { format:1, seed:newSeed128(randomSource), distance:0, maxDistance:0, points:0, discoveries:0, scars:{}, visited:[] };
+    this.state = restored || { format:1, seed:newSeed128(randomSource), distance:0, maxDistance:0, points:0, discoveries:0, scars:{}, visited:[], hall:[] };
     this.state.visited = Array.isArray(this.state.visited) ? this.state.visited.filter(positive).slice(0,512) : [];
+    this.state.hall = normalizeHall(this.state.hall);
     this.dirty = !restored;
     this.saved = false;
     this.persistenceWarning = null;
@@ -478,6 +554,13 @@ class OmegaUniverse {
   get maxDistance() { return this.state.maxDistance; }
   get totalScore() { return this.state.points + Math.floor(this.maxDistance / 10) + this.state.discoveries * 400; }
   get scarCount() { return this._scarCount; }
+  get hall() { return this.state.hall; }
+  recordRun(entry) {
+    this.state.hall = insertHallEntry(this.hall, entry);
+    this.dirty = true;
+    this.flush();
+    return this.hall.findIndex(run => run === entry || (run.time === entry.time && run.score === entry.score));
+  }
   region(index) { return regionIdentity(this.seed,index); }
   advance(distance) {
     if (!Number.isSafeInteger(Math.floor(distance)) || distance < 0) return;
@@ -508,6 +591,7 @@ class OmegaUniverse {
     const state=validateUniverseState(JSON.parse(text));
     this.state=structuredClone(state);
     this.state.visited=Array.isArray(this.state.visited)?this.state.visited.filter(positive).slice(0,512):[];
+    this.state.hall=normalizeHall(this.state.hall);
     this._scarCount=Object.values(this.state.scars).reduce((a,v)=>a+v.length,0);
     this.dirty=true;this.flush();
   }
@@ -851,6 +935,32 @@ function movementDelta(spec,age,phase,enemyY,playerY,dt) {
   }
 }
 
+/** Contextual variants are stable for a given seed, region, encounter and situation.
+ * Reuse the same 20 logical archetypes, but mutate combat traits by location.
+ * Enemy morphologies are still shared pending dedicated artist sprite sheets.
+ */
+function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal') {
+  const identity = regionIdentity(seed,region);
+  const draw = keyedFloat(seed,region*100000 + encounter,173);
+  const phaseMods = {
+    space: {speed:1.15, hp:1, moves:['zigzag','pursuit','wave'], weapon:'rapid'},
+    atmosphere: {speed:1.04,hp:1,moves:['wave','serpent','zigzag'],weapon:'burst'},
+    surface: {speed:.84,hp:1.2,moves:['patrol','slow','pursuit'],weapon:'burst'},
+    interior: {speed:.91,hp:1.3,moves:['serpent','pursuit','patrol'],weapon:'rapid'},
+    exit: {speed:1.23,hp:.9,moves:['pursuit','zigzag','serpent'],weapon:'single'},
+  };
+  const m=phaseMods[phase] || phaseMods.space;
+  const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
+  const variation = .83 + draw*.38;
+  const movement=draw>.68 ? m.moves[(identity.faction+encounter)%m.moves.length] : spec.movement;
+  const weapon=spec.weapon==='none' ? 'none' : draw>.58 ? m.weapon : spec.weapon;
+  return {...spec, speed:Math.max(25,Math.round(spec.speed*m.speed*variation*aggressive)),
+    hp:Math.max(1,Math.round(spec.hp*m.hp*(.92+draw*.26))),
+    movement,weapon,hue:(spec.hue+identity.tone*.35+encounter*9)%360,
+    faction:identity.faction,phase,trait:['éclaireur','blindé','furieux','furtif','sentinelle'][(identity.faction+Math.floor(draw*5))%5],
+    fireRate:condition==='low-hp' ? 1.23 : (phase==='interior'?.82:1)};
+}
+
 /** Ash Rush — actual extracted frames from Fab's original illustrated boards.
  * Every Canvas frame is rasterized ONCE; the exact alpha supplies the collision mask.
  */
@@ -887,8 +997,7 @@ async function loadGameArt() {
   try {
     await image.decode();
     if (image.naturalWidth !== 1024 || image.naturalHeight !== 1120) throw new Error('Unexpected atlas geometry');
-    return framesFromAtlas(image);
-  } catch {
+    return framesFromAtlas(image);  } catch {
     // Offline standalone HTML opened without an atlas retains reliable vector fallback.
     return null;
   }
@@ -1154,11 +1263,20 @@ let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
+let runBaseScore = 0, runBaseMaxDistance = 0, pauseBeforeHall = false;
 
-function reset() {
+function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
-  terrain.flush(); terrain.scroll=Math.max(0,universe.state.distance-260); terrain.active=true;
+  terrain.flush();
+  terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
+    : Math.max(0,universe.state.distance-260);
+  terrain.time=0;terrain.active=true;
+  runBaseScore=universe.totalScore;runBaseMaxDistance=universe.maxDistance;
+  $('#gameOverPanel').hidden=true;
+  $('#hallPanel').hidden=true;
+  $('#omegaPanel').hidden=true;
+  dragging=false;mainPointerId=null;keys.clear();
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -1180,6 +1298,56 @@ function updateHud() {
   $('#distance').textContent = (universe.maxDistance/1000).toFixed(1)+' km';
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
+function showHall() {
+  const tbody=$('#hallBody');tbody.replaceChildren();
+  const records=universe.hall;
+  if(!records.length) {
+    const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;
+    td.textContent='Aucun record pour le moment. Une première mission t’attend !';tr.append(td);tbody.append(tr);
+  }
+  records.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    for(const value of [String(i+1),r.score.toLocaleString('fr-FR'),(r.newDistance/1000).toFixed(2)+' km',String(r.kills),r.world]) {
+      const td=document.createElement('td');td.textContent=value;tr.append(td);
+    }
+    tbody.append(tr);
+  });
+  $('#hallMessage').textContent=universe.persistenceWarning || 'Classement conservé avec la graine et les cratères de ton univers.';
+  pauseBeforeHall=paused;paused=true;
+  $('#omegaPanel').hidden=true;
+  $('#hallPanel').hidden=false;
+  $('#hallClose').focus();
+}
+function closeHall() {
+  $('#hallPanel').hidden=true;
+  if(!gameOver) paused=pauseBeforeHall;
+  $('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';
+}
+function finishRun(cause) {
+  if(gameOver)return;
+  gameOver=true;
+  dragging=false;mainPointerId=null;keys.clear();
+  terrain.flush();
+  const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
+  const earned=scoreRun(runBaseScore,universe.totalScore);
+  const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
+  const entry={score:earned,points:Math.max(0,universe.state.points-Math.floor(runBaseScore)),
+    newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
+    region:s.region,world:identity.family,cause,time:new Date().toISOString()};
+  // points are a descriptive subset; the ranked score is the actual total-score delta.
+  entry.points=earned;
+  const rank=universe.recordRun(entry);
+  $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
+  $('#endScore').textContent=earned.toLocaleString('fr-FR');
+  $('#endDetails').textContent=`${kills} ennemis détruits · ${ (newDistance/1000).toFixed(2)} km nouveaux · ${identity.family}` +
+    (rank>=0?` · 🏆 n° ${rank+1}`:'');
+  msg('',0);
+  $('#gameOverPanel').hidden=false;
+  $('#omegaPanel').hidden=true;
+  $('#hallPanel').hidden=true;
+  $('#endReplay').focus();
+  updateHud();
+}
 function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
@@ -1257,7 +1425,7 @@ function playerDamage(r) {
   if(player.shield>0){player.shield--;particlesAt(latestImpact.x,latestImpact.y,'shield',22);sound.play('shield');}
   else {player.hp--;sound.play('damage');}
   invulnerable=.9;
-  if(player.hp<=0) { gameOver=true; msg('MISSION TERMINÉE · ↻ REJOUER',1e8); particlesAt(player.x+40,player.y+23,'hull',90); }
+  if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
 }
 function hitEnemy(enemy,r) {
@@ -1377,7 +1545,10 @@ function update(dt) {
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
     if(bossWave){spawnEnemy('boss');bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-    else {const species=speciesFor(universe.seed,stage.region,spawnCount);spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+    else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+      const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
+      const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
+      spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
   }
   for(const enemy of enemies){
     enemy.age+=dt; enemy.x+=enemy.vx*dt;
@@ -1388,7 +1559,7 @@ function update(dt) {
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
       else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
-      enemy.fire=enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3);
+      enemy.fire=(enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
@@ -1408,9 +1579,8 @@ function update(dt) {
       const p = terrain.firstWorldImpact(collision);
       if (p) { particlesAt(p.screenX,p.y,'motor',75); spawnSpriteExplosion(p.screenX,p.y,1.9); }
       player.hp = 0;
-      gameOver = true;
       sound.play('explosion');
-      msg('💥 COLLISION PAROI — ONE SHOT !',1e8);
+      finishRun('wall');
       updateHud();
     }
   }
@@ -1511,13 +1681,21 @@ window.addEventListener('keydown',e=>{
   keys.add(e.key);
   if((e.key==='m'||e.key==='M'||e.key==='Shift')&&!e.repeat)launchMissile();
   if(e.key===' '&&!e.repeat)sound.unlock();
-  if(e.key==='Escape'){paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';}
+  if(e.key==='Escape'){
+    if(!$('#hallPanel').hidden)closeHall();
+    else if(gameOver)return;
+    else {paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';}
+  }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
-$('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
-$('#restart').addEventListener('click',()=>{sound.unlock();reset();});
+$('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
+$('#restart').addEventListener('click',()=>{sound.unlock();reset(gameOver);});
+$('#endReplay').addEventListener('click',()=>{sound.unlock();reset(true);});
+$('#endHall').addEventListener('click',showHall);
+$('#hallButton').addEventListener('click',showHall);
+$('#hallClose').addEventListener('click',closeHall);
 $('#omegaMenu').addEventListener('click',()=>{const panel=$('#omegaPanel');panel.hidden=!panel.hidden;paused=!panel.hidden||paused;$('#seedLabel').textContent=universe.seed;$('#omegaMessage').textContent=universe.persistenceWarning||'';$('#worldLabel').textContent=universe.region(terrain.lastStage.region).family;$('#recordLabel').textContent=(universe.maxDistance/1000).toFixed(2)+' km';if(!panel.hidden)terrain.flush();});
 $('#omegaClose').addEventListener('click',()=>{$('#omegaPanel').hidden=true;paused=false;$('#pause').textContent='⏸ Pause';});
 $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText();$('#omegaCopy').value=json;$('#omegaCopy').hidden=false;

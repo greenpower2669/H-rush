@@ -1,4 +1,5 @@
 /** H-RUSH OMEGA: deterministic, per-installation 128-bit universe and durable discoveries. */
+import { normalizeHall, insertHallEntry, validRun } from './hall.js';
 export const OMEGA_KEY = 'ashrush-omega-universe-v1';
 export const REGION_SIZE = 5120;
 const U64 = (1n << 64n) - 1n;
@@ -61,6 +62,7 @@ export function validateUniverseState(input) {
   if (!input || typeof input !== 'object' || input.format !== 1 || !isSeed128(input.seed)) throw Error('Sauvegarde OMEGA invalide.');
   if (!positive(input.distance) || !positive(input.maxDistance) || !positive(input.points) || !positive(input.discoveries)) throw Error('Progression OMEGA invalide.');
   if (!input.scars || typeof input.scars !== 'object' || Array.isArray(input.scars)) throw Error('Dégâts OMEGA invalides.');
+  if (input.hall !== undefined && (!Array.isArray(input.hall) || input.hall.length > 10 || input.hall.some(run => !validRun(run)))) throw Error('Hall of Fame invalide.');
   if (Object.keys(input.scars).length > 3000) throw Error('Sauvegarde trop grande.');
   let count = 0;
   for (const [id, edits] of Object.entries(input.scars)) {
@@ -75,8 +77,9 @@ export class OmegaUniverse {
     this.storage = storage;
     let restored = null;
     try { const raw = storage?.getItem(OMEGA_KEY); if (raw) restored = validateUniverseState(JSON.parse(raw)); } catch { /* corrupt external state is ignored; new profile below */ }
-    this.state = restored || { format:1, seed:newSeed128(randomSource), distance:0, maxDistance:0, points:0, discoveries:0, scars:{}, visited:[] };
+    this.state = restored || { format:1, seed:newSeed128(randomSource), distance:0, maxDistance:0, points:0, discoveries:0, scars:{}, visited:[], hall:[] };
     this.state.visited = Array.isArray(this.state.visited) ? this.state.visited.filter(positive).slice(0,512) : [];
+    this.state.hall = normalizeHall(this.state.hall);
     this.dirty = !restored;
     this.saved = false;
     this.persistenceWarning = null;
@@ -87,6 +90,13 @@ export class OmegaUniverse {
   get maxDistance() { return this.state.maxDistance; }
   get totalScore() { return this.state.points + Math.floor(this.maxDistance / 10) + this.state.discoveries * 400; }
   get scarCount() { return this._scarCount; }
+  get hall() { return this.state.hall; }
+  recordRun(entry) {
+    this.state.hall = insertHallEntry(this.hall, entry);
+    this.dirty = true;
+    this.flush();
+    return this.hall.findIndex(run => run === entry || (run.time === entry.time && run.score === entry.score));
+  }
   region(index) { return regionIdentity(this.seed,index); }
   advance(distance) {
     if (!Number.isSafeInteger(Math.floor(distance)) || distance < 0) return;
@@ -117,6 +127,7 @@ export class OmegaUniverse {
     const state=validateUniverseState(JSON.parse(text));
     this.state=structuredClone(state);
     this.state.visited=Array.isArray(this.state.visited)?this.state.visited.filter(positive).slice(0,512):[];
+    this.state.hall=normalizeHall(this.state.hall);
     this._scarCount=Object.values(this.state.scars).reduce((a,v)=>a+v.length,0);
     this.dirty=true;this.flush();
   }

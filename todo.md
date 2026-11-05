@@ -90,7 +90,7 @@
 - [x] Réutiliser l'atlas réellement intégré ; retirer 22 625 pixels parasites de fond opaque des planches
 - [x] Conserver audio WAV Space Fortress / fallback, tactile paysage, 2e doigt missiles, fichiers de référence
 - [x] Tests de reproductibilité, continuité, mur percé, persistance et non-régression (26 réussis localement)
-- [x] GitHub Actions 42123495427 : 30 tests, HTML synchronisé, Gradle, APK de test signé, AAB non signé et validation des ressources
+- [ ] Valider APK 0.4.0 et AAB, empreinte SHA-256, signature et assets dans GitHub Actions
 - [ ] Tester la sensation de pilotage et les FPS sur Samsung réel, notamment avec 1000 projectiles
 - [ ] Vérifier un export/restauration vers une autre installation Android sur appareil physique
 

@@ -82,3 +82,31 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 .omega-panel textarea {width:100%;min-height:92px;max-height:180px;padding:10px;margin-top:10px;background:#0b2034;color:#eaf9ff;border:1px solid #6acde8;border-radius:8px;font-size:11px;}
 #omegaMessage {color:#ffcd8e;font-size:12px;margin-top:7px;}
 @media(orientation:landscape) and (max-height:400px){ .omega-panel{padding:8px 11px;} .omega-panel p{margin:5px 0;} .omega-panel button{font-size:11px;} }
+
+/* OMEGA 0.4.1 : visible death screen, replay and personal leaderboard in landscape. */
+[hidden] { display:none !important; }
+.end-screen {position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  overflow:auto;padding:12px;background:linear-gradient(120deg,#02091ae9,#1a0726e9 60%,#061a2dea);
+  text-align:center;color:#fff;}
+.end-content {width:min(94%,540px);max-height:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.end-eyebrow {font-size:11px;color:#75e9ff;letter-spacing:.24em;font-weight:800;}
+.end-screen h2 {font-size:clamp(32px,7vw,69px);line-height:1;margin:0;color:#fff2b6;
+  text-shadow:0 0 14px #ff4e88,0 0 35px #ec4c83;letter-spacing:.08em;}
+.end-screen p {margin:0;color:#ffb9ae;font-weight:700;}
+.end-score {font-size:12px;letter-spacing:.08em;color:#b7dfff;display:flex;gap:9px;align-items:baseline;}
+.end-score strong {font-size:clamp(21px,4vw,35px);color:white;font-variant-numeric:tabular-nums;}
+.end-details {font-size:12px;color:#c9eaf5;}
+.end-actions {display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.end-actions button {font-size:clamp(13px,2vw,19px);font-weight:850;padding:9px 17px;border-color:#70dbff;}
+.end-actions .action-primary {background:#116f87;color:#fff;box-shadow:0 0 20px #24e0f95b;}
+.end-screen small {color:#bbd2dc;font-size:10px;}
+.hall-panel {z-index:60;}
+.hall-table-wrap {max-height:48vh;overflow:auto;}
+.hall-table {width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
+.hall-table th,.hall-table td {border-bottom:1px solid #39647e;padding:8px;text-align:left;}
+.hall-table th {color:#9ce8ff;position:sticky;top:0;background:#102943;}
+.hall-table td:nth-child(2){color:#fff3b6;font-weight:800;font-variant-numeric:tabular-nums;}
+@media (orientation:landscape) and (max-height:380px) {
+  .end-content{gap:4px;} .end-screen h2{font-size:30px;} .end-screen small{display:none;}
+  .end-actions button{padding:5px 12px;}
+}
