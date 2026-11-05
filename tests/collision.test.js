@@ -95,3 +95,46 @@ test('local broadphase finds overlapping sprites, deduplicates and rejects dista
   assert.deepEqual(grid.query(300,200,400,260),[]);
   assert.deepEqual(grid.query(770,300,820,360),[distant]);
 });
+
+
+test('AND collision is exactly equivalent to historical OR/XOR/XOR for all 8-bit patterns', () => {
+  for (let a = 0; a < 256; a++) {
+    for (let b = 0; b < 256; b++) {
+      const historical = ((a | b) ^ (a ^ b)) >>> 0;
+      const direct = (a & b) >>> 0;
+      assert.equal(direct, historical, '8-bit bitwise identity');
+    }
+  }
+});
+
+test('direct AND returns matching plus all exact impact coordinates, across two unaligned lanes', () => {
+  const points = [[2, 0], [31, 1], [32, 1], [63, 2], [64, 2], [70, 3]];
+  const A = mask(100, 6, points);
+  // shift B to world x=3, y=-2 to verify both lanes with unequal origins
+  const B = mask(105, 10, points.map(([x, y]) => [x + 3, y + 2]));
+  const expected = points.map(([x, y]) => [x + 5, y + 7]);
+  for (const method of allMethods) {
+    const r = collide(A, 5, 7, B, 2, 5, method);
+    assert.equal(r.hit, true);
+    assert.equal(r.count, points.length);
+    assert.deepEqual(positions(r), expected);
+    assert.ok(r.segments.every(({ bits }) => bits !== 0));
+    assert.equal(r.stats.contacts, 1);
+  }
+});
+
+test('AND NOT crater removal preserves all remaining intersections and consistent X/Y projections', () => {
+  const intact = createMask(72, 4, () => true);
+  const cratered = createMask(72, 4, () => true);
+  assert.equal(eraseDisc(cratered, 32, 1, 1), 5);
+  for (const method of allMethods) {
+    const r = collide(intact, -20, 30, cratered, -20, 30, method);
+    assert.equal(r.hit, true);
+    assert.equal(r.count, 72 * 4 - 5);
+    assert.equal(positions(r).length, r.count);
+    for (const [x, y] of positions(r)) {
+      const lx = x + 20, ly = y - 30;
+      assert.equal(((lx - 32) ** 2 + (ly - 1) ** 2 > 1), true);
+    }
+  }
+});
