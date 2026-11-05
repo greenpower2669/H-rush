@@ -109,3 +109,9 @@
 - [ ] Déploiement Android signature production stable, AAB signé, éventuelle publication Play Store
 - [ ] Hall of Fame mondial avec serveur, opt-in et mécanismes anti-triche
 - [ ] Équilibrage du forage avec laser de base et préavis sur les passages, sans mort injuste
+
+## Décision livraison Android — 6 novembre 2026
+- [x] Workflow Android : générer et contrôler uniquement un fichier `.apk` autonome, plus SHA-256 ; aucune compilation ni publication `.aab`.
+- [x] Ne pas déclencher une republication de la version 0.4.1 par un simple changement de workflow.
+- [ ] Publication Google Play / génération `.aab` : à reprendre uniquement sur nouvelle demande expresse de Fab.
+- [ ] Préparer la prochaine version fonctionnelle et son APK direct, sans modifier les Releases historiques.

@@ -33,3 +33,6 @@ Invariants :
 21. Le record de distance est strictement monotone ; score distance = maximum de distance seulement. Récompenses de destruction et de découverte sont conservées dans le profil.
 22. Le mode OMEGA est un premier parcours horizontal procédural à phases, pas encore une simulation géographique libre de planètes ni 40 mondes artistiquement terminés. Les 20 profils adverses partagent encore des familles de sprites.
 23. Ne pas modifier les mémoires de Djipie ou de SpaceFortressVs au titre de la mission OMEGA. La sonothèque WAV attribuée est réutilisée telle quelle, sans dupliquer les mémoires des projets.
+
+## Convention de livraison (6 novembre 2026)
+Fab demande uniquement des fichiers `.apk` directement téléchargeables depuis les Releases de test. Suspendre la génération des `.aab`, y compris dans GitHub Actions, jusqu'à décision explicite de préparer une publication Google Play. Ne pas supprimer les anciennes Releases ou leurs fichiers historiques.
