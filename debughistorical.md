@@ -66,3 +66,5 @@
 ## 2026-11-06 — OMEGA 0.4.2, musique CC0
 - Sources consultées dans Djipie et OpenGameArt : Space Echo OGG, Action_A MP3, Battle MP3, Horror MP3, CC0. Quatre SHA-256 Djipie contrôlés obligatoirement par le script de CI.
 - La logique musicale et les transitions disposent de nouveaux tests simulés Node. Les tests physiques Android, la disponibilité des téléchargements externes et l'intégrité de l'APK doivent être vérifiés dans GitHub Actions avant d'annoncer une livraison.
+
+- Validation GitHub Actions 42133059313 : SUCCESS, 33 tests, quatre pistes contrôlées SHA-256, fichier APK signé et intégré dans Release v0.4.2-music-preview (8 535 710 octets, SHA-256 7c4f167fa3c85d182f49cd8b3b9d0c2ee350f721a91ecf9cb2d7d6d2c063a626). Exécution sur Samsung toujours à valider.
