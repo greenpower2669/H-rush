@@ -53,3 +53,10 @@
 - `npm run build:standalone` : un HTML autonome contient une copie base64 du PNG 249155 octets. Les WAV originaux Space Fortress restent disponibles en APK via fichiers individuels ; leur chargement est optionnel et dispose d'un secours synthétique.
 - Navigateurs headless locaux : capture et navigation indisponibles (`ERR_BLOCKED_BY_ADMINISTRATOR`) ; donc aucune validation visuelle en navigateur réel ni mesure FPS Android revendiquées ici.
 - Les 23 frames sont des extractions de planches conceptuelles (pas un art vectoriel refait manuellement). Certains halos/contours des planches doivent encore être revus visuellement sur téléphone.
+
+## 2026-11-05 — APK 0.3.0 publié et vérifié
+- GitHub Actions 42115175545 : 22/22 tests OK, compilation Android Gradle réussie, signature Debug valide, archive APK inspectée.
+- Fichiers vérifiés dans APK : assets/assets/sprites/atlas.png, assets/assets/audio/spacefortress/kinetic_release.wav, assets/ash-rush-standalone.html.
+- APK confirmé par GitHub Release : https://github.com/greenpower2669/H-rush/releases/download/v0.3.0-asteroid-preview/AshRush-v0.3.0-asteroid-debug.apk ; 806648 octets, SHA-256 f35514abb1dd2957eee6553c6e758ca96624dc7a82fd1434bf407fae2fece908.
+- Package Android de test fr.fab.ashrush.cavernpreview, versionName 0.3.0, versionCode 30 ; distinct des versions de test précédentes. Sauvegarde locale propre à ce package.
+- Validation physique Samsung et performances en paysage restent à faire ; l'APK est un aperçu Debug, pas une livraison Play Store.
