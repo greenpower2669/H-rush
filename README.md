@@ -4,6 +4,10 @@
 
 Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. Dépôt historique : `greenpower2669/H-rush` ; nom public du jeu : **Ash Rush**.
 
+## Android 0.2.1 — APK test direct
+
+[**AshRush-v0.2.1-debug.apk**](https://github.com/greenpower2669/H-rush/releases/download/v0.2.1-android-preview/AshRush-v0.2.1-debug.apk) : APK autonome, hors connexion, plein écran paysage, vaisseau à droite du premier doigt, deuxième doigt pour missiles. Package `fr.fab.ashrush`, versionCode 21. Compilation et signature debug v2 vérifiées par [GitHub Actions](https://github.com/greenpower2669/H-rush/actions/runs/42088822394). Pas encore testé sur téléphone réel ; la signature debug n'est pas une clé de mise à jour permanente.
+
 ## Jouer
 
 Une **version autonome** `ash-rush-standalone.html` est également incluse : télécharger ce fichier et l’ouvrir directement dans un navigateur, même hors ligne.
