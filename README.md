@@ -1,6 +1,6 @@
 # 🚀 Ash Rush — XY Collision Lab
 
-**Prototype 0.2.0** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
+**Prototype 0.2.1** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
 
 Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. Dépôt historique : `greenpower2669/H-rush` ; nom public du jeu : **Ash Rush**.
 

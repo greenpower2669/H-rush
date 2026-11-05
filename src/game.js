@@ -1,6 +1,7 @@
 import { maskFromImageData, collide, newStats, forEachImpact, METHODS, eraseDisc } from './collision.js';
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
+import { touchTarget } from './input.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
@@ -262,8 +263,9 @@ function update(dt) {
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
-    player.x+=(clamp(pointer.x-player.sprite.width*.45,10,W-player.sprite.width-15)-player.x)*Math.min(1,dt*16);
-    player.y+=(clamp(pointer.y-player.sprite.height*.5,32,H-player.sprite.height-20)-player.y)*Math.min(1,dt*16);
+    const target = touchTarget(pointer, player.sprite.width, player.sprite.height, W, H);
+    player.x+=(target.x-player.x)*Math.min(1,dt*16);
+    player.y+=(target.y-player.y)*Math.min(1,dt*16);
   } else {
     const diagonal=Math.hypot(dx,dy)||1;
     player.x=clamp(player.x+dx/diagonal*325*dt,10,W-player.sprite.width-15);
@@ -419,6 +421,7 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
 window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;});
+document.addEventListener('visibilitychange',()=>{ if(document.hidden && !paused && !gameOver) { paused=true;$('#pause').textContent='▶ Reprendre'; } });
 $('#labToggle').addEventListener('click',()=>{lab=!lab;$('#labOverlay').hidden=!lab;$('#labToggle').setAttribute('aria-pressed',String(lab));});
 $('#method').addEventListener('change',e=>{mode=e.target.value;});
 $('#pause').addEventListener('click',()=>{paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});

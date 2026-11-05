@@ -47,3 +47,29 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 @media (orientation:portrait) and (max-width:700px) { .portrait-tip {display:block;} .stage { min-height:190px; } }
 @media (orientation:landscape) and (max-height:520px) { .app {padding:3px 6px;} .header { margin:0 0 3px; } .stage { max-height:78vh; margin:auto; } .toolbar {margin-top:4px;} .below,.fineprint,footer{display:none;} button,select{padding:6px 8px;} }
 @media (max-width:700px) { .hud {flex-wrap:wrap;} .hud>div {min-width:36px;} #soundVolume{width:62px;} }
+
+/* V0.2.1 : le paysage remplit la zone utile ; commandes maintenues hors du jeu. */
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px) {
+  html, body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; }
+  .app { box-sizing:border-box; height:100dvh; max-width:none; width:100%; display:flex; flex-direction:column;
+    padding: env(safe-area-inset-top, 2px) max(7px, env(safe-area-inset-right)) env(safe-area-inset-bottom, 2px) max(7px, env(safe-area-inset-left)); }
+  .header { margin:0 0 3px; min-height:26px; flex:0 0 auto; flex-wrap:nowrap; }
+  .brand-icon, .brand small { display:none; }
+  .brand strong { font-size:16px; letter-spacing:.05em; }
+  .hud { flex:1; flex-wrap:nowrap; justify-content:flex-end; gap:8px; }
+  .hud small { font-size:8px; }
+  .hud strong { font-size:11px; }
+  main { display:flex; flex-direction:column; flex:1; min-height:0; }
+  .stage { flex:1; min-height:0; max-height:none; width:100%; aspect-ratio:auto; border-radius:8px; margin:0; }
+  .toolbar { flex:0 0 auto; margin:4px 0 0; flex-wrap:nowrap; gap:4px; }
+  .toolbar-group { flex-wrap:nowrap; gap:4px; }
+  .toolbar label, #benchmark, #restart, #soundVolume, .below, footer { display:none; }
+  button, select { font-size:11px; padding:5px 7px; border-radius:7px; white-space:nowrap; }
+  .stage-top { top:5px; left:6px; right:6px; }
+  .pill { font-size:9px; }
+  .lab-overlay { top:30px; left:5px; max-width:55%; }
+}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:360px) {
+  .brand strong {font-size:13px;} .hud strong{font-size:10px;} .toolbar{margin-top:2px;}
+  button,select{padding:3px 5px;font-size:10px;} #soundToggle{display:none;}
+}
