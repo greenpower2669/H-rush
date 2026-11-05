@@ -1,6 +1,6 @@
 # 🚀 Ash Rush — XY Collision Lab
 
-**Prototype 0.1.0** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
+**Prototype 0.2.0** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
 
 Conception de l'approche de collision et idée du jeu : **Fabrice Gourdant**. Dépôt historique : `greenpower2669/H-rush` ; nom public du jeu : **Ash Rush**.
 
@@ -15,7 +15,17 @@ python3 -m http.server 8080
 # Naviguer sur http://localhost:8080
 ```
 
-Clavier : flèches ou ZQSD/WASD pour le déplacement ; espace pour tirer ; Échap pour mettre en pause. Téléphone : glisser le doigt sur l'aire de jeu et le maintenir pour tirer. Le score, la vie, le bouclier et une vague de boss sont présents.
+Clavier : flèches ou ZQSD/WASD pour le déplacement ; espace pour tirer ; Échap pour mettre en pause. Téléphone : glisser le doigt sur l'aire de jeu et le maintenir pour tirer. Le score, la vie, le bouclier et une vague de boss sont présents. **Deuxième doigt**, touche `M` ou bouton 🚀 : missile à tête chercheuse, avec munitions et multiplicateur.
+
+## Nouveautés 0.2 — localité, effets et audio
+
+- Grille spatiale de proximité, calculée à chaque image : une munition n’examine que les cibles traversant son rectangle balayé ; la confirmation reste pixel-précise par masques binaires.
+- Astéroïdes grignotés par impact : chaque exemplaire possède sa propre image Canvas, son masque mutable et ses projections recalculées uniquement sur les lignes et colonnes atteintes. Les cratères transparents suivent la collision, puis offrent un bonus quand l’objet est détruit.
+- 5 bonus : tir multiple, amélioration missiles, soin, bouclier et zone protectrice (bouclier renforcé). Les dégâts et les étincelles suivent toujours les vrais pixels touchés.
+- Web Audio synthétisé en direct : tirs, missiles, impacts, explosions, boucliers, dégâts, bonus et alerte du boss. Les sons sont autonomes, hors ligne, activables et réglables en volume ; l’audio est déverrouillé par geste utilisateur.
+- Paysage recommandé sur mobile, multitouch pour missiles. Limite du DPR et retrait des ombres coûteuses pour alléger le GPU.
+
+**Djipie** : catalogue audio privé consulté. Kenney (licence CC0 annoncée, provenance archive à revalider) et Sonniss (redistribution autonome interdite) ne sont pas recopiés dans ce dépôt public. Les effets sonores de cette version sont générés, originaux, et n’ont aucune dépendance au catalogue privé.
 
 ## Trois méthodes dans le laboratoire
 
@@ -58,6 +68,6 @@ ordres-de-mission.md Mission d'origine
 - Projections X/Y : elles détectent seulement une condition **nécessaire** de contact. Croiser X et Y ne suffit pas pour conclure à l'intersection 2D.
 - Le mode B lit des paires de blocs de 32 bits, soit **64 pixels par itération**, sans SIMD matériel explicite. BigInt, SIMD/Wasm, tuilage, cache dynamique et vraie destruction de silhouette restent à étudier.
 - Le nombre de « blocs » correspond aux mots 32 bits vérifiés, pas aux paires 64 bits. Les compteurs de temps dépendent du navigateur, du matériel et de la charge.
-- Prototype testé par tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
+- Prototype testé par 8 tests unitaires Node ; le gameplay mobile nécessite encore une validation sur appareils réels et des benchmarks à grande échelle.
 
 Licence : **MIT**. Copyright © 2026 Fabrice Gourdant.

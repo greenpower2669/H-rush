@@ -71,3 +71,27 @@ test('property test: A/B/C agree on 100 deterministic random masks', () => {
     }
   }
 });
+
+import { eraseDisc } from '../src/collision.js';
+import { SpatialGrid } from '../src/spatial.js';
+
+test('local crater erases exactly occupied pixels, not neighboring sprites', () => {
+  const a=createMask(96,32,()=>true);
+  const b=createMask(96,32,()=>true);
+  const removed=eraseDisc(a,31,16,9);
+  assert.ok(removed>200 && removed<280);
+  assert.equal(a.filled,96*32-removed);
+  assert.equal(positions(collide(a,0,0,b,0,0,METHODS.BITMASK)).length,96*32-removed);
+  assert.equal(collide(a,0,0,b,0,0,METHODS.PIXEL).count,96*32-removed);
+  for(const m of allMethods) assert.equal(collide(a,0,0,b,0,0,m).count,96*32-removed);
+});
+
+test('local broadphase finds overlapping sprites, deduplicates and rejects distant ones',()=>{
+  const grid = new SpatialGrid(48);
+  const ship={x:20,y:10,sprite:{width:70,height:30}};
+  const distant={x:780,y:300,sprite:{width:30,height:30}};
+  grid.insert(ship);grid.insert(distant);
+  assert.deepEqual(grid.query(30,15,70,35),[ship]);
+  assert.deepEqual(grid.query(300,200,400,260),[]);
+  assert.deepEqual(grid.query(770,300,820,360),[distant]);
+});

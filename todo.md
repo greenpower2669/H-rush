@@ -10,11 +10,19 @@
 - [x] Six tests unitaires d'égalité des méthodes
 - [x] README, licence MIT et mémoires du projet
 
+## V0.2 — implémenté, à confirmer sur appareil
+- [x] Grille de proximité pour limiter le nombre de paires examinées (sans réduire l’exactitude 2D)
+- [x] Astéroïdes à cratères transparents, masques individuels mutables et projections mises à jour
+- [x] Missiles guidés (2e doigt, touche M, bouton) et bonus (tir x2/x3, missile, vie, bouclier)
+- [x] Sons originaux Web Audio hors ligne, volume et mode muet
+- [x] Limite DPR et ombres de particules supprimées pour limiter la charge
+- [x] 8 tests automatisés passés localement + construction standalone effectuée
+
 ## Après revue humaine et tests appareil
 - [ ] Valider jeu navigateur desktop et téléphone, orientation portrait/paysage, TalkBack
 - [ ] Ajouter un retour de proximité sans dégât via distance signée/forme dilatée
 - [ ] Dessiner les **blocs individuels réellement évalués** par-dessus les masques en laboratoire
-- [ ] Dégrader localement les sprites touchés et reconstruire le masque de façon incrémentale
+- [x] Dégrader localement les astéroïdes, reconstruire le masque de façon incrémentale (sprites de vaisseaux à suivre)
 - [ ] Étudier les décalages subpixel, zoom et sprites très haute définition en monde logique
 - [ ] Stress test : 1000 à 5000 projectiles et sprites 512px, mesures RAM/CPU/IPS
 - [ ] Spatial hash/tiling pour éviter l'examen des paires éloignées

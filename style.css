@@ -39,3 +39,11 @@ canvas { display:block; width:100%; height:100%; touch-action:none; user-select:
 footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 @media(max-width:700px) { .app { padding:8px 6px 18px; } .header { flex-wrap:wrap; padding:3px 6px; } .brand strong { font-size:23px; } .brand-icon { font-size:23px; } .hud { flex:1; justify-content:flex-end; } .hud small { font-size:9px; } .hud strong { font-size:12px; } .toolbar { margin:10px 3px; } button,select { padding:10px 8px; font-size:12px; } .stage { border-radius:10px; } .pill { font-size:9px; } .lab-overlay { top:37px; left:6px; padding:5px 6px; } .lab-title,.lab-text,.last-impact { font-size:9px; } }
 @media (max-width:400px) { .brand small { font-size:8px; } .hud { gap:8px; } .hud strong { font-size:11px; } }
+
+/* V0.2: landscape-first controls and legible sound settings. */
+#soundVolume { accent-color:#57f5ff; width:86px; }
+#missileLaunch { background:linear-gradient(120deg,#673a68,#742b36); border-color:#e18d63; }
+.portrait-tip { display:none; padding:7px 11px; margin:8px 0; border-radius:8px; border:1px solid #53b4e8; color:#ccf1ff; background:#09213b; font-size:13px; }
+@media (orientation:portrait) and (max-width:700px) { .portrait-tip {display:block;} .stage { min-height:190px; } }
+@media (orientation:landscape) and (max-height:520px) { .app {padding:3px 6px;} .header { margin:0 0 3px; } .stage { max-height:78vh; margin:auto; } .toolbar {margin-top:4px;} .below,.fineprint,footer{display:none;} button,select{padding:6px 8px;} }
+@media (max-width:700px) { .hud {flex-wrap:wrap;} .hud>div {min-width:36px;} #soundVolume{width:62px;} }

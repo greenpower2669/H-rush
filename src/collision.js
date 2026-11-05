@@ -179,3 +179,32 @@ export function forEachImpact(result, callback) {
     }
   }
 }
+
+/** Erase a small local impact crater, then rebuild only affected row/column projections. */
+export function eraseDisc(mask, centerX, centerY, radius) {
+  const r = Math.max(0, Math.ceil(radius)), cx = Math.round(centerX), cy = Math.round(centerY);
+  const x0 = Math.max(0, cx-r), x1 = Math.min(mask.width-1, cx+r);
+  const y0 = Math.max(0, cy-r), y1 = Math.min(mask.height-1, cy+r);
+  let cleared = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if ((x-cx)**2 + (y-cy)**2 > radius**2) continue;
+    const w = y * mask.stride + (x >>> 5), bit = 1 << (x & 31);
+    if (mask.rows[w] & bit) { mask.rows[w] &= ~bit; cleared++; }
+  }
+  if (!cleared) return 0;
+  for (let y = y0; y <= y1; y++) {
+    let occupied = false;
+    for (let w = 0; w < mask.stride; w++) if (mask.rows[y*mask.stride+w]) {occupied = true; break;}
+    if (!occupied) mask.yProjection[y>>>5] &= ~(1 << (y&31));
+  }
+  // Columns only ever lose bits during destruction; a column vanishes when no rows retain it.
+  for (let x = x0; x <= x1; x++) {
+    let occupied = false;
+    for (let y = 0; y < mask.height; y++) {
+      if (mask.rows[y*mask.stride+(x>>>5)] & (1 << (x&31))) {occupied = true; break;}
+    }
+    if (!occupied) mask.xProjection[x>>>5] &= ~(1 << (x&31));
+  }
+  mask.filled -= cleared;
+  return cleared;
+}

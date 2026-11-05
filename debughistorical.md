@@ -14,3 +14,12 @@
 - Proximité vs vraie intersection (effets de souffle non encore implémentés).
 - Temps d'évaluation JavaScript vs complexité algorithmique asymptotique.
 - Pas de test matériel réel de milliers de projectiles à ce stade.
+
+## 2026-11-05 — prototype v0.2.0
+
+- Ajout grille spatiale `SpatialGrid`, effets audio Web Audio synthétisés, multi-touch missiles, bonus, astéroïdes destructibles.
+- `node --test` : **8/8 tests réussis** ; scénario cratère, équivalence A/B/C et non-fuite grille inclus.
+- `npm run build:standalone` : script reconstruit un seul fichier HTML sans imports externes.
+- Inspection visuelle Chromium headless non concluante dans cet environnement (impossible d’obtenir une capture) ; pas de validation navigateur Android revendiquée.
+- Sources Djipie : catalogue audio consulté et notices de licences lues ; aucun son privé recopié.
+- Mesures FPS/CPU/RAM sur smartphone, orientation et multitouch réel : toujours à vérifier.

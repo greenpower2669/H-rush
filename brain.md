@@ -11,3 +11,6 @@ Invariants :
 5. En JavaScript, deux lanes Uint32 = 64 pixels par boucle (sans prétendre à une instruction SIMD).
 6. Les mêmes tests doivent réussir en modes A, B et C ; optimiser sans perdre l'oracle pixel par pixel.
 7. Préserver l'indépendance du module de collision pour expérimenter d'autres projets sans recopier les mémoires.
+
+8. Toute dégradation de sprite doit modifier le masque partagé avec la physique à la même résolution logique ; jamais modifier uniquement le visuel.
+9. Les sons de cette version sont originaux, synthétisés en Web Audio ; les sons privés de Djipie restent référencés et soumis aux licences et à la provenance.
