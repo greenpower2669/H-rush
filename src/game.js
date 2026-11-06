@@ -7,6 +7,7 @@ import { TouchCalibration } from './input.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
+import { morphFor, bossMorphFor, spriteForMorph, morphMovement, bossWeapons } from './bestiary.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
@@ -152,18 +153,24 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
-  if (!artFrames) return;
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.baseSprite = artFrames.player[frame % artFrames.player.length];
+  if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
-    const frames = artFrames[enemy.kind];
-    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
+    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if(enemy.morph){
+      const phase=enemy.kind==='boss'?enemy.bossPhase:0;
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      switchDamagedFrame(enemy,animated);
+    }else if(artFrames){
+      const frames=artFrames[enemy.kind];
+      if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
+    }
   }
-  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  if(artFrames)for(const rocket of missiles)
+    rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -424,16 +431,27 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
-  const s=kind==='asteroid'?mutableAsteroid():ships[kind];
+  const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
+  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+    (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=offscreenSpawnX(W,s.width,70);
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
-  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
+  const anchor=morph?.anchor;
+  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+    anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
+  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
-  if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
-    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
+  if(!position)return false;
+  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
+    movement:morphMovement(morph),fireRate:1}:species?{...species,
+      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+  enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
     blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
@@ -744,7 +762,7 @@ function update(dt) {
       const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
       if(bossWave){
         if(spawnEnemy('boss',null,0,profile.bossPhases)){
-          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          bossActive=true;msg('⚠ '+enemies[enemies.length-1]?.morph?.name.toUpperCase()+' ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
@@ -787,7 +805,11 @@ function update(dt) {
     enemy.age+=dt;
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
-      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      if(next>enemy.bossPhase){
+        enemy.bossPhase=next;
+        if(enemy.morph)enemy.species.weapon=bossWeapons(enemy.morph,next);
+        msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
+      }
       enemy.vx=-(28+enemy.bossPhase*6);
     }
     const robot=enemy.robot===true;
@@ -795,8 +817,18 @@ function update(dt) {
     const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
     const motion=rock?moveDebris(enemy,dt,g):null;
     if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const shape=enemy.morph;
+    const worldX=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+    const bounds=shape?.anchor!=='air'&&shape?terrainBounds(universe.seed,Math.max(0,worldX)):null;
+    const upperTarget=shape?.anchor==='ceiling'?Math.max(24,bounds.top+6):null;
+    const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
+    const lowerTarget=shape?.anchor==='ground'?
+      Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
+    const targetY=upperTarget??lowerTarget;
+    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
-      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
+      enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
