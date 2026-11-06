@@ -269,5 +269,5 @@
 - [x] Laisser seulement un déplacement déterministe et continu du centre droite→gauche pour l'entrée et sortie, hors champ complet aux deux bornes.
 - [x] Conserver effets de chaleur, brumes, parallaxe, relief ET moteur A & B sans changement de sauvegarde ni d'anciens APK.
 - [x] Tests de géométrie de rendu et non-régression des transitions et d'absence de saut visible.
-- [ ] Validation CI complète, signature, APK direct 0.5.3, SHA-256, HTML autonome identique et ressources musicales.
+- [x] GitHub Actions `42231334713` : **109/109 tests**, HTML autonome identique, Gradle APK Debug, ressources/musiques CC0, vérification `apksigner` v2, versionCode 53/versionName 0.5.3, publication Release `v0.5.3-atmosphere-translation-preview`. Asset APK direct vérifié, **13 979 807 octets**, SHA-256 `cbfe7f200185d821c153976ee67218260ce2e44d0796df5b8877d48a073272a6`.
 - [ ] QA manuelle Samsung : comparer approche, entrée, surface, intérieur, sortie, début de région suivante, halos réellement sans artefact visuel ni baisse FPS.
