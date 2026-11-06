@@ -92,7 +92,7 @@ test('aim point chooses the nearest ACTUAL alpha pixel, even on hollow roots',as
 test('primary steering and second aiming use distinct pointer IDs and releases',()=>{
  const game=src('src/game.js'),html=src('ash-rush-standalone.html');
  for(const token of ['secondFingerAim={id:e.pointerId','secondFingerAim?.id===e.pointerId',
-   'secondFingerAim=null;terrain.flush()', 'twoFingerNoseShot(', 'guidedMissileVelocity(',
+   'secondFingerAim=null;touchMissiles.reset();terrain.flush()', 'twoFingerNoseShot(', 'guidedMissileVelocity(',
    'lockTarget:aim?.target||null'])assert.ok(game.includes(token),token);
  assert.match(game,/if\(!secondFingerAim\)\{/);
  assert.ok(html.includes('function acquireTwoFingerTarget'));
