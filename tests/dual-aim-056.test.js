@@ -3,8 +3,15 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ENEMY_MORPHS} from '../src/bestiary.js';
 import {targetAnchor,selectSecondFingerTarget,resolveSecondFingerAim,vectorShotFromNose,
-  steerSecondFingerShot,SECOND_FINGER_TURN_GROUND,SECOND_FINGER_TURN_AIR} from '../src/dual-aim.js';
+  noseWorldPoint,projectileOriginAtNose,steerSecondFingerShot,
+  SECOND_FINGER_TURN_GROUND,SECOND_FINGER_TURN_AIR} from '../src/dual-aim.js';
+import {createMask} from '../src/collision.js';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+function shipSprite(){
+  // Asymmetric ship: the last opaque nose pixel is x=81, NOT 43% of a 90px box.
+  return {width:90,height:46,mask:createMask(90,46,(x,y)=>
+    x>=9&&x<=81&&y>=7&&y<=39&&(x<70||Math.abs(y-23)<=3))};
+}
 function foe(shape,x,y,w=90,h=60){
   const morph=ENEMY_MORPHS.find(z=>z.shape===shape);
   assert.ok(morph,shape);
@@ -56,21 +63,25 @@ test('shot originates at the rotated NOSE and aims toward a ceiling or floor uni
   const down=resolveSecondFingerAim({x:699,y:499},[worm],125);
   assert.equal(up.enemy,root);
   assert.equal(down.enemy,worm);
-  const beamUp=vectorShotFromNose(160,260,90,-.20,780,0,up);
-  const beamDown=vectorShotFromNose(160,260,90,.20,780,0,down);
+  const base=shipSprite();
+  const upNose=noseWorldPoint(160,260,base,-.20);
+  const downNose=noseWorldPoint(160,260,base,.20);
+  const beamUp=vectorShotFromNose(upNose,-.20,780,0,up);
+  const beamDown=vectorShotFromNose(downNose,.20,780,0,down);
   assert.ok(beamUp.y<260&&beamUp.vy<0,'nose rises and beam fires upward');
   assert.ok(beamDown.y>260&&beamDown.vy>0,'nose dips and beam fires downward');
   assert.ok(beamUp.vx>0&&beamDown.vx>0);
   assert.equal(beamUp.guided,true);
-  const fallback=vectorShotFromNose(160,260,90,-.20,780,0,null);
+  const fallback=vectorShotFromNose(upNose,-.20,780,0,null);
   assert.equal(fallback.guided,false);
   assert.ok(fallback.vy<0,'legacy pitch-based shots remain when there is no second finger');
 });
 test('forward/backward travel affects shot motion, while compensated aiming stays forward',()=>{
   const target=resolveSecondFingerAim({x:700,y:210},[],120);
-  const still=vectorShotFromNose(155,240,90,.11,780,0,target,{x:0,y:0});
-  const forward=vectorShotFromNose(155,240,90,.11,780,0,target,{x:325,y:0});
-  const back=vectorShotFromNose(155,240,90,.11,780,0,target,{x:-325,y:0});
+  const nose=noseWorldPoint(155,240,shipSprite(),.11);
+  const still=vectorShotFromNose(nose,.11,780,0,target,{x:0,y:0});
+  const forward=vectorShotFromNose(nose,.11,780,0,target,{x:325,y:0});
+  const back=vectorShotFromNose(nose,.11,780,0,target,{x:-325,y:0});
   assert.ok(forward.vx>still.vx,'advancing accelerates the beam in world space');
   assert.ok(back.vx<still.vx,'retreating reduces forward beam velocity');
   for(const beam of [still,forward,back]){
@@ -115,4 +126,56 @@ test('touch capture never shoots accidental missiles; dedicated button and keybo
   assert.match(html,/function vectorShotFromNose/);
   assert.match(html,/function steerSecondFingerShot/);
   assert.match(html,/function drawSecondFingerReticle/);
+});
+
+test('the beam vector origin is the ACTUAL rightmost opaque ship nose, never its center',()=>{
+  const ship=shipSprite(),cx=170,cy=260;
+  const nose=noseWorldPoint(cx,cy,ship,0);
+  assert.ok(Math.abs(nose.x-(cx+81.5-45))<1e-9);
+  assert.ok(Math.abs(nose.y-cy)<1e-9);
+  for(const pitch of [-.3,-.15,0,.15,.3]){
+    const at=noseWorldPoint(cx,cy,ship,pitch);
+    const aim={x:755,y:100,mode:'air',enemy:null};
+    const shot=vectorShotFromNose(at,pitch,780,0,aim);
+    assert.deepEqual(shot.origin,{x:at.x,y:at.y});
+    assert.equal(shot.x,at.x);
+    assert.equal(shot.y,at.y);
+    assert.ok(shot.vy<0);
+  }
+});
+test('rotated shot tail is positioned over the hull muzzle for lasers and missiles',()=>{
+  const ship=shipSprite(),nose=noseWorldPoint(175,230,ship,.25);
+  const shapes=[
+    {width:24,height:8,mask:createMask(24,8,(x,y)=>x>=1&&x<23&&y>=2&&y<=5)},
+    {width:31,height:12,mask:createMask(31,12,(x,y)=>x>=3&&x<30&&y>=3&&y<=8)}
+  ];
+  for(const base of shapes){
+    for(const pitch of [-.5,0,.5]){
+      // The rasterizer uses a quantized rotation and a squared canvas.
+      const rotatedSize=Math.ceil(Math.hypot(base.width,base.height))+4;
+      const raster={width:rotatedSize,height:rotatedSize};
+      const loc=projectileOriginAtNose(nose,base,raster,pitch);
+      let tailX=Infinity,tailY=0;
+      for(let x=0;x<base.width;x++)for(let y=0;y<base.height;y++){
+        if(!base.mask||!((base.mask.rows[y*base.mask.stride+(x>>>5)]>>> (x&31))&1))continue;
+        if(x<tailX||x===tailX&&Math.abs(y-(base.height-1)/2)<Math.abs(tailY-(base.height-1)/2)){
+          tailX=x;tailY=y;
+        }
+      }
+      const a=Math.round(Math.max(-1.25,Math.min(1.25,pitch))/.05)*.05;
+      const dx=tailX+.5-base.width/2,dy=tailY+.5-base.height/2;
+      const rearX=loc.x+raster.width/2+dx*Math.cos(a)-dy*Math.sin(a);
+      const rearY=loc.y+raster.height/2+dx*Math.sin(a)+dy*Math.cos(a);
+      assert.ok(Math.hypot(rearX-nose.x,rearY-nose.y)<1e-6);
+    }
+  }
+});
+test('real gameplay muzzle and targeting now share the same alpha-driven origin',()=>{
+  const source=read('src/game.js');
+  assert.match(source,/noseWorldPoint\(cx,cy,player\.baseSprite\|\|ships\.player,player\.pitch\)/);
+  assert.match(source,/vectorShotFromNose\(nose,player\.pitch,780,lane,activeAim,shipMotion\)/);
+  assert.match(source,/vectorShotFromNose\(nose,player\.pitch,345,lane,activeAim,shipMotion\)/);
+  assert.match(source,/projectileOriginAtNose\(shot,ships\.laser,beam,shot\.angle\)/);
+  assert.match(source,/projectileOriginAtNose\(shot,ships\.missile,shape,shot\.angle\)/);
+  assert.doesNotMatch(source,/shot\.x-beam\.width\*\.5/);
 });
