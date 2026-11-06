@@ -278,3 +278,14 @@
 - [x] Release GitHub **finale**, non marquée préversion : `v0.5.3` — https://github.com/greenpower2669/H-rush/releases/tag/v0.5.3 ; APK autonome direct https://github.com/greenpower2669/H-rush/releases/download/v0.5.3/HRush-Omega-v0.5.3-atmosphere-translation-debug.apk ; **13 979 807 octets**, SHA-256 `f1065958d3603e637bffa50145ca4f725c25de92acae8023fa0e2d8ad8625825`.
 - [ ] La Release stable de GitHub contient une **APK Debug** et ne possède pas encore de signature de distribution permanente. Exporter l'univers JSON avant une réinstallation si Android refuse une mise à jour en place.
 - [ ] QA sur Samsung : FPS, transitions atmosphériques, animation, rendu des effets, calibration des commandes ; aucun test physique encore confirmé.
+
+## H-RUSH OMEGA 0.5.4 — ordre de correction intégral (6 novembre 2026)
+- [x] Atmosphère de même taille visible après disparition de la terre ; brouillard cohérent après sol/grotte, extinction avant région suivante.
+- [x] Diviser les bonus : 24 s au moins entre apparitions, un seul simultané, chance de base 9,5%, suppression des fragments généreux et du bouclier imposé tous les 11 kills.
+- [x] Cacher le portail warp dans une alcôve de roche, près du vrai sol et derrière les tuiles opaques, tout en gardant un accès collision AND.
+- [x] Réapparaître après le warp en phase spatiale de la région suivante, sauvegarder la distance et les cicatrices, nettoyer l'ancienne rencontre.
+- [x] Les colonnes arrivent entièrement hors écran ; les colonnes et barrières oscillantes passent derrière le relief solide.
+- [x] Écrire des tests de géométrie, plafond de bonus, warp, couches et progression de difficulté.
+- [ ] CI complète : Node, reconstruction byte-à-byte standalone, signature APK, version 0.5.4/code 54, SHA-256 et Release directe.
+- [ ] QA Samsung : mesurer fluidité et apparition réelle des portails/obstacles, voir l'atmosphère après le sol, fréquence des bonus, sortie warp sur plusieurs régions, compatibilité de l'installation.
+- [ ] Validation explicite de Fab requise avant fusion `main`. Aucune génération AAB avant commande spécifique.
