@@ -244,3 +244,13 @@
 - [ ] Contrôler sur Samsung : fluidité des pluies et splits, temps de transition portal, impossibilité de collision terrain pendant warp, qualité de l'animation et équilibre réel.
 - [ ] Tester endurance de 10 minutes, densité de projectiles et comportement des portails en présence de grandes barrières.
 - [ ] Valider installation par-dessus l'ancienne APK ; exporter JSON avant désinstallation car clé Debug CI susceptible de varier.
+
+## 2026-11-06 — OMEGA 0.5.1, sentinelles blindées et poussée près du sol
+- [x] Réserver les météores naturels à l'espace / sortie / bonus warp ; phases atmosphère/surface/intérieur : sentinelles robotiques résistantes à tirs dirigés, sans explosion de mine au contact.
+- [x] Modéliser un tangage progressif proportionnel au déplacement horizontal (avance nez bas, recul nez haut) et les trajectoires laser/missile alignées sur le nez.
+- [x] Tourner la forme visible du vaisseau et des tirs avec le masque AND issu des mêmes pixels, sans redimensionnement de masque théorique approximatif.
+- [x] Ajouter panaches de propulseurs et poussière stratifiée près du vrai relief, avec limite RAM/entités, aucune poussière en espace profond.
+- [ ] Vérifier 0.5.1 avec tests Node + reconstruction autonome byte-à-byte, Gradle, signature et APK GitHub direct.
+- [ ] QA Samsung : assiette et sensations tactiles / capteur, tirs bien dans le prolongement du nez, collisions de la silhouette réellement pivotée, qualité nuages dans les 40 environnements, performances de longue partie et perception des robots.
+- [ ] Vérifier si la taille des robots, leur cadence et absence de mine correspondent à l'intention exacte de Fab ; ajustement sur retour de partie.
+- [ ] Tester installation / sauvegarde JSON lors d'une mise à jour Android signée Debug avec certificat variable.

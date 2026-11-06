@@ -16,7 +16,7 @@ export function asteroidWeather(seed,region,seconds,phase){
   const cycle=Math.floor(t/28), within=t%28;
   const roll=keyedFloat(seed,region*65536+cycle,820);
   const active=t>17&&within>=5&&within<17&&roll>.12;
-  return {active,kind:(phase==='space'||phase==='exit')?'belt':'rain',cycle};
+  return {active,kind:(phase==='space'||phase==='exit')?'belt':'sentry',cycle};
 }
 /** Most asteroids are deliberately small; a few larger boulders add dramatic contrast. */
 export function asteroidSpec(seed,region,index,kind='rain'){
@@ -27,6 +27,11 @@ export function asteroidSpec(seed,region,index,kind='rain'){
   const vy=kind==='rain'?20+Math.round(c*55):0;
   const mass=Math.max(.35,size*size*size/30000);
   return {size,speed,vy,mass,seed:c,kind,depth:0};
+}
+/** Keep gravity weather robotic (no meteor shower), and the warp space rocks intact. */
+export function sentinelRock(profile,threat=0){
+  return {...profile,kind:'sentry',size:eventClamp(Math.round(profile.size),35,78),
+    speed:eventClamp(Math.round(profile.speed*.58),58,120),vy:0,depth:2,threat};
 }
 /** A vertical obstruction with a generous reachable clearance around the pilot. */
 export function obstructionColumn(seed,region,index,clearY=270){

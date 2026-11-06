@@ -22,7 +22,7 @@ test('asteroid weather begins after early tutorial and only inside bounded windo
   assert.equal(asteroidWeather(SEED,0,10,'space').active,false);
   assert.equal(asteroidWeather(SEED,0,2,'surface').active,false);
   assert.equal(asteroidWeather(SEED,0,6,'space').kind,'belt');
-  assert.equal(asteroidWeather(SEED,0,34,'surface').kind,'rain');
+  assert.equal(asteroidWeather(SEED,0,34,'surface').kind,'sentry');
 });
 test('asteroids are varied, mostly small and have finite hp-sized geometry',()=>{
   const sizes=Array.from({length:90},(_,i)=>asteroidSpec(SEED,0,i,'rain').size);

@@ -56,3 +56,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 ## OMEGA 0.5.0 — météo, événements, portails
 - `src/omega-events.js` : portails cachés, pluie/belts de roches, formation colonnes avec ouverture, fragments limités, déplacement inertiel/gravité/traînée ; `tests/omega-events-050.test.js` : oracles déterministes.
 - `src/game.js` : sprites d'astéroïdes originaux à masque pixel, séquence warp 16s, retour de parcours, formations, projectiles variés, cap de charge ; `src/ecology.js` : mouvements/armes supplémentaires.
+
+## OMEGA 0.5.1 — pilotage hélicoptère et sentinelles
+- `src/hover-flight.js` : loi bornée du tangage, trajectoires laser/missile depuis nez, altitude/effets de poussée, caractéristiques et poursuite des sentinelles ; `tests/hover-flight-051.test.js` vérifie directions, absence de pluie gravitationnelle et masque alpha cohérent.
+- `src/game.js` : cache de sprites réellement pivotés et collision AND synchronisée, direction de tir, panaches/dust capés, ennemis robotiques résistants sans mort au contact. `src/omega-events.js` : météo planète = sentinelles, météo espace = météores.
