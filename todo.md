@@ -129,3 +129,39 @@
 - [ ] Validation CI GitHub : source téléchargeable, empreintes valides, APK avec quatre pistes
 - [ ] Tester sur Samsung la lecture, transition, pause/reprise, écran éteint et bouton Muet
 - [ ] Ajouter d'autres pistes et jingles CC0 après écoute et vérification audio
+
+## 2026-11-06 — OMEGA 0.4.3 · vies moins punitives
+- [x] Collision avec paroi : retirer un cœur, jamais cinq en une seule collision
+- [x] Quatre PV par cœur ; plusieurs dégâts légers sont nécessaires pour perdre un cœur
+- [x] Bouclier absorbant les impacts légers, bonus de soin réparant un cœur et sa jauge
+- [x] Protection temporisée (paroi 1,65 s, combat 0,9 s), petit recul pour aider à se dégager
+- [x] Cœurs et PV visibles dans HUD et jauge sous vaisseau
+- [x] Tests de règles de vie + non-régression : 38/38 localement
+- [ ] Vérifier compilation APK, signature, SHA-256 et inclusion des 4 musiques en GitHub Actions
+- [ ] Mesurer sur Samsung le risque de multi-collision lors d'une fermeture rapide de paroi ; ajuster les durées selon retour utilisateur
+- [ ] Pas d'AAB tant que Fab ne demande pas une publication Google Play
+
+## OMEGA 0.4.3 — cœurs, boss, spawn et densité du décor
+- [x] Cinq cœurs avec quatre PV par cœur ; perte d'un cœur par choc dans les murs avec délai de protection
+- [x] Éviter le spawn des ennemis/boss dans le relief, vérifier un corridor d'approche par `A & B`
+- [x] Déplacement des ennemis/boss contrôlé en sous-pas contre murs fixes et mobiles, résolution des enfermements
+- [x] Boss pouvant creuser réellement des brèches ; ennemis ordinaires bloqués réagissant et pouvant s'écraser
+- [x] Onze obstacles mobiles par région au lieu de trois, formes et matériaux variés, parties saillantes dans les vrais couloirs
+- [x] Préserver IDs et cicatrices des trois obstacles historiques, ajouter de nouveaux IDs non conflictuels
+- [x] Tests locaux 45/45, gameplay initialisé sans erreur JS ; test visuel de galerie avec obstacles
+- [ ] Vérifier sur Samsung vitesse, difficulté, fréquence des spawns et blocages à long terme (5 000+ unités monde)
+- [ ] Ajuster les hauteurs de barrières et la chance de réapparition de boss selon l'équilibrage réel
+- [ ] Signature de production stable : conserver export/import de l'univers entre versions de test
+- [ ] Vérifier la nouvelle compilation GitHub Actions et le fichier APK de la Release
+- [ ] Maintenir génération AAB désactivée jusqu'à demande explicite
+
+## OMEGA 0.4.4 — inclination, bonus et véritable branding
+- [x] Lire `assets/branding/manifest.json` et utiliser le PNG 1024 natif + splash paysage 16:9 et portrait 9:16 déjà présents.
+- [x] Écran d'accueil JOUER sans HUD incrusté dans l'image, calibrage du point neutre au démarrage.
+- [x] Contrôle de gravité Android sans permission et sans réseau, filtre, zone morte, plage de sensibilité et inversions X/Y, sauvegarde locale, tactile prioritaire.
+- [x] Cinq types de bonus × quatre formes = vingt sprites réellement distincts, masques AND depuis leurs pixels alpha.
+- [x] Nouveaux tests unitaires du capteur et des bonus ; CI vérifie les ressources embarquées.
+- [ ] Valider sur Samsung (sens de l'inclinaison pour les deux orientations paysage, temps de réaction, stabilité du point neutre, tactile et animation bonus).
+- [ ] Ajuster l'équilibrage/sensibilité selon retour de jeu ; mesurer FPS et consommation capteur.
+- [ ] Signature Android stable : conserver les identités de debug indépendantes jusqu'à publication.
+- [ ] Hall mondial et enrichissement des planches : missions futures, hors OMEGA 0.4.4.

@@ -75,3 +75,21 @@
 - Origines CC0 : drakzlin/OpenGameArt (Action_A, Battle, Horror) et Centurion_of_war/OpenGameArt (Space Echo).
 - Le build GitHub récupère les sources publiques et vérifie quatre SHA-256 avant de les intégrer à l'APK, sans accès aux Releases privées.
 - Les tests Node vérifient la logique de scène, fondu, pause et muet ; test Android physique reste à faire.
+
+## 2026-11-06 — OMEGA 0.4.3 · corrections de santé, avant CI
+- Source de la correction : l'ancienne collision avec la paroi affectait directement `player.hp=0`, déclenchant un one-shot involontaire.
+- Nouvelle abstraction `src/health.js` : 5 cœurs de 4 PV ; paroi retire un cœur, petit impact retire un PV, débordement d'un cœur au quatrième coup ; guérison restaure un cœur + PV.
+- Collision paroi : invulnérabilité 1,65 s, recul de 72 pixels logiques, FX et son maintenus ; aucune modification au noyau `A & B`.
+- Validation locale : `npm test` 38/38, `npm run build:standalone` réussi. Restent test Android réel, CI, APK signé.
+
+## OMEGA 0.4.3 — examen des obstacles et collisions
+- Anomalie observée : `spawnEnemy` choisissait un Y au hasard et `update` déplaçait directement les ennemis ; aucune collision du décor n'était testée. Le boss pouvait traverser une roche opaque.
+- Correction : `safeEnemySpawn` teste plusieurs lignes et une courte approche ; `advanceEnemyOnTerrain` avance par pas de 7 unités au maximum et vérifie `terrain.collideEntity` (AND 2D), puis tente glissement/évacuation.
+- Anomalie visuelle : les nouveaux piliers étaient initialement ancrés aux bords de l'écran et restaient cachés dans les zones rocheuses d'une caverne ; correction par `terrainBounds(seed, worldX)`.
+- La région contient désormais 11 obstacles au lieu de 3, avec conservation des trois IDs historiques et insertion de 8 IDs additionnels compatibles sauvegarde.
+- Tests Node : 45/45, incluant 7 nouveaux tests de navigation, un oracle `A & B` et `AND NOT`, les 5 cœurs/PV et l'absence de régression.
+- Test Chromium par rendu HTML autonome : page initialisée sans erreur JavaScript, rendu du passage souterrain bloqué visible. Le véritable essai Android et des scénarios de 10 000 m restent à faire.
+- Attention GitHub Actions : le script Android 0.4.3 avait une erreur d'indentation Python dans la vérification de paquet ; corrigée avant publication.
+
+## OMEGA 0.4.4 — test ciblé en préparation
+Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, zone morte, calibration, persistance des préférences, TTL capteur, variantes de bonus. Les images d'accueil et l'icône native doivent être vérifiées directement dans l'APK par GitHub Actions. La réponse sensorielle en conditions réelles reste à tester sur téléphone.

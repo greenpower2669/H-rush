@@ -23,3 +23,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 
 - `src/obstacle-navigation.js` : placement, déplacement contrôlé, gestion des collisions avec le relief via le moteur `A & B`.
 - `src/health.js` : règles séparées de cœurs/PV et seuils de dégâts.
+
+- `src/tilt.js` : pilote capteur gravité Android, calibration, filtrage, sensibilité, priorité du tactile.
+- `src/bonuses.js` : silhouettes des 20 bonus, masque AND calculé depuis l'alpha de chaque dessin.
+- `assets/branding/` : iconographie officielle, écran d'accueil 16:9/9:16 ; ressources à empaqueter par GitHub Actions.

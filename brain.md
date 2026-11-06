@@ -40,3 +40,18 @@ Invariants :
 
 ## Musique (OMEGA 0.4.2)
 Musique d'ambiance depuis le catalogue CC0 de Djipie, **pistes originales téléchargées chez les auteurs et SHA-256 strictement vérifié à la compilation**. Soundtrack hors réseau dans l'APK. Transitions déterministes : espace -> Space Echo, atmosphère/surface -> Action_A, intérieur -> Horror, boss/danger -> Battle. Ne pas copier de musiques de licence inconnue ni de fichiers privés Sonniss. Pas d'AAB.
+
+## Règle de résistance OMEGA 0.4.3
+Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec recul et invulnérabilité de 1,65 s ; les tirs ennemis retirent un PV, quatre petits dégâts retirent un cœur, invulnérabilité 0,9 s. Boucliers conservent leur rôle pour les petits impacts. Le module `src/health.js` est pur et testé ; les masques AND restent la seule preuve de contact en jeu.
+
+## OMEGA 0.4.3 — obstacle et navigation physique
+24. Tout spawn d'ennemi et de boss vérifie le masque AND du terrain au point de départ ET sur le couloir d'approche, sans apparition interne aux murs.
+25. Tout déplacement d'ennemi utilise des sous-pas spatiaux et le même moteur AND ; une paroi oscillante ne peut pas laisser un sprite encastré. Les boss peuvent creuser réellement, les autres réagissent aux obstacles.
+26. Les obstacles existants types 0–2 conservent leur ID (`region*3+type`) ; types 3–10 reçoivent des IDs hors de l'espace historique. Leur hauteur suit les limites locales de la caverne, pas les bords de l'écran.
+27. Le système coque possède 5 cœurs et 4 PV par cœur. Un mur coûte un cœur ; un petit impact coûte un PV. Invulnérabilité temporaire contre pertes multiples.
+
+## OMEGA 0.4.4 — commandes, bonus et branding
+- Pilotage gravité Android natif TYPE_GRAVITY (accéléromètre en secours), projection suivant l'orientation de l'écran, filtrage et calibrage neutre, zone morte, sensibilité 40–180 %, inversions X/Y. Pendant un contact tactile, le doigt reste prioritaire ; sans capteur la conduite tactile/clavier fonctionne sans dégradation.
+- Les 20 variantes de bonus (cinq catégories × quatre silhouettes) sont dessinées sur Canvas et les masques `A & B` sont calculés depuis leurs pixels alpha ; éviter toute géométrie visible non synchronisée avec les collisions.
+- Branding 16:9 / 9:16 et icône proviennent uniquement de `assets/branding` déjà validés par Fab ; pas de substitution générique. L'accueil attend JOUER et calibre le capteur ; aucune simulation perdue au lancement.
+- Livraison : uniquement APK, sans AAB ; CI vérifie l'icône native, le splash embarqué et les quatre musiques.

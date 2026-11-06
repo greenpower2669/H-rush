@@ -4,6 +4,8 @@ import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
 import { initialHealth, applyHealthDamage, restoreHeart, PV_PER_HEART } from './health.js';
 import { touchTarget } from './input.js';
+import { TiltController, screenGravity } from './tilt.js';
+import { createBonusSprites, BONUS_TYPES, bonusVariant } from './bonuses.js';
 import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
 import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
@@ -18,6 +20,9 @@ const music = createMusicEngine();
 const grid = new SpatialGrid(112);
 const storage = (() => {try {return globalThis.localStorage;} catch {return null;}})();
 const universe = new OmegaUniverse(storage);
+const tilt = new TiltController(storage);
+const bonusSprites = createBonusSprites();
+let bonusSerial = 0, welcoming = true;
 const terrain = new OmegaTerrain(universe);
 let artFrames = null;
 let bursts = [];
@@ -150,13 +155,14 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();
+  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
+  if(welcoming)paused=true;
   updateHud();
 }
 function updateHud() {
@@ -288,10 +294,14 @@ function launchMissile() {
   player.ammo--; updateHud();
   for(let i=0;i<player.missileLevel;i++) missiles.push({kind:'missile',sprite:ships.missile,x:player.x+58,y:player.y+18+i*10-5,vx:345,vy:(i-(player.missileLevel-1)/2)*75,age:0});
 }
+function spawnBonus(type,x,y,vx=-90) {
+  const choice=BONUS_TYPES.includes(type)?type:'shield';
+  const variant=bonusVariant(universe.seed,stageAt(terrain.scroll).region,bonusSerial++,choice);
+  powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
+}
 function dropBonus(enemy) {
-  const kinds=['laser','missile','heal','shield','protection'];
-  const type=kinds[Math.floor(Math.random()*kinds.length)];
-  powerups.push({type,sprite:ships.shield,x:enemy.x,y:enemy.y,vx:-90,hp:1});
+  const type=BONUS_TYPES[Math.floor(Math.random()*BONUS_TYPES.length)];
+  spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
   const burst=enemy.species?.weapon==='burst'?3:1;
@@ -333,7 +343,7 @@ function hitEnemy(enemy,r) {
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss') { bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3); }
-    else if(kills%11===0) powerups.push({sprite:ships.shield,x:enemy.x,y:enemy.y,vx:-85});
+    else if(kills%11===0) spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
   } else if(enemy.kind==='boss') {
@@ -362,8 +372,7 @@ function advanceProjectile(b, dt, targets, friendly) {
             reward(Math.max(1, Math.round(removed / 25)));
             if (universe.scarCount % 13 === 0) {
               const kinds=['laser','missile','heal','shield','protection'];
-              powerups.push({type:kinds[Math.floor(Math.random()*kinds.length)],sprite:ships.shield,
-                x:point.screenX, y:point.y, vx:-72, hp:1});
+              spawnBonus(kinds[Math.floor(Math.random()*kinds.length)],point.screenX,point.y,-72);
             }
           }
           particlesAt(point.screenX, point.y, 'motor', b.kind === 'missile' ? 31 : 12);
@@ -409,6 +418,7 @@ function update(dt) {
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
+  const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
@@ -416,12 +426,14 @@ function update(dt) {
     player.x+=(target.x-player.x)*Math.min(1,dt*16);
     player.y+=(target.y-player.y)*Math.min(1,dt*16);
   } else {
-    const diagonal=Math.hypot(dx,dy)||1;
-    player.x=clamp(player.x+dx/diagonal*325*dt,10,W-player.sprite.width-15);
-    player.y=clamp(player.y+dy/diagonal*325*dt,35,H-player.sprite.height-15);
+    // Touch priority, keyboard and native gravity calibrated in screen coordinates.
+    const mx=clamp(dx+tiltMove.x,-1,1),my=clamp(dy+tiltMove.y,-1,1);
+    const diagonal=Math.max(1,Math.hypot(mx,my));
+    player.x=clamp(player.x+mx/diagonal*325*dt,10,W-player.sprite.width-15);
+    player.y=clamp(player.y+my/diagonal*325*dt,35,H-player.sprite.height-15);
   }
   fireClock-=dt;
-  if((keys.has(' ')||dragging) && fireClock<=0){firePlayer();fireClock=.16;}
+  if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
@@ -540,8 +552,10 @@ function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
   terrain.draw(ctx, W);
-  for(const item of powerups){drawEntity(item);ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffffff';
-    ctx.fillText(({laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+'})[item.type]||'+',item.x+16,item.y+21);}
+  for(const item of powerups){
+    // 20 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
+    drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
+  }
   for(const rocket of missiles)drawEntity(rocket);
   for(const enemy of enemies)drawEntity(enemy);
   for(const bullet of bullets)drawEntity(bullet);
@@ -587,6 +601,35 @@ function frame(now){
   render();
   requestAnimationFrame(frame);
 }
+function updateTiltUi() {
+  const active=tilt.getVector();
+  $('#tiltToggle').textContent=tilt.enabled?'🎮 Inclinaison':'✋ Tactile';
+  $('#tiltToggle').setAttribute('aria-pressed',String(tilt.enabled));
+  $('#tiltStatus').textContent=active.available?(tilt.enabled?'Capteur actif · calibrage disponible':'Capteur détecté · tactile actif'):'Capteur indisponible : pilotage tactile / clavier';
+  $('#tiltSensitivity').value=String(Math.round(tilt.sensitivity*100));
+  $('#tiltInvertX').checked=tilt.invertX;
+  $('#tiltInvertY').checked=tilt.invertY;
+}
+window.addEventListener('ashrush:gravity',event=>{
+  const d=event.detail||{};
+  tilt.accept(d.x,d.y,d.rotation);
+  if(Math.random()<.05)updateTiltUi();
+});
+$('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
+$('#tiltCalibrate').addEventListener('click',()=>{
+  const ok=tilt.calibrate();updateTiltUi();
+  $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
+});
+$('#tiltSensitivity').addEventListener('input',e=>{
+  tilt.setSensitivity(Number(e.target.value)/100);updateTiltUi();
+});
+$('#tiltInvertX').addEventListener('change',e=>tilt.setInversion(e.target.checked,tilt.invertY));
+$('#tiltInvertY').addEventListener('change',e=>tilt.setInversion(tilt.invertX,e.target.checked));
+$('#welcomeStart').addEventListener('click',()=>{
+  welcoming=false;$('#welcomeScreen').hidden=true;paused=false;
+  tilt.calibrate();updateTiltUi();sound.unlock();music.unlock();
+  $('#pause').textContent='⏸ Pause';
+});
 function pointFromEvent(e){
   const r=canvas.getBoundingClientRect();
   return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
@@ -631,4 +674,4 @@ $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
-reset();loadGameArt().then(useArt);requestAnimationFrame(frame);
+reset();updateTiltUi();loadGameArt().then(useArt);requestAnimationFrame(frame);

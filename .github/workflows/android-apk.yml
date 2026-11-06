@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'assets/sprites/**'
+      - 'assets/branding/**'
       - 'assets/audio/**'
       - 'tools/**'
       - 'package.json'
@@ -67,6 +68,9 @@ jobs:
           assert 'function gateY' in html
           assert 'function finishRun' in html
           assert 'function applyHealthDamage' in html
+          assert 'class TiltController' in html
+          assert 'function createBonusSprites' in html
+          assert 'id="welcomeScreen"' in html and 'id="tiltToggle"' in html
           assert 'function safeEnemySpawn' in html
           assert 'function insertHallEntry' in html
           assert 'id="endReplay"' in html
@@ -82,15 +86,24 @@ jobs:
           test -s assets/music/djipie/battle.mp3
           test -s assets/music/djipie/action_a.mp3
           test -s assets/music/djipie/horror.mp3
-      - name: Embarquer jeu, atlas réellement découpé et WAV SpaceFortress
+      - name: Embarquer jeu, planches, identité H-RUSH et musiques
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites,music/djipie}
+          mkdir -p android-app/app/src/main/assets/assets/{audio/spacefortress,sprites,music/djipie,branding}
+          mkdir -p android-app/app/src/main/res/drawable-nodpi
+          # Native Android adaptive icon uses the existing 1024px branding, not a placeholder.
+          cp assets/branding/h-rush-icon-1024.png android-app/app/src/main/res/drawable-nodpi/ic_hrush_launcher.png
+          cp assets/branding/h-rush-splash-16x9.webp android-app/app/src/main/assets/assets/branding/
+          cp assets/branding/h-rush-splash-9x16.webp android-app/app/src/main/assets/assets/branding/
+          cp assets/branding/h-rush-icon-original.png android-app/app/src/main/assets/assets/branding/
+          cp assets/branding/h-rush-icon-1024.png android-app/app/src/main/assets/assets/branding/
           cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
           cp assets/sprites/atlas.png android-app/app/src/main/assets/assets/sprites/atlas.png
           cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
           cp assets/music/djipie/* android-app/app/src/main/assets/assets/music/djipie/
+          test -s android-app/app/src/main/res/drawable-nodpi/ic_hrush_launcher.png
+          test -s android-app/app/src/main/assets/assets/branding/h-rush-splash-16x9.webp
           test -s android-app/app/src/main/assets/assets/sprites/atlas.png
           test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
       - name: Compiler APK de test uniquement
@@ -100,25 +113,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.3-terrain-debug.apk
+          APK=AshRush-Omega-v0.4.4-tilt-branding-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegahearts' versionCode='43' versionName='0.4.3'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegatilt' versionCode='44' versionName='0.4.4'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/assets/branding/h-rush-splash-16x9.webp' /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/assets/branding/h-rush-splash-9x16.webp' /tmp/ashrush-omega-entries.txt
+          grep -Fx 'assets/assets/branding/h-rush-icon-original.png' /tmp/ashrush-omega-entries.txt
+          grep -E '^res/.+ic_hrush_launcher' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-omega-entries.txt
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.3-terrain-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.4-tilt-branding-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
             assert b'function finishRun' in html and b'id="gameOverPanel"' in html
             assert b'function adaptSpecies' in html and b'function insertHallEntry' in html
             assert b'function sceneMusic' in html and b'function createMusicEngine' in html
+            assert b'class TiltController' in html and b'function createBonusSprites' in html
+            assert b'id="welcomeStart"' in html and b'id="tiltCalibrate"' in html
+            assert len(apk.read('assets/assets/branding/h-rush-splash-16x9.webp')) > 200000
+            assert len(apk.read('assets/assets/branding/h-rush-icon-1024.png')) > 1000000
             assert b'function applyHealthDamage' in html and b'PV_PER_HEART = 4' in html
             assert b'function safeEnemySpawn' in html and b'function advanceEnemyOnTerrain' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
@@ -133,14 +154,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.3-terrain-preview
-          APK=AshRush-Omega-v0.4.3-terrain-debug.apk
+          TAG=v0.4.4-tilt-branding-preview
+          APK=AshRush-Omega-v0.4.4-tilt-branding-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.3 - cœurs, PV et obstacles denses" \
-              --notes "OMEGA 0.4.3 : onze obstacles mobiles par région, placement et trajectoires des ennemis et boss confirmés par AND; les bosses creusent le terrain au besoin; collision paroi = un cœur, 4 PV par cœur contre les petits tirs, 1.65 s invulnérabilité et recul, HUD cœurs et jauge de PV, bonus de soin adaptés. Quatre musiques CC0 Djipie, contrôlées SHA-256 et transitions selon les scènes. Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegahearts indépendant des anciennes installations pour éviter conflit de signature. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
+              --title "Ash Rush OMEGA 0.4.4 - inclinaison, bonus et branding 16:9" \
+              --notes "OMEGA 0.4.4 : pilotage par capteur de gravité Android natif et projection paysage, filtrage, calibrage neutre, zone morte, sensibilité et inversion, tactile/keyboard toujours prioritaires. 20 bonus visuellement distincts (5 types x 4 formes) dont les vrais masques de collision dérivent de l'alpha affiché. Accueil 16:9 et icône native extraits des assets/branding de Fab, assets embarqués hors ligne. Cœurs/PV, 11 obstacles mobiles, ennemis et boss soumis au relief AND, 4 musiques CC0 Djipie et sons SpaceFortress, Hall of Fame et univers personnel persistant. APK debug test indépendant, pas de AAB. Configurations et performances du capteur à valider sur Samsung." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

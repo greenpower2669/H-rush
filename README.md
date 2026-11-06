@@ -1,3 +1,12 @@
+## OMEGA 0.4.3 — cinq cœurs et PV par cœur (correction de jouabilité)
+
+- **5 cœurs**, chaque cœur dispose de **4 PV** (affichés en haut et sous le vaisseau).
+- **Collision avec une paroi** = perte d'**un seul cœur**, quel que soit le nombre de PV restant dans ce cœur. Le dernier cœur perdu déclenche GAME OVER.
+- **Petit tir ou collision avec un ennemi** = perte de **1 PV** ; quand les quatre PV du cœur sont consommés, un cœur disparaît et le prochain commence avec 4 PV. Les boucliers absorbent ces petits dégâts comme auparavant.
+- Après un choc contre une paroi : recul horizontal et **1,65 seconde de protection** contre une nouvelle collision ; après un petit impact, **0,9 seconde**. Les dégâts continuent d'être confirmés par le masque binaire `A & B`.
+- Bonus cœur : rend un cœur (jusqu'à 5) et remplit les PV du cœur actif.
+- Les musiques CC0 Djipie, les graphismes, les galeries creusées, le Hall of Fame et la sauvegarde sont conservés. **APK de test uniquement, aucun AAB**.
+
 # 🚀 Ash Rush — XY Collision Lab
 
 **Prototype 0.3.0** · Jeu de tir spatial 2D jouable et laboratoire de collisions binaires.
@@ -115,3 +124,18 @@ Quatre morceaux CC0 (OpenGameArt, indexés et contrôlés dans Djipie) intégré
 - `Horror.mp3` — drakzlin, cavernes et galeries
 - `Battle.mp3` — drakzlin, boss et situations dangereuses
 Licences CC0 : https://opengameart.org/content/space-echo et https://opengameart.org/content/music-loops-0. Leurs noms dans le moteur sont `space_echo.ogg`, `action_a.mp3`, `horror.mp3`, `battle.mp3`. Fondu entre scènes, volume et muet coordonnés aux commandes du jeu ; lecture débutant après un geste de l'utilisateur. Les fichiers ne sont pas intégrés à l'historique Git : les packs sont embarqués pendant GitHub Actions. Les téléchargements HTML seuls n'incluent pas les musiques binaires ; l'APK les inclut.
+
+## OMEGA 0.4.3 — Cœurs et obstacles réellement physiques
+
+- **5 cœurs, 4 PV par cœur** : petits tirs ennemis = 1 PV ; collision avec la paroi = 1 cœur, avec 1,65 s de protection et recul ; soins rechargeant un cœur et les PV actifs.
+- **11 obstacles mobiles déterministes par région** (3 existants + 8 nouveaux) : métal, cristal, roche, éléments attachés au relief local des planètes et cavernes. Ils restent réellement dans le couloir, et tous les impacts restent synchronisés aux masques et sauvegardes.
+- **Apparition contrôlée** : un ennemi ou un boss apparaît uniquement si un court couloir libre est confirmé par la collision binaire `A & B`. Lorsqu'une paroi bouche ce couloir, l'apparition est différée.
+- **Déplacement contrôlé en sous-pas** : les ennemis et les boss glissent, contournent ou s'arrêtent au contact du décor. Si un élément oscillant les englobe, ils sont dégagés sans laisser un sprite traverser les roches. Un ennemi bloqué peut s'écraser ; un boss creuse la paroi en frappant, créant des dégâts persistants réels.
+- Les trois premiers obstacles gardent leurs anciens IDs, pour préserver les brèches sauvegardées. Les huit suivants ont des identifiants distincts.
+- Tests automatisés : 45 succès locaux, puis validation GitHub Android requise. Tests navigateur hors réseau : démarrage sans erreur JS, aperçu du couloir densifié.
+- APK autonome uniquement, **aucune génération d'AAB**. Version de test installée parallèlement (`fr.fab.ashrush.omegahearts`) jusqu'à adoption d'une signature stable.
+
+## OMEGA 0.4.4 — pilotage à l'inclinaison et identité H-RUSH
+L'APK Android lit la gravité via les capteurs natifs, calibre la position neutre au lancement de JOUER, puis pilote le vaisseau en paysage. Une **zone morte** et un filtre limitent les tremblements. Le bouton **🎮 Inclinaison / ✋ Tactile** commute le mode ; dans **🌌 Univers**, régler la sensibilité, inverser X/Y ou cliquer **⌖ Calibrer**. Le doigt garde toujours la priorité et les flèches/clavier restent utilisables. Si aucun capteur n'est détecté, les commandes tactiles/clavier restent opérationnelles. Le tir est automatique quand l'inclinaison est active ; missiles au bouton ou au deuxième doigt.
+
+Les bonus ont cinq fonctions (tir, missile, cœur, bouclier, protection) et **quatre formes animables par fonction** : diamant, hexagone, étoile et orbite ; leurs pixels visibles génèrent leurs masques binaires exacts. Le fond de l'écran d'accueil est `assets/branding/h-rush-splash-16x9.webp` en paysage (9:16 en portrait), et l'icône native utilise `assets/branding/h-rush-icon-1024.png`. Toutes ces ressources sont emballées dans l'APK ; aucune permission Internet. **Aucune génération AAB** jusqu'à décision future.

@@ -40,3 +40,6 @@ Concepteur : Fabrice Gourdant. Étendre Ash Rush à un univers 2D personnel gén
 - Ajouter des obstacles réellement saillants et bloquants dans les passages, avec diversité de matériaux, oscillations et destruction sauvegardée.
 - Préserver l'algorithme `A & B`, les musiques CC0 Djipie, les sons, le tactile paysage, l'univers personnel et le Hall of Fame.
 - Livrer uniquement un APK direct sur GitHub, jamais un AAB pour le moment.
+
+## Mission OMEGA 0.4.4 — autorisée par « Go »
+Implémenter le pilotage à l'inclinaison avec calibrage et secours tactile, diversifier les apparences des bonus, installer les véritables iconographies et splash écran 16:9 du répertoire `assets/branding`, sans modification de Djipie et sans AAB. Conserver moteur AND et les améliorations OMEGA 0.4.3, exécuter les tests et publier uniquement une APK autonome GitHub Release.

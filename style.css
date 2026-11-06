@@ -110,3 +110,20 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
   .end-content{gap:4px;} .end-screen h2{font-size:30px;} .end-screen small{display:none;}
   .end-actions button{padding:5px 12px;}
 }
+
+/* H-RUSH 0.4.4: actual 16:9 branding and responsive start without HUD inside the artwork. */
+.brand-mark{width:32px;height:32px;object-fit:contain;flex:none;filter:drop-shadow(0 0 7px #00dfff)}
+@media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.brand-mark{display:none}}
+.welcome-screen{position:absolute;inset:0;z-index:32;display:flex;align-items:flex-end;justify-content:center;
+ background:linear-gradient(0deg,#020414eb 0%,#02041455 31%,transparent 60%),url('assets/branding/h-rush-splash-16x9.webp') center center/cover no-repeat,#060a20}
+.welcome-controls{width:min(94%,660px);padding:8px 14px 16px;text-align:center;display:grid;justify-items:center;gap:6px}
+.welcome-controls p{color:#e8f4ff;font-size:clamp(10px,1.7vw,14px);line-height:1.25;max-width:550px;margin:2px 0 0;text-shadow:0 2px 5px #000}
+.welcome-caption{font-size:clamp(10px,1.7vw,15px);font-weight:750;letter-spacing:.1em;color:#b3efff;text-shadow:0 2px 6px #000}
+#welcomeStart{font-size:clamp(14px,2.1vw,21px);padding:8px 25px;min-width:140px;border-radius:99px;
+ background:linear-gradient(120deg,#155f96,#88245d);border:2px solid #a5f5ff;box-shadow:0 0 18px #5af7ffaa}
+@media(orientation:portrait){.welcome-screen{background-image:linear-gradient(0deg,#020414ef 0%,#02041433 50%,transparent 80%),url('assets/branding/h-rush-splash-9x16.webp')}}
+@media(orientation:landscape) and (max-height:360px){.welcome-controls{gap:2px;padding:3px 8px 5px}.welcome-controls p{font-size:10px}#welcomeStart{padding:4px 15px;font-size:14px}.welcome-caption{font-size:10px}}
+.tilt-settings{border:1px solid #427eb4;border-radius:10px;padding:9px;margin:8px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tilt-settings legend{color:#b6edff;font-weight:700;font-size:12px}
+.tilt-settings label{font-size:12px;display:inline-flex;align-items:center;gap:4px}
+#tiltSensitivity{width:96px;accent-color:#6eecff}#tiltStatus{width:100%;font-size:11px;color:#acf0d3}
