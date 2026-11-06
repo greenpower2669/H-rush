@@ -114,3 +114,11 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Vérification du halo sur le vaisseau et de la matte de relief couvrant les pieds des silhouettes ; variations de maisons, tours et montagnes selon le monde/colonne.
 - Limite connue : le changement de `REGION_SIZE` conserve les cicatrices/identifiants, mais peut déplacer des monuments et des barrières par rapport aux anciennes sauvegardes. Tests d'appareil et migration géométrique à approfondir.
 - Statut CI GitHub : à consigner uniquement après exécution réelle du workflow.
+
+## 2026-11-06 — OMEGA 0.4.8, corrections préparées sur branche isolée
+- Référence vérifiée : `main` HEAD `9bf5c0f`, Release `v0.4.7-immersion-preview` et APK ~13,97 Mo présents.
+- Défaut 0.4.7 : `paintScenery` dessinait les bâtiments dès le début de la phase atmosphérique et jusqu'à la fin de sortie, sans filtre continu d'altitude ; arrière-plans semblant flotter dans l'espace.
+- Correction 0.4.8 : enveloppes interpolées `surface/planet/atmosphere` via `PHASE_START`, étoiles conservées dans le ciel et monuments absents de l'espace profond, profondeur de parallaxe continue.
+- Problème d'équilibrage : cadence spawn liée principalement à `wave` et hasard ; désormais directeur borné et formations ancrées dans la graine, restauration des HP et colis inchangée.
+- Vérification de syntaxe de l'HTML autonome après concaténation : `new Function` a accepté le script complet ; collision de symbole `clamp` entre modules détectée puis évitée par renommage en `boundChallenge`.
+- Tests Node, APK, mesures Samsung, captures navigateur de toutes les phases et signature : résultats à consigner après essais ; ne pas les déclarer réussis d'avance.
