@@ -92,3 +92,11 @@ test('warp now resumes in space, and forced frequent shield drops are removed',(
   assert.match(html,/function bonusDropAllowed/);
   assert.match(html,/function atmosphereGlobePosition/);
 });
+
+test('baseline bonus chance stays at 9.5 percent under a uniform deterministic sweep',()=>{
+  const common={elapsed:1000,sinceLast:1000,active:0,kind:'scout',hearts:5};
+  let successes=0;
+  for(let i=0;i<1000;i++)
+    if(bonusDropAllowed({...common,roll:(i+.5)/1000}))successes++;
+  assert.equal(successes,95);
+});
