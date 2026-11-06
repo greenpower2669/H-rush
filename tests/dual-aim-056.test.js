@@ -34,7 +34,7 @@ test('a thumb close to a ground unit / jumping worm locks the real sprite center
 test('free-flying enemies accept corrections above, below and around their body',()=>{
   const e=foe('fighter',630,216);
   assert.equal(targetAnchor(e),'air');
-  for(const p of [{x:676,y:169},{x:673,y:316},{x:589,y:242}]){
+  for(const p of [{x:676,y:169},{x:673,y:316},{x:592,y:242}]){
     assert.equal(selectSecondFingerTarget(p,[e],130)?.enemy,e);
   }
   assert.equal(selectSecondFingerTarget({x:676,y:451},[e],130),null);
