@@ -278,3 +278,38 @@
 - [x] Release GitHub **finale**, non marquée préversion : `v0.5.3` — https://github.com/greenpower2669/H-rush/releases/tag/v0.5.3 ; APK autonome direct https://github.com/greenpower2669/H-rush/releases/download/v0.5.3/HRush-Omega-v0.5.3-atmosphere-translation-debug.apk ; **13 979 807 octets**, SHA-256 `f1065958d3603e637bffa50145ca4f725c25de92acae8023fa0e2d8ad8625825`.
 - [ ] La Release stable de GitHub contient une **APK Debug** et ne possède pas encore de signature de distribution permanente. Exporter l'univers JSON avant une réinstallation si Android refuse une mise à jour en place.
 - [ ] QA sur Samsung : FPS, transitions atmosphériques, animation, rendu des effets, calibration des commandes ; aucun test physique encore confirmé.
+
+## H-RUSH OMEGA 0.5.4 — ordre de correction intégral (6 novembre 2026)
+- [x] Atmosphère de même taille visible après disparition de la terre ; brouillard cohérent après sol/grotte, extinction avant région suivante.
+- [x] Diviser les bonus : 24 s au moins entre apparitions, un seul simultané, chance de base 9,5%, suppression des fragments généreux et du bouclier imposé tous les 11 kills.
+- [x] Cacher le portail warp dans une alcôve de roche, près du vrai sol et derrière les tuiles opaques, tout en gardant un accès collision AND.
+- [x] Réapparaître après le warp en phase spatiale de la région suivante, sauvegarder la distance et les cicatrices, nettoyer l'ancienne rencontre.
+- [x] Les colonnes arrivent entièrement hors écran ; les colonnes et barrières oscillantes passent derrière le relief solide.
+- [x] Écrire des tests de géométrie, plafond de bonus, warp, couches et progression de difficulté.
+- [x] GitHub Actions `42249472579` sur branche 0.5.4 : **116/116 tests**, HTML autonome identique, Gradle APK Debug, versionName 0.5.4/code 54, vérification signature v2, média CC0, publication de la préversion `v0.5.4-pacing-atmosphere-warp-preview`. Asset APK direct vérifié, **13 981 163 octets**, SHA-256 `4af9673ad70ba2fd97d7d6cbdb06046c6dc551496ff3d4630f9d30d160ed8bbd`.
+- [ ] QA Samsung : mesurer fluidité et apparition réelle des portails/obstacles, voir l'atmosphère après le sol, fréquence des bonus, sortie warp sur plusieurs régions, compatibilité de l'installation.
+- [ ] Validation explicite de Fab requise avant fusion `main`. Aucune génération AAB avant commande spécifique.
+
+## OMEGA 0.5.5 — cadres d'atlas, faune, véhicules, racines et boss (6 novembre 2026)
+- [x] Conserver les atlas réels, supprimer les rectangles de fond résiduel par `cleanFrameMatte` et fabriquer le masque AND depuis la même ImageData RGBA.
+- [x] Enrichir les ennemis à 52 rôles, 49 morphologies et 16 profils de boss avec deux états d'animation Canvas et les attaques changeantes selon la phase.
+- [x] Ajouter organismes de plafond (racines/tentacules/lianes), worms avec saut, tourelles/forteresses, blindés et véhicules terrestres, aéronefs et vaisseaux spatiaux.
+- [x] Sélection déterministe par graine/région/biome/phase et cache borné (140), sans toucher aux sauvegardes ni à la difficulté progressive.
+- [x] Tests dédiés aux mats alpha, 52 espèces, couverture des morphologies, variété des boss, animation/AND source ; 124/124 tests réussis sur GitHub Actions `42254515405`.
+- [x] Construire APK direct **OMEGA 0.5.5/code 55** signé Debug et prérelease GitHub ; **13 989 503 octets**, SHA-256 `1cded1715110967f6965eaceaa9b2069440b113a97281b56d0a057a96efc19b9`.
+- [ ] **QA Samsung matérielle indispensable :** confirmer disparition effective du cadre sur la frame de la capture, vérifier 49 silhouettes et 16 boss réellement reconnaissables, animations/root/warp, fluidité et RAM lors de longues sessions. Ajouter une capture comparative du sprite fautif si des fuites restent.
+- [ ] Mesurer les pics de cache Canvas et de copies de cicatrices en sessions d'endurance ; envisager cache de tailles adaptées et amélioration des modèles vectoriels par sprites HD une fois le gameplay validé.
+- [ ] Tester la signature Debug sur mise à jour ; sauvegarder l'univers JSON avant désinstallation.
+- [ ] Faire approuver explicitement une fusion de la PR #8 avant de changer `main` ; protéger la 0.5.3 stable et les Releases 0.5.4/0.5.5.
+
+## H-RUSH OMEGA 0.5.6 — deuxième doigt, tirs nez-vecteur et ajustement tactile (6 novembre 2026)
+- [x] Confirmer les ennemis suspendus et worms de 0.5.5 ; conserver leurs profils et modes d'apparition.
+- [x] Donner au deuxième doigt un verrou indépendant du premier avec missiles à la pose et guidage des lasers/missiles tant que le doigt reste appuyé ; retour au tir normal en relâchant.
+- [x] Permettre une pose **sous** racines/tentacules du plafond, **au-dessus** des worms/tourelles/sol ; correction ±54 px gauche/droite, ennemis volants ±64 px haut/bas.
+- [x] Recalculer la direction depuis le vrai nez incliné après chaque avance/recul ; suivre une cible mouvante, ne pas verrouiller les ennemis morts/hors champ, viser un pixel alpha encore opaque.
+- [x] Rotation sprite + masque AND des projectiles jusqu'à ±π, guidage progressif missile verrouillé, guide visuel non-collisionnel, captures tactiles propres (troisième doigt ignoré, blur/cancel).
+- [x] Guide tactile mis à jour, bundle standalone reconstruit identique aux sources.
+- [x] GitHub Actions `42265215991` **134/134 tests**, APK Debug autonome `0.5.6` / versionCode `56`, package/signature validés, Release préversion publiée et asset direct vérifié : **13 992 583 octets**, SHA-256 `909ff6c14f0815d5ef7435e66ae86b277711fef9e492fa2ab28abef2a238c048`.
+- [ ] QA Samsung : véritable multitouch en paysage, cas premier doigt pilotant + second doigt glissant, verrou sous racine/tentacule, au-dessus du worm sauteur, tir en arrière/avant, guidage missiles, troisième doigt et relâchements rapides, FPS.
+- [ ] Vérifier si changement de certificat Debug impose une réinstallation ; **exporter l'univers JSON avant désinstallation**, ne jamais le faire perdre.
+- [ ] Valider la 0.5.5 et 0.5.6 avant éventuelle fusion des PR #8/#9 vers `main`. Aucune fusion sans autorisation explicite ; aucun AAB.
