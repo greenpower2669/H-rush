@@ -18,6 +18,7 @@ import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
+import { resolveSecondFingerAim, vectorShotFromNose, steerSecondFingerShot } from './dual-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -179,6 +180,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let aimPointerId=null,aimPointer=null,activeAim=null,shipMotion={x:0,y:0};
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -202,7 +204,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;shipMotion={x:0,y:0};keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -256,7 +258,7 @@ function closeHall() {
 function finishRun(cause) {
   if(gameOver)return;
   gameOver=true;music.scene('space');
-  dragging=false;mainPointerId=null;keys.clear();
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;keys.clear();
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
@@ -527,13 +529,18 @@ function renderHoverPlume(){
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const width=(player.baseSprite||ships.player).width;
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
-    const beam=pitchSprite(ships.laser,a.angle);
-    bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
+    const shot=vectorShotFromNose(cx,cy,width,player.pitch,780,lane,activeAim,shipMotion);
+    const beam=pitchSprite(ships.laser,shot.angle);
+    bullets.push({kind:'laser',baseSprite:ships.laser,sprite:beam,
+      x:shot.x-beam.width*.5,y:shot.y-beam.height*.5,
+      vx:shot.vx,vy:shot.vy,guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
-  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+  const nose=aimFromNose(cx,cy,width,player.pitch,780);
   particlesAt(nose.x,nose.y,'shield',2,110);
   sound.play('laser');
 }
@@ -544,10 +551,14 @@ function launchMissile() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=vectorShotFromNose(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,345,lane,activeAim,shipMotion);
     const shape=pitchSprite(ships.missile,shot.angle);
-    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,
+      x:shot.x-shape.width*.5,y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
