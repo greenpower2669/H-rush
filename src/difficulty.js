@@ -43,3 +43,10 @@ export function formationOffset(plan,encounter) {
   const offsets=plan?.offsets||[0];
   return offsets[Math.abs(Math.floor(encounter))%offsets.length];
 }
+
+/** Boss escalates only after losing the corresponding share of its hull. */
+export function bossPhaseAt(hp,maxHp,phases=1) {
+  if(!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0)return 0;
+  const count=clamp(Math.floor(phases),1,4);
+  return clamp(Math.floor((1-clamp(hp/maxHp,0,1))*count),0,count-1);
+}
