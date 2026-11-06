@@ -286,6 +286,6 @@
 - [x] Réapparaître après le warp en phase spatiale de la région suivante, sauvegarder la distance et les cicatrices, nettoyer l'ancienne rencontre.
 - [x] Les colonnes arrivent entièrement hors écran ; les colonnes et barrières oscillantes passent derrière le relief solide.
 - [x] Écrire des tests de géométrie, plafond de bonus, warp, couches et progression de difficulté.
-- [ ] CI complète : Node, reconstruction byte-à-byte standalone, signature APK, version 0.5.4/code 54, SHA-256 et Release directe.
+- [x] GitHub Actions `42249472579` sur branche 0.5.4 : **116/116 tests**, HTML autonome identique, Gradle APK Debug, versionName 0.5.4/code 54, vérification signature v2, média CC0, publication de la préversion `v0.5.4-pacing-atmosphere-warp-preview`. Asset APK direct vérifié, **13 981 163 octets**, SHA-256 `4af9673ad70ba2fd97d7d6cbdb06046c6dc551496ff3d4630f9d30d160ed8bbd`.
 - [ ] QA Samsung : mesurer fluidité et apparition réelle des portails/obstacles, voir l'atmosphère après le sol, fréquence des bonus, sortie warp sur plusieurs régions, compatibilité de l'installation.
 - [ ] Validation explicite de Fab requise avant fusion `main`. Aucune génération AAB avant commande spécifique.
