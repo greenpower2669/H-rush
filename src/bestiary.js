@@ -141,7 +141,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
-function paintMorph(g,m,frame,phase){
+function paintMorph(g,m,frame,phase,poseAngle=0,gunAngle=0){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -150,7 +150,8 @@ function paintMorph(g,m,frame,phase){
   const lit=`hsl(${(hue+85)%360} 92% 68%)`;
   const dark=`hsl(${(hue+260)%360} 58% 17%)`;
   const metal=`hsl(${(hue+18)%360} 30% 72%)`;
-  g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
+  // Orientation transforms visible alpha AND its future mask together, including gun geometry.
+  g.save();g.translate(w/2,h/2);g.rotate(poseAngle);g.scale(w*.43,h*.40);
   g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
   const shape=m.shape;
   switch(shape){
@@ -199,8 +200,9 @@ function paintMorph(g,m,frame,phase){
       strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
       strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
       for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
-      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
-      else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
+      // Movable cannon is drawn below, rotating to match the ballistic firing arc.
+      if(shape==='tank')oval(g,-.10,-.39,.27,.20,hull);
+      else oval(g,-.10,-.39,.20,.16,hull);
       break;
     case 'walker':
       strokeShape(g,[[-.72,-.42],[-.2,-.72],[.58,-.55],[.88,-.2],[.62,.17],[-.67,.19]],hull);
@@ -280,6 +282,19 @@ function paintMorph(g,m,frame,phase){
       oval(g,.26,0,.29,.3,dark);oval(g,.34,0,.11,.16,lit);
       break;
   }
+  if(['tank','rover','turret','tower','fortress'].includes(shape)){
+    // Articulated barrel points toward the player above-left. No decorative-only
+    // turret: this barrel's endpoint is the actual ballistic shell muzzle.
+    const gun=bestiaryClamp(gunAngle,.13,1.19);
+    const originX=-.10,originY=-.39;
+    const tipX=originX-.71*Math.cos(gun),tipY=originY-.71*Math.sin(gun);
+    g.strokeStyle=dark;g.lineWidth=.21;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=.115;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    oval(g,originX,originY,.20,.19,hull);
+    oval(g,tipX,tipY,.075,.07,lit);
+  }
   if(m.boss){
     // Boss anatomy carries extra armored gun pods; the central silhouette remains
     // the profile's own shape, not an interchangeable old scout/manta template.
@@ -295,15 +310,18 @@ function paintMorph(g,m,frame,phase){
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-export function spriteForMorph(morph,frame=0,phase=0){
+export function spriteForMorph(morph,frame=0,phase=0,poseAngle=0,gunAngle=0){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
+  const tilt=Math.round(bestiaryClamp(poseAngle,-.22,.22)/.055)*.055;
+  const gun=Math.round(bestiaryClamp(gunAngle,.13,1.19)/.08)*.08;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)
+    +':'+tilt.toFixed(3)+':'+(gunAngle?gun.toFixed(3):'base');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  paintMorph(g,morph,frame,phase);
+  paintMorph(g,morph,frame,phase,tilt,gunAngle?gun:0);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
