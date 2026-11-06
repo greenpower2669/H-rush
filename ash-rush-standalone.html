@@ -169,14 +169,14 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     </header>
     <main>
       <div class="stage" id="stage">
-        <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : premier doigt déplace le vaisseau, deuxième doigt vise les ennemis"></canvas>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.6</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
             <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE TACTILE</div>
             <button id="welcomeStart" class="action-primary">🚀 JOUER</button>
-            <p>Pilotage tactile au départ. Choisis Inclinaison ou inverse X / Y dans 🌌 Univers pour adapter les commandes.</p>
+            <p>Premier doigt : déplacement. Deuxième doigt : visée, même sous un ennemi au plafond. Inclinaison et inversion X / Y dans 🌌 Univers.</p>
           </div>
         </section>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
@@ -193,7 +193,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : bouton ou touche M (le deuxième doigt sert à viser)">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
@@ -230,11 +230,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; le deuxième doigt maintenu désigne une cible, même juste en dessous d’une racine ou d’un tentacule suspendu, ou près d’un ver sauteur au sol. Les lasers partent du nez et corrigent légèrement leur trajectoire : marge gauche/droite pour le sol et le plafond, haut/bas pour les ennemis en vol. Le recul et l’avance affectent aussi les tirs. Pour lancer un missile : bouton 🚀, touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.6 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -1635,7 +1635,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
-function paintMorph(g,m,frame,phase){
+function paintMorph(g,m,frame,phase,poseAngle=0,gunAngle=0){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -1644,7 +1644,8 @@ function paintMorph(g,m,frame,phase){
   const lit=`hsl(${(hue+85)%360} 92% 68%)`;
   const dark=`hsl(${(hue+260)%360} 58% 17%)`;
   const metal=`hsl(${(hue+18)%360} 30% 72%)`;
-  g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
+  // Orientation transforms visible alpha AND its future mask together, including gun geometry.
+  g.save();g.translate(w/2,h/2);g.rotate(poseAngle);g.scale(w*.43,h*.40);
   g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
   const shape=m.shape;
   switch(shape){
@@ -1693,8 +1694,9 @@ function paintMorph(g,m,frame,phase){
       strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
       strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
       for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
-      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
-      else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
+      // Movable cannon is drawn below, rotating to match the ballistic firing arc.
+      if(shape==='tank')oval(g,-.10,-.39,.27,.20,hull);
+      else oval(g,-.10,-.39,.20,.16,hull);
       break;
     case 'walker':
       strokeShape(g,[[-.72,-.42],[-.2,-.72],[.58,-.55],[.88,-.2],[.62,.17],[-.67,.19]],hull);
@@ -1774,6 +1776,19 @@ function paintMorph(g,m,frame,phase){
       oval(g,.26,0,.29,.3,dark);oval(g,.34,0,.11,.16,lit);
       break;
   }
+  if(['tank','rover','turret','tower','fortress'].includes(shape)){
+    // Articulated barrel points toward the player above-left. No decorative-only
+    // turret: this barrel's endpoint is the actual ballistic shell muzzle.
+    const gun=bestiaryClamp(gunAngle,.13,1.19);
+    const originX=-.10,originY=-.39;
+    const tipX=originX-.71*Math.cos(gun),tipY=originY-.71*Math.sin(gun);
+    g.strokeStyle=dark;g.lineWidth=.21;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=.115;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    oval(g,originX,originY,.20,.19,hull);
+    oval(g,tipX,tipY,.075,.07,lit);
+  }
   if(m.boss){
     // Boss anatomy carries extra armored gun pods; the central silhouette remains
     // the profile's own shape, not an interchangeable old scout/manta template.
@@ -1789,15 +1804,18 @@ function paintMorph(g,m,frame,phase){
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-function spriteForMorph(morph,frame=0,phase=0){
+function spriteForMorph(morph,frame=0,phase=0,poseAngle=0,gunAngle=0){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
+  const tilt=Math.round(bestiaryClamp(poseAngle,-.22,.22)/.055)*.055;
+  const gun=Math.round(bestiaryClamp(gunAngle,.13,1.19)/.08)*.08;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)
+    +':'+tilt.toFixed(3)+':'+(gunAngle?gun.toFixed(3):'base');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  paintMorph(g,morph,frame,phase);
+  paintMorph(g,morph,frame,phase,tilt,gunAngle?gun:0);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
@@ -2595,6 +2613,280 @@ function sentinelSteer(enemyY,targetY,age,phase,dt){
   return hoverClamp(target,-73,73)*hoverClamp(dt,0,.05);
 }
 
+/** H-RUSH OMEGA 0.5.6 — two independent pointers: movement + nose vector guidance.
+ * All coordinates are the native 960x540 playfield; never change collision geometry.
+ */
+const aimClamp=(value,a,b)=>Math.max(a,Math.min(b,value));
+const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
+const SECOND_FINGER_TARGET_LIMIT=230;
+const SECOND_FINGER_TURN_GROUND=.28; // ±16° after the projectile left the nose
+const SECOND_FINGER_TURN_AIR=.36;    // ±21° vertical correction in free flight
+const SECOND_FINGER_MAX_ANGLE=1.22;  // No backward fire through the player's hull
+/** The rendered player's ACTUAL alpha mask determines the nose. We use the
+ * rightmost occupied pixel (preferring the centerline for its y coordinate),
+ * then rotate that source pixel around the same center used by pitchSprite().
+ * A guessed 43% of a rectangular sprite width is NOT a muzzle location.
+ */
+const nosePixelCache=new WeakMap();
+const tailPixelCache=new WeakMap();
+function extremeOpaquePixel(sprite,atNose){
+  if(!sprite?.mask)return {x:atNose?Math.max(0,(sprite?.width||90)-1):0,y:(sprite?.height||60)*.5};
+  const cache=atNose?nosePixelCache:tailPixelCache;
+  if(cache.has(sprite))return cache.get(sprite);
+  const {width:w,height:h,mask}=sprite,centerY=(h-1)*.5;
+  let pixel=null;
+  for(let x=atNose?w-1:0;atNose?x>=0:x<w;atNose?x--:x++){
+    let best=null,bestDistance=Infinity;
+    for(let y=0;y<h;y++){
+      if(!hasPixel(mask,x,y))continue;
+      const distance=Math.abs(y-centerY);
+      if(distance<bestDistance){best={x,y};bestDistance=distance;}
+    }
+    if(best){pixel=best;break;}
+  }
+  pixel??={x:atNose?w-1:0,y:centerY};
+  cache.set(sprite,pixel);
+  return pixel;
+}
+function rotatedPoint(localX,localY,angle){
+  // The same 0.05-radian quantization is used by pitchSprite()'s Canvas raster.
+  const a=Math.round(aimClamp(angle,-1.25,1.25)/.05)*.05;
+  return {x:localX*Math.cos(a)-localY*Math.sin(a),
+    y:localX*Math.sin(a)+localY*Math.cos(a)};
+}
+function noseWorldPoint(cx,cy,baseSprite,pitch=0){
+  const pixel=extremeOpaquePixel(baseSprite,true);
+  const offset=rotatedPoint(pixel.x+0.5-baseSprite.width*.5,
+    pixel.y+0.5-baseSprite.height*.5,pitch);
+  return {x:cx+offset.x,y:cy+offset.y};
+}
+/** Position an oriented projectile so its rearmost OPAQUE pixel — not its
+ * bounding box center — coincides with the nose. The vector begins there.
+ */
+function projectileOriginAtNose(nose,baseProjectile,rotatedProjectile,angle){
+  const tail=extremeOpaquePixel(baseProjectile,false);
+  const offset=rotatedPoint(tail.x+.5-baseProjectile.width*.5,
+    tail.y+.5-baseProjectile.height*.5,angle);
+  return {x:nose.x-rotatedProjectile.width*.5-offset.x,
+    y:nose.y-rotatedProjectile.height*.5-offset.y};
+}
+
+function targetAnchor(enemy){
+  const a=enemy?.morph?.anchor;
+  return a==='ceiling'||a==='ground'?a:'air';
+}
+/** A finger BELOW a hanging enemy is sufficient to lock it. The same generous
+ * vertical allowance works near ground units, where a finger is less precise.
+ * Airborne units use a near-circular proximity window for upper/lower aiming.
+ */
+function selectSecondFingerTarget(finger,enemies,noseX){
+  if(!finger||!Number.isFinite(finger.x)||!Number.isFinite(finger.y))return null;
+  let best=null,score=Infinity;
+  for(const enemy of enemies||[]){
+    if(!(enemy?.hp>0)||!enemy.sprite)continue;
+    const x=enemy.x+enemy.sprite.width*.5,y=enemy.y+enemy.sprite.height*.5;
+    if(!Number.isFinite(x)||!Number.isFinite(y)||x<=noseX+4||x>1020||x<0||y<0||y>540)continue;
+    const mode=targetAnchor(enemy),dx=finger.x-x,dy=finger.y-y;
+    const toleranceX=mode==='air'?Math.max(84,enemy.sprite.width*.53):Math.max(105,enemy.sprite.width*.7);
+    const allowed=mode==='ceiling'?(dy>=-35&&dy<=SECOND_FINGER_TARGET_LIMIT):
+      mode==='ground'?(dy>=-SECOND_FINGER_TARGET_LIMIT&&dy<=150):
+      Math.abs(dy)<=Math.max(94,enemy.sprite.height*.75);
+    if(!allowed||Math.abs(dx)>toleranceX)continue;
+    const normalizedX=dx/toleranceX;
+    const normalizedY=mode==='air'?dy/Math.max(94,enemy.sprite.height*.75):
+      mode==='ceiling'?Math.max(0,dy)/SECOND_FINGER_TARGET_LIMIT:
+      Math.abs(dy)/SECOND_FINGER_TARGET_LIMIT;
+    const candidate=normalizedX**2+normalizedY**2;
+    if(candidate<score){score=candidate;best={enemy,mode,x,y,locked:true};}
+  }
+  return best;
+}
+function resolveSecondFingerAim(finger,enemies,noseX){
+  if(!finger)return null;
+  const found=selectSecondFingerTarget(finger,enemies,noseX);
+  if(found)return found;
+  return {x:aimClamp(finite(finger.x),0,960),y:aimClamp(finite(finger.y),0,540),
+    enemy:null,mode:'air',locked:false};
+}
+function aimPoint(target,flightTime){
+  if(!target)return null;
+  const e=target.enemy;
+  if(e?.hp>0){
+    return {x:e.x+e.sprite.width*.5+aimClamp(finite(e.vx)*flightTime*.42,-43,43),
+      y:e.y+e.sprite.height*.5+aimClamp(finite(e.vy)*flightTime*.5,-30,30)};
+  }
+  return {x:finite(target.x),y:finite(target.y)};
+}
+/** The nose position follows ship pitch. Travel velocity is inherited by the shot,
+ * but compensated in the targeting vector so a moving craft can still hit its mark.
+ */
+function vectorShotFromNose(nose,pitch,speed,lane,target,motion={x:0,y:0}){
+  if(!nose||!Number.isFinite(nose.x)||!Number.isFinite(nose.y))
+    throw new RangeError('Valid world-space nose coordinates are required');
+  // The lane is perpendicular to the current hull heading, but every shot has
+  // the exact same physical origin at the opaque nose tip for the middle lane.
+  const side=lane*8.5;
+  const origin={x:nose.x-Math.sin(pitch)*side,y:nose.y+Math.cos(pitch)*side};
+  const driftX=aimClamp(finite(motion.x)*.16,-65,65);
+  const driftY=aimClamp(finite(motion.y)*.10,-35,35);
+  if(!target){
+    const angle=finite(pitch)+lane*.05;
+    return {...origin,origin,angle,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,guided:false};
+  }
+  const first=aimPoint(target,0);
+  const travel=Math.min(.9,Math.hypot(first.x-origin.x,first.y-origin.y)/speed);
+  const point=aimPoint(target,travel);
+  const dx=Math.max(27,point.x-origin.x-driftX*travel);
+  const dy=point.y-origin.y-driftY*travel;
+  const directed=aimClamp(Math.atan2(dy,dx)+lane*.047,-SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  const vx=Math.cos(directed)*speed+driftX,vy=Math.sin(directed)*speed+driftY;
+  return {...origin,origin,targetPoint:point,vx,vy,angle:Math.atan2(vy,vx),heading:directed,launchHeading:directed,
+    speed,driftX,driftY,guided:true,mode:target.mode,locked:target.locked};
+}
+/** Course correction is restricted after launch: ±16° for ceiling/floor targets
+ * (horizontal arrival margin), ±21° for free-flying targets (vertical adjustment).
+ * The actual sprite is rotated by game.js from this same velocity at each update.
+ */
+function steerSecondFingerShot(shot,target,dt){
+  if(!shot?.guided||!target||!Number.isFinite(dt)||dt<=0)return false;
+  const speed=Math.max(1,finite(shot.speed,Math.hypot(shot.vx,shot.vy)));
+  const cx=shot.x+shot.sprite.width*.5,cy=shot.y+shot.sprite.height*.5;
+  const predicted=aimPoint(target,Math.min(.45,Math.hypot(target.x-cx,target.y-cy)/speed));
+  const dx=Math.max(18,predicted.x-cx),dy=predicted.y-cy;
+  const desired=aimClamp(Math.atan2(dy,dx),-SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  const mode=target.mode??shot.mode;
+  const cone=mode==='air'?SECOND_FINGER_TURN_AIR:SECOND_FINGER_TURN_GROUND;
+  const first=finite(shot.launchHeading);
+  const limited=aimClamp(desired,first-cone,first+cone);
+  const current=finite(shot.heading,first);
+  const maxChange=dt*(shot.kind==='missile'?2.1:1.45);
+  const next=aimClamp(current+aimClamp(limited-current,-maxChange,maxChange),
+    -SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  shot.heading=next;
+  shot.vx=Math.cos(next)*speed+finite(shot.driftX);
+  shot.vy=Math.sin(next)*speed+finite(shot.driftY);
+  return true;
+}
+
+/** OMEGA 0.5.6 — animated ground/ceiling combat with exact terrain AND probes.
+ * For projectile flight use y-positive-down kinematics (screen coordinates).
+ */
+const groundClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const probe={width:2,height:2,mask:createMask(2,2,()=>true)};
+const MAX_GROUND_TILT=.22;
+const WORM_BITE_INTERVAL=.42;
+const WORM_BITE_RADIUS=9;
+const BALLISTIC_GRAVITY=245;
+const BALLISTIC_SPEED_X=208;
+function isBallisticTurret(morph){
+  return Boolean(morph&&['tank','rover','turret','tower','fortress'].includes(morph.shape));
+}
+function isDiggingWorm(morph){return morph?.shape==='worm';}
+function landOccupied(terrain,x,y){
+  return Boolean(terrain.collideEntity({sprite:probe,x:Math.round(x),y:Math.round(y)}));
+}
+/** Samples occupied pixels from the SAME terrain mask used for projectile and hull AND.
+ * A destroyed tile is not treated as an invisible rectangular floor anymore.
+ */
+function findSolidContactY(terrain,x,aroundY,search=40){
+  const center=Math.round(aroundY),lo=Math.max(1,center-search),hi=Math.min(538,center+search);
+  for(let y=lo;y<=hi;y+=4){
+    if(landOccupied(terrain,x,y)){
+      for(let fine=Math.max(lo,y-3);fine<=y;fine++){
+        if(landOccupied(terrain,x,fine))return fine;
+      }
+      return y;
+    }
+  }
+  return null;
+}
+/** Small ground angle based on ACTUAL left/right physical terrain pixels,
+ * not an analytic terrainBounds height which ignores permanent laser craters.
+ */
+function groundOrientation(terrain,x,width,nearY,previous=0){
+  const left=findSolidContactY(terrain,x+width*.25,nearY,38);
+  const right=findSolidContactY(terrain,x+width*.75,nearY,38);
+  if(left===null||right===null)return previous;
+  const delta=right-left;
+  if(Math.abs(delta)>34)return previous; // cliff/void cannot tilt a tank suddenly
+  const angle=Math.atan2(delta,Math.max(1,width*.5));
+  return groundClamp(angle,-MAX_GROUND_TILT,MAX_GROUND_TILT);
+}
+/** Project a rotated morphology back onto the true solid boundary using its
+ * own collision mask: no AABB contact, no screen rectangle, no fake slope.
+ */
+function anchoredAndPose(terrain,sprite,x,desiredY,anchor='ground',maxScan=42){
+  if(anchor!=='ground'&&anchor!=='ceiling')return desiredY;
+  const h=540,maxY=h-sprite.height-14;
+  const origin=groundClamp(Math.round(desiredY),24,Math.max(24,maxY));
+  const collides=y=>Boolean(terrain.collideEntity({sprite,x,y}));
+  // Pixel-precise resting support: a 3px search would skip a one-pixel
+  // contact band and return a floating hull. Start clear, then descend/ascend
+  // one pixel at a time until the NEXT 2px move intersects an opaque rock bit.
+  const away=anchor==='ground'?-1:1,into=-away;
+  let y=origin;
+  for(let i=0;i<=maxScan&&collides(y);i++){
+    const next=y+away;
+    if(next<24||next>maxY)return null;
+    y=next;
+  }
+  if(collides(y))return null;
+  for(let i=0;i<=maxScan;i++){
+    if(collides(y+into*2))return y;
+    const next=y+into;
+    if(next<24||next>maxY)return null;
+    y=next;
+  }
+  return null; // no actual supporting rock; allow a physical fall instead
+}
+/** Ballistic velocity aimed to intersect a player on a predictable arc.
+ * For fixed vx, t=dx/vx; vy=(dy-.5*g*t²)/t.
+ * Limit vertical speed to keep difficulty playable and arc legible.
+ */
+function ballisticArc(from,to,{speedX=BALLISTIC_SPEED_X,gravity=BALLISTIC_GRAVITY}={}){
+  const diff=to.x-from.x;
+  const vx=diff<0?-Math.abs(speedX):Math.abs(speedX);
+  const flight=groundClamp(Math.abs(diff)/Math.abs(vx),.28,2.3);
+  const vy=groundClamp((to.y-from.y-.5*gravity*flight*flight)/flight,-375,40);
+  const pitch=groundClamp(Math.atan2(-vy,Math.abs(vx)),.13,1.19);
+  return {vx,vy,gravity,flight,pitch};
+}
+/** Pivot and muzzle are in the SAME normalized basis used by paintMorph().
+ * The gun points left and up so its visible barrel follows the launched arc.
+ */
+function groundTurretMuzzle(enemy,pitch){
+  const w=enemy.sprite.width,h=enemy.sprite.height;
+  const sx=w*.43,sy=h*.40;
+  const localX=sx*(-.10-.71*Math.cos(pitch)),localY=sy*(-.39-.71*Math.sin(pitch));
+  const a=enemy.terrainAngle||0;
+  const c=Math.cos(a),s=Math.sin(a);
+  // Same center, rotate, nonuniform scale and normalized barrel coordinates
+  // as paintMorph(). Hence the round shell truly exits the VISIBLE muzzle.
+  return {x:enemy.x+w*.5+localX*c-localY*s,
+    y:enemy.y+h*.5+localX*s+localY*c};
+}
+/** The worm bites at the first AND contact, not at a fake rectangular floor.
+ * The terrain supplies permanent scar serialization in carveImpact().
+ */
+function digWormTerrain(terrain,worm,dt,emit){
+  if(!isDiggingWorm(worm.morph)||!(dt>0)||worm.hp<=0)return 0;
+  worm.chewClock=(worm.chewClock??0)-dt;
+  if(worm.chewClock>0)return 0;
+  worm.chewClock=WORM_BITE_INTERVAL;
+  const x=worm.x+(worm.vx<0?2:worm.sprite.width-2);
+  const y=worm.y+worm.sprite.height*.53;
+  const hit=terrain.collideEntity({
+    sprite:worm.sprite,
+    x:worm.x+(worm.vx<0?-8:8),
+    y:worm.y+5});
+  if(!hit)return 0;
+  const p=terrain.firstWorldImpact(hit);
+  if(!p)return 0;
+  const result=terrain.carveImpact(hit,p,WORM_BITE_RADIUS);
+  if(result>0)emit?.(p.screenX,p.y,result);
+  return result;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -2688,6 +2980,11 @@ const ships = {
   }),
   laser: sprite(24, 8, g => { ellipse(g, '#6cfff0', 12, 4, 11, 3); g.fillStyle='#fff';g.fillRect(7,3,15,2); }),
   hostileLaser: sprite(17, 9, g => { ellipse(g, '#ff4ca5', 8, 4, 8, 4); ellipse(g, '#fff2a4', 8, 4, 4, 2); }),
+  ballisticShell: sprite(13,13,g=>{
+    ellipse(g,'#e66736',6.5,6.5,6.1,6.1);
+    ellipse(g,'#ffd38a',6.5,6.5,3.9,3.9);
+    ellipse(g,'#ffffff',5.4,5.1,1.7,1.7);
+  }),
   missile: sprite(31, 12, g => {
     path(g,'#f3e0fa',[[2,4],[17,2],[23,0],[30,6],[23,11],[17,9],[2,8]]);
     path(g,'#ff9e50',[[3,2],[11,4],[11,8],[3,11]]);
@@ -2736,7 +3033,8 @@ function updateSpriteAnimations() {
     if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
     if(enemy.morph){
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        enemy.terrainAngle??0,enemy.gunAngle??0);
       switchDamagedFrame(enemy,animated);
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
@@ -2753,6 +3051,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let aimPointerId=null,aimPointer=null,activeAim=null,shipMotion={x:0,y:0};
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -2776,7 +3075,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;shipMotion={x:0,y:0};keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -2830,7 +3129,7 @@ function closeHall() {
 function finishRun(cause) {
   if(gameOver)return;
   gameOver=true;music.scene('space');
-  dragging=false;mainPointerId=null;keys.clear();
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;keys.clear();
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
@@ -3018,6 +3317,12 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
+  // Find a real AND-supported resting pose rather than trusting the uncarved
+  // mathematical terrainBounds surface.
+  if(anchor==='ground'||anchor==='ceiling'){
+    const supported=anchoredAndPose(terrain,s,position.x,position.y,anchor);
+    if(supported!==null)position.y=supported;
+  }
   const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
     species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
@@ -3026,7 +3331,8 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,chewClock:0,terrainAngle:0,gunAngle:0,groundClock:0,
+    supportY:null,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -3101,13 +3407,19 @@ function renderHoverPlume(){
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  // The actual rightmost opaque pixel of the hull (not its rectangular bounds).
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
-    const beam=pitchSprite(ships.laser,a.angle);
-    bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
+    const shot=vectorShotFromNose(nose,player.pitch,780,lane,activeAim,shipMotion);
+    const beam=pitchSprite(ships.laser,shot.angle);
+    const origin=projectileOriginAtNose(shot,ships.laser,beam,shot.angle);
+    bullets.push({kind:'laser',baseSprite:ships.laser,sprite:beam,
+      x:origin.x,y:origin.y,
+      vx:shot.vx,vy:shot.vy,guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
-  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
   particlesAt(nose.x,nose.y,'shield',2,110);
   sound.play('laser');
 }
@@ -3116,12 +3428,17 @@ function launchMissile() {
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=vectorShotFromNose(nose,player.pitch,345,lane,activeAim,shipMotion);
     const shape=pitchSprite(ships.missile,shot.angle);
-    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+    const origin=projectileOriginAtNose(shot,ships.missile,shape,shot.angle);
+    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,
+      x:origin.x,y:origin.y,vx:shot.vx,vy:shot.vy,age:0,
+      guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
@@ -3139,6 +3456,20 @@ function dropBonus(enemy) {
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&(enemy.kind!=='boss'||enemy.bossPhase%2===0)){
+    // Real turret barrel AND mask faces where the shell physically flies.
+    const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+    const rough=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.50),target);
+    enemy.gunAngle=clamp(rough.pitch-(enemy.terrainAngle||0),.13,1.19);
+    const muzzle=groundTurretMuzzle(enemy,enemy.gunAngle);
+    const arc=ballisticArc(muzzle,target);
+    enemy.gunAngle=clamp(arc.pitch-(enemy.terrainAngle||0),.13,1.19);
+    enemyShots.push({kind:'ballistic',ballistic:true,gravity:arc.gravity,age:0,
+      sprite:ships.ballisticShell,x:muzzle.x-ships.ballisticShell.width*.5,
+      y:muzzle.y-ships.ballisticShell.height*.5,vx:arc.vx,vy:arc.vy});
+    particlesAt(muzzle.x,muzzle.y,'motor',5);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
   const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
     weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
@@ -3215,6 +3546,12 @@ function hitEnemy(enemy,r) {
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
+  if(b.ballistic){
+    // Screen y points DOWN: y(t)=y0+vy0*t+0.5*g*t*t.
+    b.vy+=b.gravity*dt;
+    b.age=(b.age||0)+dt;
+    if(b.age>3.8)return true;
+  }
   const dx=b.vx*dt,dy=b.vy*dt;
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
@@ -3258,9 +3595,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  const corrected=b.guided&&activeAim&&steerSecondFingerShot(b,activeAim,dt);
+  if(!corrected){
+    // Without the second finger, existing homing missiles still function.
+    const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
+    if(target){const dy=target.y+target.sprite.height*.5-b.y;
+      b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -3292,6 +3633,7 @@ function update(dt) {
     if(portal && check(player,portal).hit)enterWarp(portal);
   }
   const beforeCenterX=player.x+player.sprite.width*.5;
+  const beforeCenterY=player.y+player.sprite.height*.5;
   const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
@@ -3307,6 +3649,8 @@ function update(dt) {
     player.y=clamp(player.y+my/diagonal*325*dt,35,H-player.sprite.height-15);
   }
   const moved=(player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt*325,.0001);
+  shipMotion={x:clamp((player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt,.0001),-325,325),
+    y:clamp((player.y+player.sprite.height*.5-beforeCenterY)/Math.max(dt,.0001),-325,325)};
   const grounded=!warp&&gravityFlight(stage.phase);
   player.pitch=pitchStep(player.pitch,moved,dt,grounded);
   const base=player.baseSprite||ships.player;
@@ -3317,8 +3661,13 @@ function update(dt) {
   player.x=clamp(player.x,10,W-player.sprite.width-15);
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
+  const centerX=player.x+player.sprite.width*.5,centerY=player.y+player.sprite.height*.5;
+  const noseX=noseWorldPoint(centerX,centerY,player.baseSprite||ships.player,player.pitch).x;
+  activeAim=resolveSecondFingerAim(aimPointer,enemies,noseX);
   fireClock-=dt;
-  if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
+  if((keys.has(' ')||dragging||aimPointer!==null||tiltMove.active) && fireClock<=0){
+    firePlayer();fireClock=.16;
+  }
   spawnClock-=dt;
   if(warp){
     warpClock-=dt;
@@ -3404,8 +3753,30 @@ function update(dt) {
     const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
     const lowerTarget=shape?.anchor==='ground'?
       Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
-    const targetY=upperTarget??lowerTarget;
-    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
+    if(!warp&&shape?.anchor==='ground'){
+      enemy.groundClock-=dt;
+      if(enemy.groundClock<=0){
+        enemy.groundClock=.18;
+        enemy.terrainAngle=groundOrientation(terrain,enemy.x,enemy.sprite.width,
+          bounds.bottom,enemy.terrainAngle||0);
+        // Real pixel overlap and permanent craters define whether a hull rests
+        // on rock; the analytic bounds only offer a search starting point.
+        enemy.supportY=anchoredAndPose(terrain,enemy.sprite,enemy.x,
+          Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7),'ground');
+      }
+      if(isBallisticTurret(shape)){
+        const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+        const desired=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.48),target).pitch-
+          (enemy.terrainAngle||0);
+        enemy.gunAngle=clamp((enemy.gunAngle||.40)+(desired-(enemy.gunAngle||.40))*
+          Math.min(1,dt*5),.13,1.19);
+      }
+    }
+    const targetY=shape?.anchor==='ground'?
+      (enemy.supportY===null?null:enemy.supportY-jumpHeight):upperTarget;
+    const anchorMove=targetY===null?
+      (shape?.anchor==='ground'?Math.min(95*dt,H-enemy.sprite.height-14-enemy.y):null):
+      clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
       rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
       enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
@@ -3415,8 +3786,20 @@ function update(dt) {
     const navigation=warp?{trapped:false,blocked:false}:
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
+    if(!warp&&isDiggingWorm(shape)){
+      const dug=digWormTerrain(terrain,enemy,dt,(px,py,count)=>{
+        particlesAt(px,py,'motor',Math.min(14,4+Math.ceil(count/25)));
+      });
+      if(dug>0){enemy.blockedTime=0;}
+    }
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      if(!warp&&isDiggingWorm(shape)){
+        // A buried worm keeps gnawing its way out instead of dying immediately;
+        // no overlap is ever accepted as a legal rendered pose.
+        enemy.blockedTime+=dt;
+        if(enemy.blockedTime<2.5)continue;
+      }
+      enemy.hp=0;
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -3431,7 +3814,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&!isDiggingWorm(shape)&&enemy.blockedTime>.65){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
@@ -3451,7 +3834,16 @@ function update(dt) {
   enemies=enemies.filter(e=>e.hp>0);
   grid.clear();for(const enemy of enemies)grid.insert(enemy);
   for(const rocket of [...missiles])if(advanceMissile(rocket,dt))missiles.splice(missiles.indexOf(rocket),1);
-  for(const bullet of [...bullets]) if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  for(const bullet of [...bullets]){
+    if(bullet.guided&&activeAim){
+      steerSecondFingerShot(bullet,activeAim,dt);
+      const oriented=pitchSprite(bullet.baseSprite||ships.laser,Math.atan2(bullet.vy,bullet.vx));
+      bullet.x+=(bullet.sprite.width-oriented.width)*.5;
+      bullet.y+=(bullet.sprite.height-oriented.height)*.5;
+      bullet.sprite=oriented;
+    }
+    if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  }
   for(const bullet of [...enemyShots])if(advanceProjectile(bullet,dt,[player],false))enemyShots.splice(enemyShots.indexOf(bullet),1);
   // Ship-to-ship and asteroid contact, with a short damage invulnerability period.
   if(invulnerable<=0) for(const enemy of enemies) {
@@ -3505,6 +3897,21 @@ function drawBackground() {
   ctx.globalAlpha=1;
   // Horizon and rocky silhouette are owned by the seeded OMEGA renderer and terrain masks.
 }
+function drawSecondFingerReticle(){
+  if(!activeAim)return;
+  const {x,y,locked,mode}=activeAim;
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
+  ctx.save();
+  ctx.strokeStyle=locked?'#ffeb8f':'#80f1ff';
+  ctx.lineWidth=1.5;ctx.globalAlpha=.64;ctx.setLineDash([7,8]);
+  ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(x,y);ctx.stroke();
+  ctx.setLineDash([]);ctx.globalAlpha=.89;
+  const radius=locked?(mode==='air'?20:24):13;
+  ctx.beginPath();ctx.arc(x,y,radius,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.moveTo(x,y-6);ctx.lineTo(x,y+6);ctx.stroke();
+  ctx.restore();
+}
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
@@ -3529,6 +3936,7 @@ function render() {
   }
   for(const rocket of missiles)drawEntity(rocket);
   for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
+  drawSecondFingerReticle();
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
@@ -3630,10 +4038,21 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // Second finger aims the lasers; missiles still use the HUD button or keyboard.
+    if(aimPointerId===null){aimPointerId=e.pointerId;aimPointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}
+    e.preventDefault();return;
+  }
+  if(mainPointerId===null){mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}e.preventDefault();});
+canvas.addEventListener('pointermove',e=>{
+   if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
+   if(e.pointerId===aimPointerId)aimPointer=pointFromEvent(e);
+ });
+for(const event of ['pointerup','pointercancel','lostpointercapture'])
+   canvas.addEventListener(event,e=>{
+     if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+     if(e.pointerId===aimPointerId){aimPointerId=null;aimPointer=null;activeAim=null;}
+   });
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -3646,7 +4065,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});

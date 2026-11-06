@@ -76,3 +76,8 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/art.js` : `cleanFrameMatte` avant création des masques, suppression des fonds opaques rectangulaires par flood-fill bordé.
 - `src/bestiary.js` : 49 ennemis morphologiques et 16 boss, peintres Canvas à silhouettes distinctes, cache 140, variantes 2 frames, boss 4 phases ; `src/ecology.js` : 52 rôles combattants, et `src/game.js` : attaches au relief / sauts et tirs différenciés.
 - `tests/atlas-clean-055.test.js` et `tests/bestiary-055.test.js` : matte alpha, identité, sélections déterministes, contrôles boss/combat et intégration source/standalone.
+
+## OMEGA 0.5.6 — commandes 2 doigts / AND au sol / balistique / vers
+- `src/dual-aim.js` : `noseWorldPoint` (pixel opaque de la coque), `projectileOriginAtNose` (pixel opaque arrière du projectile), `vectorShotFromNose`, acquisition 2e doigt et retouches angulaires bornées.
+- `src/ground-combat.js` : `anchoredAndPose`, `groundOrientation` via AND tuiles creusées, `groundTurretMuzzle`, `ballisticArc`, `digWormTerrain` (cicatrices permanentes).
+- `src/bestiary.js` : pitch véhicule + tourelle orientable rasterisés dans la même ImageData utilisée par `maskFromImageData` ; `src/game.js` : mouvement et tirs liés au vrai nez, obus gravitationnels, appui AND actualisé, morsures et HUD cible. `tests/dual-aim-056.test.js`, `tests/ground-combat-056.test.js` : cas géométriques et non-régressions.

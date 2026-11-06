@@ -70,7 +70,8 @@ test('gameplay draws the same rotated alpha image as the mask used by AND, and n
   assert.match(src,/function pitchSprite\(base,angle\)/);
   assert.match(src,/maskFromImageData\(g\.getImageData\(0,0,size,size\)\)/);
   assert.match(src,/player\.sprite=nextSprite/);
-  assert.match(src,/aimFromNose\(/);
+  assert.match(src,/noseWorldPoint\(/);
+  assert.match(src,/projectileOriginAtNose\(/);
   assert.match(src,/if\(enemy\.kind!=='boss'&&!enemy\.robot\)/);
   assert.match(src,/renderHoverPlume\(\)/);
   assert.match(stand,/function hoverPlume/);

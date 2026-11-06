@@ -301,3 +301,13 @@
 - [ ] Mesurer les pics de cache Canvas et de copies de cicatrices en sessions d'endurance ; envisager cache de tailles adaptées et amélioration des modèles vectoriels par sprites HD une fois le gameplay validé.
 - [ ] Tester la signature Debug sur mise à jour ; sauvegarder l'univers JSON avant désinstallation.
 - [ ] Faire approuver explicitement une fusion de la PR #8 avant de changer `main` ; protéger la 0.5.3 stable et les Releases 0.5.4/0.5.5.
+
+## H-RUSH OMEGA 0.5.6 — tir au nez et combat sol vivant (6 novembre 2026)
+- [x] Visée du deuxième doigt (plafond/sol/air) sans déclenchement involontaire de missile, faisceau et missiles issus du dernier pixel opaque du nez, leur pixel arrière visible ancré sur l'origine ; trajectoire influencée par mouvement du joueur et limitée en correction en vol.
+- [x] Supprimer l'appui physique rectangulaire des troupes au sol : vrai terrain AND de chaque tuile (cicatrices comprises), appui au pixel près, pente détectée via masque et coque rasterisée en inclinaison effective.
+- [x] Orienter les tourelles des tanks/rovers/structures vers l'adversaire sur les pentes, tirs d'obus balistiques originaires du canon avec gravité, arcs balistiques + balayage de collision AND.
+- [x] Faire ronger la roche aux worms par la tête et enregistrer les creusements dans les cicatrices persistantes (`terrain.carveImpact`), avec intervalle et particules.
+- [x] Nouveaux tests `tests/dual-aim-056.test.js` et `tests/ground-combat-056.test.js` (support AND avec cratère, pente réelle, mathématiques de ballistique, morsure permanente, tirs au vrai nez).
+- [x] GitHub Actions **42268446001** : **144/144 tests**, HTML autonome reconstruit à l'identique, APK signé Debug, Gradle Android **0.5.6/code 56**, package vérifié, ressources branding et musique CC0. Préversion GitHub publiée https://github.com/greenpower2669/H-rush/releases/tag/v0.5.6-second-finger-aim-preview ; APK autonome direct https://github.com/greenpower2669/H-rush/releases/download/v0.5.6-second-finger-aim-preview/HRush-Omega-v0.5.6-second-finger-aim-debug.apk ; **13 997 523 octets**, SHA-256 **e8772fcafc73ee6214e4bf5e7feb568dae7daffe8d6bdf6c05b4078a9933c444**.
+- [ ] Tester les 2 doigts sur Samsung en paysage, sensibilité et verrouillage, direction réelle du canon et des tirs depuis le nez, collisions après trous dans les terrains, vers fouisseurs, FPS/RAM avec plusieurs unités et boss.
+- [ ] Prendre un accord de Fab avant toute fusion de PR #10 et de la chaîne 0.5.4/0.5.5 dans `main`. La version finale 0.5.3 ne doit pas être écrasée.
