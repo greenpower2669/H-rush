@@ -695,9 +695,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  const corrected=b.guided&&activeAim&&steerSecondFingerShot(b,activeAim,dt);
+  if(!corrected){
+    // Without the second finger, existing homing missiles still function.
+    const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
+    if(target){const dy=target.y+target.sprite.height*.5-b.y;
+      b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -729,6 +733,7 @@ function update(dt) {
     if(portal && check(player,portal).hit)enterWarp(portal);
   }
   const beforeCenterX=player.x+player.sprite.width*.5;
+  const beforeCenterY=player.y+player.sprite.height*.5;
   const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
@@ -744,6 +749,8 @@ function update(dt) {
     player.y=clamp(player.y+my/diagonal*325*dt,35,H-player.sprite.height-15);
   }
   const moved=(player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt*325,.0001);
+  shipMotion={x:clamp((player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt,.0001),-325,325),
+    y:clamp((player.y+player.sprite.height*.5-beforeCenterY)/Math.max(dt,.0001),-325,325)};
   const grounded=!warp&&gravityFlight(stage.phase);
   player.pitch=pitchStep(player.pitch,moved,dt,grounded);
   const base=player.baseSprite||ships.player;
@@ -754,8 +761,13 @@ function update(dt) {
   player.x=clamp(player.x,10,W-player.sprite.width-15);
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
+  const centerX=player.x+player.sprite.width*.5,centerY=player.y+player.sprite.height*.5;
+  const noseX=aimFromNose(centerX,centerY,(player.baseSprite||ships.player).width,player.pitch).x;
+  activeAim=resolveSecondFingerAim(aimPointer,enemies,noseX);
   fireClock-=dt;
-  if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
+  if((keys.has(' ')||dragging||aimPointer!==null||tiltMove.active) && fireClock<=0){
+    firePlayer();fireClock=.16;
+  }
   spawnClock-=dt;
   if(warp){
     warpClock-=dt;
@@ -888,7 +900,16 @@ function update(dt) {
   enemies=enemies.filter(e=>e.hp>0);
   grid.clear();for(const enemy of enemies)grid.insert(enemy);
   for(const rocket of [...missiles])if(advanceMissile(rocket,dt))missiles.splice(missiles.indexOf(rocket),1);
-  for(const bullet of [...bullets]) if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  for(const bullet of [...bullets]){
+    if(bullet.guided&&activeAim){
+      steerSecondFingerShot(bullet,activeAim,dt);
+      const oriented=pitchSprite(bullet.baseSprite||ships.laser,Math.atan2(bullet.vy,bullet.vx));
+      bullet.x+=(bullet.sprite.width-oriented.width)*.5;
+      bullet.y+=(bullet.sprite.height-oriented.height)*.5;
+      bullet.sprite=oriented;
+    }
+    if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  }
   for(const bullet of [...enemyShots])if(advanceProjectile(bullet,dt,[player],false))enemyShots.splice(enemyShots.indexOf(bullet),1);
   // Ship-to-ship and asteroid contact, with a short damage invulnerability period.
   if(invulnerable<=0) for(const enemy of enemies) {
