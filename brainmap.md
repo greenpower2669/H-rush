@@ -76,3 +76,8 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/art.js` : `cleanFrameMatte` avant création des masques, suppression des fonds opaques rectangulaires par flood-fill bordé.
 - `src/bestiary.js` : 49 ennemis morphologiques et 16 boss, peintres Canvas à silhouettes distinctes, cache 140, variantes 2 frames, boss 4 phases ; `src/ecology.js` : 52 rôles combattants, et `src/game.js` : attaches au relief / sauts et tirs différenciés.
 - `tests/atlas-clean-055.test.js` et `tests/bestiary-055.test.js` : matte alpha, identité, sélections déterministes, contrôles boss/combat et intégration source/standalone.
+
+## OMEGA 0.5.6 — visée tactile deux doigts
+- `src/two-finger-aim.js` : `acquireTwoFingerTarget` (plafond/sol/air), `twoFingerAimPoint` (corrections X/Y), `twoFingerNoseShot` (vrai nez et vecteur dynamique), `guidedMissileVelocity`, sélection d'un pixel opaque survivant du masque AND.
+- `src/game.js` : second `pointerId` autonome, missile initial, visée continue laser/missile, marqueur de cible visuel, relâchement, angle du projectile ±π sans changer l'inclinaison réelle du vaisseau ; `index.html` / HTML autonome documentent le geste.
+- `tests/two-finger-aim-056.test.js` : 10 tests de comportement et géométrie ; 134/134 tests complets avec run GitHub Actions `42265215991`.
