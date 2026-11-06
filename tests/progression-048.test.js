@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { difficultyAt, formationOffset, personalHighScore } from '../src/difficulty.js';
+import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from '../src/difficulty.js';
 const seed='0123456789abcdef0123456789abcdef';
 const stage=(seconds,region=0,hearts=5,kills=0)=>difficultyAt({seconds,region,hearts,kills,phase:'surface',seed});
 
@@ -28,4 +28,12 @@ test('personal high score is per run and compatible with empty old saves',()=>{
   assert.equal(personalHighScore(undefined),0);
   assert.equal(personalHighScore([{score:100},{score:230},{score:70}]),230);
   assert.equal(personalHighScore([{score:-1},{score:'bad'}]),0);
+});
+
+test('boss phase transitions follow hull depletion, bounded at four',()=>{
+  assert.equal(bossPhaseAt(35,35,4),0);
+  assert.equal(bossPhaseAt(20,40,4),2);
+  assert.equal(bossPhaseAt(10,40,4),3);
+  assert.equal(bossPhaseAt(0,40,4),3);
+  assert.equal(bossPhaseAt(10,40,1),0);
 });
