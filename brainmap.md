@@ -41,3 +41,28 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/atmosphere.js` : enveloppe thermique visuelle de rentrée/sortie, aucun dégât de coque.
 - `src/universe.js` (`PHASE_START`, `formatDuration`, `bestTime`) : régions prolongées, chronomètre et record de survie.
 - `src/omega-visuals.js` : silhouettes de monuments ancrées sous la matte paysagère, parallax déterministe.
+
+## OMEGA 0.4.8 — progression et perception d'altitude
+- `src/difficulty.js` : directeur déterministe borné, formations, plafonds, récupération, phases de boss et extraction du meilleur score individuel.
+- `src/game.js` : intégration de la pression, des décalages de formation, du boss multi-phases et du nouveau HUD SCORE/HIGH SCORE/TEMPS.
+- `src/omega-visuals.js` : `visualEnvelope(stage)`, interpolation planète → atmosphère → surface → sortie, profondeur de parallaxe, disparition complète des monuments en espace profond.
+- `tests/progression-048.test.js` et `tests/parallax-048.test.js` : seuils, stabilité, limites de densité et continuité des transitions.
+- Ne jamais confondre les décors visuels avec les masques de collision `A & B` du `src/omega-terrain.js`.
+
+## OMEGA 0.4.9 — correction orientation du capteur
+- `src/tilt.js` : signes corrigés pour les rotations 90°/270° ; `tests/tilt.test.js` : déplacements physiques droite/bas sur les quatre orientations, avec calibrage neutre.
+- `ash-rush-standalone.html` : copie autonome synchronisée, utilisée par l'APK ; package Android et sauvegarde compatibles avec 0.4.8.
+
+## OMEGA 0.5.0 — météo, événements, portails
+- `src/omega-events.js` : portails cachés, pluie/belts de roches, formation colonnes avec ouverture, fragments limités, déplacement inertiel/gravité/traînée ; `tests/omega-events-050.test.js` : oracles déterministes.
+- `src/game.js` : sprites d'astéroïdes originaux à masque pixel, séquence warp 16s, retour de parcours, formations, projectiles variés, cap de charge ; `src/ecology.js` : mouvements/armes supplémentaires.
+
+## OMEGA 0.5.1 — pilotage hélicoptère et sentinelles
+- `src/hover-flight.js` : loi bornée du tangage, trajectoires laser/missile depuis nez, altitude/effets de poussée, caractéristiques et poursuite des sentinelles ; `tests/hover-flight-051.test.js` vérifie directions, absence de pluie gravitationnelle et masque alpha cohérent.
+- `src/game.js` : cache de sprites réellement pivotés et collision AND synchronisée, direction de tir, panaches/dust capés, ennemis robotiques résistants sans mort au contact. `src/omega-events.js` : météo planète = sentinelles, météo espace = météores.
+
+## OMEGA 0.5.2 — budget de trous et lumière
+- `src/damage.js` : `burnHoleLimited`, limite cumulée 15% de pixels initiaux, rayon décroissant sur repère de 20% et chaleur croissante ; copies d'atlases et masques A & B strictement cohérents. `src/game.js` : impacts météores et robots limités, robots durables par PV. `tests/omega-052-thermal-budget.test.js` : séries d'impacts et rechargement de frames.
+
+## OMEGA 0.5.3 — atmosphère en translation seule
+- `src/omega-visuals.js` : `atmosphereGlobePosition(local,W,H)` calcule un globe de rayon fixe, déjà formé hors écran, translate droite→gauche de l'approche à la sortie, puis disparaît seulement quand son halo est totalement hors champ. `tests/omega-053-atmosphere-globe.test.js` : diamètre invariant, centres monotones, continuité aux seuils, absence de rendu hors champ et HTML autonome synchronisé.

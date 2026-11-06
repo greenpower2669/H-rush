@@ -1,9 +1,16 @@
 {
   "name": "ash-rush",
-  "version": "0.4.7",
+  "version": "0.5.3",
   "private": true,
   "type": "module",
   "description": "Ash Rush — spatial shoot'em up and personal procedural OMEGA universe with AND bitmask collision",
-  "scripts": { "test": "node --test", "bench": "node benchmarks/compare.mjs", "serve": "python3 -m http.server 8080", "build:standalone": "node tools/build-standalone.mjs" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "test": "node --test",
+    "bench": "node benchmarks/compare.mjs",
+    "serve": "python3 -m http.server 8080",
+    "build:standalone": "node tools/build-standalone.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

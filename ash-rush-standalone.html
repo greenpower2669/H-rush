@@ -148,6 +148,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #touchOffsetX,#touchOffsetY{width:105px;accent-color:#71f6d0}
 @media(orientation:landscape) and (max-height:420px){.control-subsection{padding:5px;gap:5px}.tilt-settings{gap:6px}}
 
+/* OMEGA 0.4.8 — personal run record always visible alongside the survival timer. */
+#highScore{color:#ffe29c}.end-record{font-weight:900;letter-spacing:.1em;color:#fff0ab;text-shadow:0 0 15px #ffb74a;font-size:clamp(14px,2vw,22px)}
+@media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px}.hud small{font-size:7.5px}.hud strong{font-size:10px}}
+
 </style>
   
 </head>
@@ -156,7 +160,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <header class="header">
       <div class="brand"><img class="brand-mark" src="assets/branding/h-rush-icon-original.png" alt="" width="32" height="32"><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
-        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
+        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>HIGH SCORE</small><strong id="highScore">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
         <div><small>CŒURS / PV</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
@@ -166,7 +170,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.7</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -180,6 +184,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
             <div class="end-eyebrow">🚀 H-RUSH OMEGA</div>
             <h2>GAME OVER</h2>
             <p id="endCause">Vaisseau détruit</p>
+            <div id="endRecord" class="end-record" hidden>🏆 NOUVEAU RECORD !</div>
             <div class="end-score">SCORE DE LA PARTIE <strong id="endScore">0</strong></div>
             <div class="end-details" id="endDetails"></div>
             <div class="end-actions"><button id="endReplay" class="action-primary">↻ REJOUER</button><button id="endHall">🏆 HALL OF FAME</button></div>
@@ -229,7 +234,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.7 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -1108,90 +1113,163 @@ function paintLandmark(g,x,y,L,biome,phase,frame){
   }
 }
 
-function paintScenery(g,biome,worldX,time,W,H,phase){
-  const space=phase==='space';
-  const kind=biome.kind;
-  if(space){
-    g.save();g.globalAlpha=.30;
-    for(let i=0;i<12;i++){
-      const x=mod(i*159+biome.motifSeed-worldX*.11,W+200)-100;
-      const y=70+mod(i*131+biome.motifSeed,H-130);
-      const r=4+hash(i,biome.motifSeed)*15;
-      g.strokeStyle=biome.glow;g.beginPath();g.ellipse(x,y,r,r*.42,i*.37,0,PI2);g.stroke();
-    }g.restore();return;
-  }
-  if(phase==='interior'){
-    g.save();g.globalAlpha=.15;
-    for(let i=0;i<12;i++){
-      const x=mod(i*173-worldX*.28,W+110)-55,y=95+(i*127)%345;
-      g.strokeStyle=biome.glow;g.lineWidth=3;g.beginPath();g.moveTo(x,y+21);g.lineTo(x+18,y);g.lineTo(x,y-25);g.stroke();
-    }g.restore();return;
-  }
-  // The far layer is drawn first; wide buildings and rock formations reach deep into the ground.
+/** Continuous altitude envelopes in the same local coordinate system as terrainBounds.
+ * A surface object's opacity is precisely zero in deep space and before spaceTail.
+ * No stateful random or frame-dependent spawn is involved.
+ */
+function visualEnvelope(stage) {
+  const p=stage.local;
+  // Geological thresholds are shared with the collision terrain.
+  const a=PHASE_START.atmosphere, s=PHASE_START.surface, i=PHASE_START.interior;
+  const e=PHASE_START.exit, tail=PHASE_START.spaceTail;
+  let surface=0,planet=0;
+  if(p<a-1250)planet=0;
+  else if(p<a)planet=.58*scenicSmooth((p-(a-1250))/1250);
+  else if(p<s)planet=.58+.42*scenicSmooth((p-a)/(s-a)*1.6);
+  else if(p<i)planet=1;
+  else if(p<i+900)planet=1-.86*scenicSmooth((p-i)/900);
+  else if(p<e-650)planet=.14;
+  else if(p<e+170)planet=.14+.86*scenicSmooth((p-(e-650))/820);
+  else if(p<tail)planet=1-scenicSmooth((p-(e+170))/(tail-(e+170)));
+  if(p<a+650)surface=0;
+  else if(p<s+260)surface=scenicSmooth((p-(a+650))/(s+260-(a+650)));
+  else if(p<i-500)surface=1;
+  else if(p<i+900)surface=1-scenicSmooth((p-(i-500))/1400);
+  else if(p<e-650)surface=0;
+  else if(p<e+170)surface=scenicSmooth((p-(e-650))/820);
+  else if(p<tail-440)surface=1-scenicSmooth((p-(e+170))/(tail-440-(e+170)));
+  surface=scenicClamp(surface);
+  planet=scenicClamp(planet);
+  const atmosphere=stage.phase==='atmosphere'
+    ? scenicSmooth((p-a)/1100)*(1-.20*scenicSmooth((p-s+480)/480))
+    : stage.phase==='exit'?scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(tail-480))/480))
+    : stage.phase==='surface'?.68:0;
+  return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
+}
+
+/** OMEGA 0.5.3: a large globe is already built at its final apparent diameter.
+ * It enters from the right, remains full-size, then exits to the left.
+ * Translating its pre-existing center, never changing its scale, prevents the
+ * conspicuous swelling/shrinking atmospheric bubble.
+ * Out-of-frame rest positions include the entire radial halo (1.27x radius).
+ */
+function atmosphereGlobePosition(local,W=960,H=540){
+  const p=Math.max(0,Number(local)||0);
+  const radius=Math.max(W,H)*1.28;
+  const outerRadius=radius*1.27;
+  const settledX=W*.63;
+  const y=H*.72;
+  const offRight=W+outerRadius+24;
+  const offLeft=-outerRadius-24;
+  const enterStart=PHASE_START.atmosphere-1500;
+  const enterEnd=PHASE_START.surface-450;
+  const leaveStart=PHASE_START.exit-900;
+  const leaveEnd=PHASE_START.spaceTail-140;
+  let x=offRight;
+  if(p>=leaveEnd)x=offLeft;
+  else if(p>leaveStart)x=settledX+(offLeft-settledX)*scenicSmooth((p-leaveStart)/(leaveEnd-leaveStart));
+  else if(p>=enterEnd)x=settledX;
+  else if(p>enterStart)x=offRight+(settledX-offRight)*scenicSmooth((p-enterStart)/(enterEnd-enterStart));
+  return {x,y,radius,outerRadius,visible:x+outerRadius>0&&x-outerRadius<W};
+}
+
+function paintScenery(g,biome,worldX,time,W,H,visibility) {
+  if(visibility<=.001)return; // Never paint terrestrial objects in the space field.
+  const kind=biome.kind, depth=.60+.40*visibility;
+  g.save();
+  g.globalAlpha*=visibility;
+  // Distinct angular speeds by physical depth, both moderated when high above the surface.
   for(let layer=0;layer<2;layer++){
-    const spacing=layer===0?135:190;
-    const drift=worldX*(layer===0?.105:.21);
-    const start=Math.floor((drift-130)/spacing),end=Math.ceil((drift+W+160)/spacing);
-    g.save();g.globalAlpha=layer===0?.31:.65;
-    for(let i=start;i<=end;i++){
-      const x=i*spacing-drift+(hash(i+55,biome.motifSeed)-.5)*spacing*.49;
-      const L=landmarkGeometry(biome.motifSeed,i,layer,kind,H);
-      // Mountain and architecture bases lie below the foreground terrain horizon.
-      paintLandmark(g,x,L.foot,L,biome,phase,time);
+    const spacing=layer===0?156:205;
+    const speed=(layer===0?.065:.17)*(.45+.55*visibility);
+    const drift=worldX*speed;
+    const start=Math.floor((drift-170)/spacing),end=Math.ceil((drift+W+220)/spacing);
+    g.save();g.globalAlpha*=layer===0?.33:.64;
+    for(let n=start;n<=end;n++){
+      const x=n*spacing-drift+(hash(n+55,biome.motifSeed)-.5)*spacing*.49;
+      const L=landmarkGeometry(biome.motifSeed,n,layer,kind,H);
+      // Scale towards the observer while always leaving the foundation below the matte.
+      const scaled={...L,height:L.height*depth,width:L.width*depth,foot:H+40+layer*12};
+      paintLandmark(g,x,scaled.foot,scaled,biome,'surface',time);
     }
     g.restore();
   }
-  // Foreground matte is painted AFTER all scenery. It hides their feet and anchors them.
+  // The three geological foreground mattes hide the feet of the architecture.
+  // Each foreground layer travels faster than the last and reacts to altitude.
   for(let layer=0;layer<3;layer++){
     g.beginPath();g.moveTo(0,H);
-    const h=layer===0?408:layer===1?450:490;
+    const horizon=(layer===0?408:layer===1?450:490)+(1-depth)*48;
     for(let x=0;x<=W+20;x+=20){
-      const wx=worldX*(.14+layer*.13)+x*(.25+layer*.11);
-      const y=h+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)+Math.sin(wx/38+biome.tone)*8;
+      const wx=worldX*(.14+layer*.13)*(.60+.40*visibility)+x*(.25+layer*.11);
+      const y=horizon+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)*depth+Math.sin(wx/38+biome.tone)*8*depth;
       g.lineTo(x,y);
     }
     g.lineTo(W,H);g.closePath();
     g.fillStyle=layer===0?biome.far+'c9':layer===1?biome.rock+'b3':'#151c39dd';g.fill();
   }
-  const baseGlow=g.createLinearGradient(0,H*.70,0,H);
-  baseGlow.addColorStop(0,biome.glow+'00');baseGlow.addColorStop(1,biome.far+'a8');
-  g.fillStyle=baseGlow;g.fillRect(0,H*.70,W,H*.30);
+  const haze=g.createLinearGradient(0,H*.63,0,H);
+  haze.addColorStop(0,biome.glow+'00');haze.addColorStop(1,biome.far+'a8');
+  g.fillStyle=haze;g.fillRect(0,H*.63,W,H*.37);
+  g.restore();
 }
 
 function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
-  const s=stageAt(Math.max(0,worldX+W*.45)),id=regionIdentity(seed,s.region);
-  const biome=biomeFor(seed,s.region);
-  const grad=ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#020d2c');grad.addColorStop(.62,biome.sky);grad.addColorStop(1,biome.far);
-  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-  for(let i=0;i<90;i++){
-    const x=mod(i*149+id.familyIndex*73-worldX*(.06+(i%3)*.02),W);
-    const y=(i*239+id.faction*39)%H;
-    ctx.globalAlpha=.18+.42*((Math.sin(frame*.6+i*4.1)+1)/2);
-    ctx.fillStyle=i%11===0?biome.glow:'#c5e9ff';ctx.fillRect(x,y,i%7===0?2:1,i%7===0?2:1);
-  }ctx.globalAlpha=1;
-  if(['atmosphere','surface','exit'].includes(s.phase)){
-    const intensity=s.phase==='surface'?1:s.phase==='atmosphere'?scenicSmooth(s.phaseProgress):1-scenicSmooth(s.phaseProgress);
-    ctx.save();ctx.globalAlpha=.25+intensity*.65;
-    const gx=730+(s.local-3900)*.014,gy=325,radius=260+intensity*145;
-    const halo=ctx.createRadialGradient(gx-75,gy-80,30,gx,gy,radius);
-    halo.addColorStop(0,'#b8f3de');halo.addColorStop(.32,['#396bac','#a46ed8','#5ebabc','#e5a36f'][id.familyIndex%4]);
-    halo.addColorStop(.83,'#193b78');halo.addColorStop(1,'#4274e700');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(gx,gy,radius,0,PI2);ctx.fill();ctx.restore();
-    // A faint orange plasma veil during atmospheric penetration, not full-screen blinding fire.
-    if(s.phase==='atmosphere'||s.phase==='exit'){
-      const heat=(s.phase==='atmosphere'?Math.sin(s.phaseProgress*Math.PI):Math.sin(s.phaseProgress*Math.PI))*.13;
-      ctx.fillStyle=`rgba(255,116,50,${Math.max(0,heat)})`;ctx.fillRect(0,0,W,H);
-    }
-  }
-  paintScenery(ctx,biome,worldX,frame,W,H,s.phase);
-  if(s.phase==='space'&&s.region>0){
-    ctx.save();ctx.globalAlpha=.15;ctx.translate(W*.77,H*.34);ctx.rotate(frame*.025);
-    ctx.strokeStyle='#a7abff';ctx.lineWidth=5;
-    for(let radius=35;radius<=120;radius+=24){ctx.beginPath();ctx.ellipse(0,0,radius,radius*.24,0,0,PI2);ctx.stroke();}
+  const stage=stageAt(Math.max(0,worldX+W*.45));
+  const id=regionIdentity(seed,stage.region),biome=biomeFor(seed,stage.region);
+  const env=visualEnvelope(stage);
+  // Start from genuinely dark interplanetary space, not a permanent terrestrial horizon.
+  ctx.fillStyle='#020715';ctx.fillRect(0,0,W,H);
+  const globe=atmosphereGlobePosition(stage.local,W,H);
+  if(globe.visible){
+    // The full-sized sphere and its atmospheric halo cross the viewport intact.
+    // Neither apparent radius nor brightness is animated: geometry alone reveals it.
+    const {x:cx,y:cy,radius}=globe;
+    ctx.save();
+    const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.27);
+    glow.addColorStop(0,biome.sky);glow.addColorStop(.55,biome.far);
+    glow.addColorStop(.78,biome.rock);glow.addColorStop(.92,biome.glow+'95');
+    glow.addColorStop(1,biome.sky+'00');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,globe.outerRadius,0,PI2);ctx.fill();
     ctx.restore();
   }
-  return {...s,name:id.family,faction:id.faction};
+  // Starfield remains a cosmic reference; atmospheric scattering gradually veils it.
+  for(let n=0;n<90;n++){
+    const x=mod(n*149+id.familyIndex*73-worldX*(.055+(n%3)*.023),W);
+    const y=(n*239+id.faction*39)%H;
+    ctx.globalAlpha=(.16+.42*(Math.sin(frame*.6+n*4.1)**2))*(1-env.atmosphere*.85);
+    ctx.fillStyle=n%11===0?biome.glow:'#c5e9ff';
+    ctx.fillRect(x,y,n%7===0?2:1,n%7===0?2:1);
+  }ctx.globalAlpha=1;
+  // Atmospheric scattering and cloud layers obey altitude, never a region toggle.
+  if(env.atmosphere>.001){
+    ctx.save();ctx.globalAlpha=env.atmosphere*.35;
+    const air=ctx.createLinearGradient(0,0,0,H);
+    air.addColorStop(0,biome.sky+'00');air.addColorStop(.48,biome.glow+'26');
+    air.addColorStop(1,biome.sky+'a6');
+    ctx.fillStyle=air;ctx.fillRect(0,0,W,H);
+    for(let n=0;n<7;n++){
+      const x=mod(n*197+biome.motifSeed-worldX*(.09+n%3*.06),W+320)-160;
+      const y=H*(.20+n*.094)+Math.sin(frame*.13+n)*18;
+      ctx.globalAlpha=env.atmosphere*(.035+n%3*.028);
+      ctx.fillStyle=biome.glow;
+      ctx.beginPath();ctx.ellipse(x,y,115+n%3*32,15+n%4*9,.10,0,PI2);ctx.fill();
+    }
+    ctx.restore();
+  }
+  paintScenery(ctx,biome,worldX,frame,W,H,env.surface);
+  // Warm entry/exit plasma is gentle and never changes a gameplay mask.
+  if(stage.phase==='atmosphere'||stage.phase==='exit'){
+    const heat=Math.sin(stage.phaseProgress*Math.PI)*.11;
+    ctx.fillStyle='rgba(255,116,50,'+Math.max(0,heat)+')';
+    ctx.fillRect(0,0,W,H);
+  }
+  if(stage.phase==='space'&&stage.region>0&&env.planet<.01){
+    ctx.save();ctx.globalAlpha=.13;ctx.translate(W*.79,H*.33);ctx.rotate(frame*.025);
+    ctx.strokeStyle='#a7abff';ctx.lineWidth=4;
+    for(let r=35;r<=110;r+=25){ctx.beginPath();ctx.ellipse(0,0,r,r*.24,0,0,PI2);ctx.stroke();}
+    ctx.restore();
+  }
+  return {...stage,name:id.family,faction:id.faction};
 }
 
 /** OMEGA's first data-driven enemy ecology (20 combinable roles, 6 movement families).
@@ -1234,7 +1312,23 @@ function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'zigzag':return Math.cos(age*3.2+phase)*40*dt;
     case 'pursuit':return Math.max(-38*dt,Math.min(38*dt,(playerY-enemyY)*.6*dt));
     case 'patrol':return Math.sin(age*1.8+phase)*24*dt;
+    case 'swoop':return Math.cos(age*5+phase)*94*dt;
+    case 'feint':return Math.sin(age*7+phase)*(age%4<2?78:-55)*dt;
+    case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
+    case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
+    case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
     default:return 0;
+  }
+}
+
+/** Horizontal feints and charges stay bounded and obey terrain collision. */
+function movementSpeedScale(spec,age,phase){
+  switch(spec?.movement){
+    case 'swoop':return 1.15+.29*Math.sin(age*3.8+phase);
+    case 'feint':return .95+.43*Math.cos(age*2.8+phase);
+    case 'orbit':return .87+.21*Math.sin(age*2+phase);
+    case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    default:return 1;
   }
 }
 
@@ -1255,8 +1349,10 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const movement=draw>.68 ? m.moves[(identity.faction+encounter)%m.moves.length] : spec.movement;
-  const weapon=spec.weapon==='none' ? 'none' : draw>.58 ? m.weapon : spec.weapon;
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
+  const armory=['aimed','cross','spiral',m.weapon];
+  const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
   return {...spec, speed:Math.max(25,Math.round(spec.speed*m.speed*variation*aggressive)),
     hp:Math.max(1,Math.round(spec.hp*m.hp*(.92+draw*.26))),
     movement,weapon,hue:(spec.hue+identity.tone*.35+encounter*9)%360,
@@ -1681,9 +1777,9 @@ const TILT_DEADZONE = 0.10;
 function screenGravity(x, y, rotation = 0) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   switch (rotation) {
-    case 1: return {x:-y, y:-x}; // 90° landscape
+    case 1: return {x:y, y:x}; // 90° landscape: screen right = device +Y
     case 2: return {x:-x, y:y};
-    case 3: return {x:y, y:x}; // 270° landscape
+    case 3: return {x:-y, y:-x}; // 270° landscape: screen right = device -Y
     default: return {x:x, y:-y}; // portrait
   }
 }
@@ -1777,34 +1873,100 @@ function pickBonusType(random=Math.random) {
   return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
 }
 
-/** Visible local burns are always cut with exactly the same AND-NOT pixels as gameplay.
- * Shared atlas frames are immutable; each wounded enemy owns its edited frame(s).
+/** OMEGA 0.5.2 — perceptible thermal scarring without erasing the enemy silhouette.
+ * The actual source alpha and the AND mask always lose the same exact pixels.
+ * A living enemy can lose no more than 15% of its original opaque pixels.
  */
+const MAX_ENEMY_CUT_FRACTION = .15;
+const HEAT_REFERENCE_FRACTION = .20;
+const clampDamage=(n,a,b)=>Math.max(a,Math.min(b,n));
+
 function copyDamageSprite(source){
   const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
   image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
   const m=source.mask;
-  return {...source,image,mask:{...m,rows:new Uint32Array(m.rows),
-    xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
+  return {...source,image,initialFilled:source.initialFilled??m.filled,
+    mask:{...m,rows:new Uint32Array(m.rows),
+      xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
 }
+/** Kept for independent exact AND-NOT geometry tests and terrain compatibility.
+ * The game only applies burnHoleLimited() to enemies.
+ */
 function burnHole(sprite,localX,localY,radius){
   const x=Math.round(localX),y=Math.round(localY),r=Math.max(2,Math.round(radius));
   const removed=eraseDisc(sprite.mask,x,y,r);
   if(!removed)return 0;
   const g=sprite.image.getContext('2d',{willReadFrequently:true});
-  // Same integer circle as eraseDisc(), preserving exact alpha == bitmask.
   for(let yy=Math.max(0,y-r);yy<=Math.min(sprite.height-1,y+r);yy++){
     const dy=yy-y,span=Math.floor(Math.sqrt(Math.max(0,r*r-dy*dy)));
     const left=Math.max(0,x-span),right=Math.min(sprite.width-1,x+span);
     if(right>=left)g.clearRect(left,yy,right-left+1,1);
   }
-  // An incandescent edge ONLY on remaining opaque pixels, never filling a cut hole.
+  // Source-atop cannot create alpha in an erased hole.
   g.save();g.globalCompositeOperation='source-atop';
-  g.lineWidth=2;g.strokeStyle='#ff6f35';g.beginPath();g.arc(x,y,r+1.2,0,Math.PI*2);g.stroke();
-  g.lineWidth=1;g.strokeStyle='#ffd477';g.beginPath();g.arc(x,y,r+2.0,0,Math.PI*2);g.stroke();
+  g.lineWidth=1.5;g.strokeStyle='#ff7942';g.beginPath();g.arc(x,y,r+1.3,0,Math.PI*2);g.stroke();
   g.restore();
   return removed;
 }
+function enemyCutFraction(sprite){
+  const total=Math.max(1,sprite.initialFilled??sprite.mask.filled);
+  return clampDamage((total-sprite.mask.filled)/total,0,1);
+}
+/** The 20% mark is a reference for hot-glow progression, NOT an allowed damage cap.
+ * The hard cap remains 15%; holes taper off before then.
+ */
+function taperedHoleRadius(radius,fraction){
+  const progress=clampDamage((Number(fraction)||0)/HEAT_REFERENCE_FRACTION,0,1);
+  return Math.max(2,Math.round(Math.max(2,Number(radius)||2)*(1-.72*progress)));
+}
+function occupiedInDisc(mask,cx,cy,r){
+  let count=0;
+  for(let yy=Math.max(0,cy-r);yy<=Math.min(mask.height-1,cy+r);yy++){
+    const dy=yy-cy,span=Math.floor(Math.sqrt(Math.max(0,r*r-dy*dy)));
+    for(let xx=Math.max(0,cx-span);xx<=Math.min(mask.width-1,cx+span);xx++)
+      if(hasPixel(mask,xx,yy))count++;
+  }
+  return count;
+}
+/** Light intensifies with cumulative erosion and lost HP, but never adds opaque pixels. */
+function paintHeat(sprite,cx,cy,radius,heat){
+  const g=sprite.image.getContext('2d',{willReadFrequently:true});
+  const h=clampDamage(heat,.15,1);
+  g.save();g.globalCompositeOperation='source-atop';
+  g.globalAlpha=.30+h*.69;
+  g.strokeStyle=h>.75?'#fffbcc':h>.46?'#ffe17f':'#ff8a44';
+  g.lineWidth=1.2+h*2.5;
+  g.beginPath();g.arc(cx,cy,radius+1.4,0,Math.PI*2);g.stroke();
+  if(h>.48){
+    g.strokeStyle=h>.80?'#fffefe':'#ffe9a5';
+    g.globalAlpha=.18+h*.66;
+    g.lineWidth=.65+h;
+    g.beginPath();g.arc(cx,cy,radius+2.4,0,Math.PI*2);g.stroke();
+  }
+  g.restore();
+}
+/** Enforce the same per-frame, per-enemy immutable 15% ceiling, including animated atlases.
+ * If no whole disk fits the remaining pixel budget, only incandescence is drawn.
+ */
+function burnHoleLimited(sprite,localX,localY,radius,healthLoss=0){
+  const cx=Math.round(localX),cy=Math.round(localY);
+  if(!Number.isFinite(cx)||!Number.isFinite(cy))return {removed:0,radius:0,fraction:enemyCutFraction(sprite),heat:0};
+  const initial=Math.max(1,sprite.initialFilled??sprite.mask.filled);
+  sprite.initialFilled=initial;
+  const used=initial-sprite.mask.filled;
+  const budget=Math.max(0,Math.floor(initial*MAX_ENEMY_CUT_FRACTION)-used);
+  const desired=taperedHoleRadius(radius,used/initial);
+  let chosen=0,removed=0;
+  for(let r=desired;r>=2&&budget>0;r--){
+    const count=occupiedInDisc(sprite.mask,cx,cy,r);
+    if(count>0&&count<=budget){chosen=r;removed=burnHole(sprite,cx,cy,r);break;}
+  }
+  const fraction=enemyCutFraction(sprite);
+  const heat=clampDamage(.17+.79*(fraction/HEAT_REFERENCE_FRACTION)+.30*clampDamage(healthLoss,0,1),.17,1);
+  paintHeat(sprite,cx,cy,chosen||Math.max(2,Math.round(radius)),heat);
+  return {removed,radius:chosen,fraction,heat};
+}
+/** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
   if(!enemy.scars?.length){enemy.sprite=source;return source;}
@@ -1812,7 +1974,7 @@ function switchDamagedFrame(enemy,source){
   let edited=enemy.damageFrames.get(source);
   if(!edited){
     edited=copyDamageSprite(source);
-    for(const p of enemy.scars)burnHole(edited,p.x,p.y,p.r);
+    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
     enemy.damageFrames.set(source,edited);
   }
   enemy.sprite=edited;
@@ -1822,17 +1984,189 @@ function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.sourceSprite)enemy.sourceSprite=enemy.sprite;
   if(!enemy.scars)enemy.scars=[];
   if(!enemy.damageFrames)enemy.damageFrames=new Map();
-  const burn={x:Math.round(localX),y:Math.round(localY),r:Math.max(2,Math.round(radius))};
-  enemy.scars.push(burn);
-  // The live frame and all previously cached animation frames remain synchronized.
-  for(const edited of enemy.damageFrames.values())burnHole(edited,burn.x,burn.y,burn.r);
+  const loss=Number.isFinite(enemy.maxHp)&&enemy.maxHp>0
+    ?clampDamage(1-(enemy.hp-1)/enemy.maxHp,0,1):0;
+  const burn={x:Math.round(localX),y:Math.round(localY),
+    r:Math.max(2,Math.round(radius)),loss};
+  // HP and glow still advance after full physical scarring; bounded mark history avoids runaway CPU.
+  if(enemy.scars.length<128)enemy.scars.push(burn);
+  for(const edited of enemy.damageFrames.values())
+    burnHoleLimited(edited,burn.x,burn.y,burn.r,burn.loss);
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
-    for(const hole of enemy.scars)burnHole(edited,hole.x,hole.y,hole.r);
+    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
     enemy.damageFrames.set(enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;
+}
+
+/** OMEGA 0.4.8: bounded and deterministic encounter director.
+ * No gameplay collisions are tested here: only the existing A & B engine decides hits.
+ */
+const boundChallenge=(n,a,b)=>Math.max(a,Math.min(b,n));
+const FORMATIONS=Object.freeze([
+  Object.freeze({name:'isolé',offsets:Object.freeze([0])}),
+  Object.freeze({name:'duo',offsets:Object.freeze([-84,84])}),
+  Object.freeze({name:'chevron',offsets:Object.freeze([-102,-34,34,102])}),
+  Object.freeze({name:'tenaille',offsets:Object.freeze([-145,145,-70,70])}),
+  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])}),
+  Object.freeze({name:'éventail',offsets:Object.freeze([-155,-82,0,82,155])}),
+  Object.freeze({name:'escorte',offsets:Object.freeze([0,-110,110,-40,40])}),
+  Object.freeze({name:'attaque croisée',offsets:Object.freeze([-135,115,30,-75])})
+]);
+/** High score remains a record of one run, not the lifetime progression. */
+function personalHighScore(hall) {
+  return Array.isArray(hall) ? hall.reduce((best,run)=>Math.max(best,Number.isSafeInteger(run?.score)&&run.score>=0?run.score:0),0):0;
+}
+function difficultyAt({seconds=0,region=0,kills=0,hearts=5,phase='space',seed}) {
+  const t=boundChallenge(Number.isFinite(seconds)?seconds:0,0,86400);
+  const world=boundChallenge(Number.isFinite(region)?region:0,0,10000);
+  const survival=Math.log1p(t/95)*1.25;
+  const exploration=Math.sqrt(world)*.29;
+  const experience=Math.log1p(Math.max(0,kills)/15)*.17;
+  const lowHealth=hearts<=1?.85:hearts<=2?.50:0;
+  const rest=t>=115 && t%115<14;
+  const threat=boundChallenge(survival+exploration+experience-lowHealth-(rest?.82:0),0,5);
+  const timeSlice=Math.floor(t/32);
+  const roll=keyedFloat(seed,Math.floor(world)*65536+timeSlice,481);
+  const available=t<75?1:boundChallenge(2+Math.floor(threat*.74),2,FORMATIONS.length);
+  const formation=FORMATIONS[Math.floor(roll*available)];
+  return {
+    threat,rest,formation,
+    spawnInterval:boundChallenge(2.35-threat*.29,.87,2.35)*(rest?1.55:1),
+    maxActive:boundChallenge(2+Math.floor(threat*1.1),2,8),
+    speedFactor:Math.min(1.575,1+threat*.115),
+    healthFactor:1+threat*.10,
+    fireFactor:boundChallenge(1-threat*.065,.68,1),
+    bossPhases:boundChallenge(1+Math.floor(threat/1.45),1,4),
+    bossEvery:14
+  };
+}
+/** Formations are visual/AI choices only; terrain-safe placement is mandatory per unit. */
+function formationOffset(plan,encounter) {
+  const offsets=plan?.offsets||[0];
+  return offsets[Math.abs(Math.floor(encounter))%offsets.length];
+}
+
+/** Boss escalates only after losing the corresponding share of its hull. */
+function bossPhaseAt(hp,maxHp,phases=1) {
+  if(!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0)return 0;
+  const count=boundChallenge(Math.floor(phases),1,4);
+  return boundChallenge(Math.floor((1-boundChallenge(hp/maxHp,0,1))*count),0,count-1);
+}
+
+/** OMEGA 0.5.0: deterministic meteor weather, optional warp detours and inertial debris. */
+const eventClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const WARP_DURATION=16;
+/** A faint, collectible portal inside the surface skyline; no alteration of the saved universe. */
+function portalPosition(seed,region){
+  if(!Number.isInteger(region)||region<0)return null;
+  if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
+  const wx=region*REGION_SIZE+6750+Math.floor(keyedFloat(seed,region,810)*435);
+  const y=136+Math.floor(keyedFloat(seed,region,811)*92);
+  return {worldX:wx,y,region};
+}
+/** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */
+function asteroidWeather(seed,region,seconds,phase){
+  const t=Math.max(0,Number(seconds)||0);
+  const cycle=Math.floor(t/28), within=t%28;
+  const roll=keyedFloat(seed,region*65536+cycle,820);
+  const active=t>17&&within>=5&&within<17&&roll>.12;
+  return {active,kind:(phase==='space'||phase==='exit')?'belt':'sentry',cycle};
+}
+/** Most asteroids are deliberately small; a few larger boulders add dramatic contrast. */
+function asteroidSpec(seed,region,index,kind='rain'){
+  const n=region*100000+index;
+  const a=keyedFloat(seed,n,830),b=keyedFloat(seed,n,831),c=keyedFloat(seed,n,832);
+  const size=kind==='warp'?14+Math.floor(a*a*68):14+Math.floor(a*a*67);
+  const speed=kind==='warp'?245+Math.floor(b*155):kind==='column'?90+Math.floor(b*85):112+Math.floor(b*105);
+  const vy=kind==='rain'?20+Math.round(c*55):0;
+  const mass=Math.max(.35,size*size*size/30000);
+  return {size,speed,vy,mass,seed:c,kind,depth:0};
+}
+/** Keep gravity weather robotic (no meteor shower), and the warp space rocks intact. */
+function sentinelRock(profile,threat=0){
+  return {...profile,kind:'sentry',size:eventClamp(Math.round(profile.size),35,78),
+    speed:eventClamp(Math.round(profile.speed*.58),58,120),vy:0,depth:2,threat};
+}
+/** A vertical obstruction with a generous reachable clearance around the pilot. */
+function obstructionColumn(seed,region,index,clearY=270){
+  const center=eventClamp(clearY,126,414);
+  const clearHalf=89;
+  const units=[];
+  for(let lane=0;lane<7;lane++){
+    const rowY=25+lane*77;
+    const profile=asteroidSpec(seed,region,index*17+lane,'column');
+    const size=Math.min(64,18+Math.floor(profile.size*.65));
+    if(Math.abs(rowY+size*.5-center)<clearHalf+size*.5)continue;
+    units.push({...profile,size,y:eventClamp(rowY,16,540-size-16),mass:Math.max(.35,size**3/30000)});
+  }
+  return units.slice(0,5);
+}
+/** Finite split tree. Tiny shards no longer split; no infinite cascade. */
+function splitAsteroid(size,seed,depth=0){
+  if(!Number.isFinite(size)||size<36||depth>=2)return [];
+  const count=seed>.63?3:2,ratio=seed>.63?.43:.54;
+  const child=Math.max(14,Math.floor(size*ratio));
+  if(child>=size)return [];
+  return Array.from({length:count},(_,i)=>({size:child-(i%2),depth:depth+1,angle:(i-(count-1)/2)*.78}));
+}
+/** In vacuum: uniform inertial motion; near planets: gravity is common, drag varies with mass. */
+function moveDebris(body,dt,gravity=0){
+  const step=eventClamp(Number.isFinite(dt)?dt:0,0,.05);
+  const g=Math.max(0,Number.isFinite(gravity)?gravity:0);
+  const mass=Math.max(.1,Number(body.mass)||1);
+  const drag=g>0?Math.exp(-step*.50/Math.sqrt(mass)):1;
+  const vx=(Number(body.vx)||0)*drag;
+  const vy=((Number(body.vy)||0)+g*step)*drag;
+  return {x:(Number(body.x)||0)+vx*step,y:(Number(body.y)||0)+vy*step,vx,vy};
+}
+
+/** OMEGA 0.5.1 — helicopter-like gravitational flight and armored orbital sentinels.
+ * Presentation approximation only; 2D collision remains image-alpha AND.
+ */
+const hoverClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const MAX_HOVER_PITCH=.31; // ~18 degrees, nose down for forward travel
+const HOVER_DUST_LIMIT=135;
+function gravityFlight(phase){return phase==='surface'||phase==='atmosphere'||phase==='interior';}
+function pitchStep(previous,forward,dt,gravity){
+  const start=Number.isFinite(previous)?previous:0;
+  const target=gravity?hoverClamp(Number.isFinite(forward)?forward:0,-1,1)*MAX_HOVER_PITCH:0;
+  const alpha=1-Math.exp(-hoverClamp(Number.isFinite(dt)?dt:0,0,.05)*7.6);
+  return hoverClamp(start+(target-start)*alpha,-MAX_HOVER_PITCH,MAX_HOVER_PITCH);
+}
+/** Local +X is the ship nose; positive screen angle points the nose down. */
+function aimFromNose(cx,cy,width,pitch,speed=780,lane=0){
+  const angle=(Number.isFinite(pitch)?pitch:0)+lane*.050;
+  const base=Math.max(0,Number(width)||0)*.43;
+  const side=lane*8.5;
+  return {x:cx+Math.cos(pitch)*base-Math.sin(pitch)*side,
+    y:cy+Math.sin(pitch)*base+Math.cos(pitch)*side,
+    vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,angle};
+}
+function projectedHullBottom(cy,w,h,angle){
+  return cy+(Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*.5;
+}
+/** Downwash never appears in vacuum, ground dust only when the solid surface is nearby. */
+function hoverPlume(phase,ground,hullBottom){
+  if(!gravityFlight(phase))return {jet:0,dust:0,gap:Infinity};
+  const valid=Number.isFinite(ground)&&ground>15&&ground<=540&&Number.isFinite(hullBottom);
+  const gap=valid?Math.max(0,ground-hullBottom):Infinity;
+  const dust=gap<190?Math.pow(1-gap/190,1.5):0;
+  return {jet:1,dust,gap};
+}
+/** Resistant robots only; no contact detonation, no splitting, targeted guns. */
+function sentinelStats(size,threat=0){
+  const d=hoverClamp(Math.round(Number(size)||50),35,78);
+  const t=hoverClamp(Number(threat)||0,0,5);
+  return {size:d,hp:Math.ceil(9+d*.24+t*1.3),
+    speed:Math.round(58+d*.46+t*4),holeRadius:3,
+    explodeOnContact:false,split:false,weapon:'aimed'};
+}
+function sentinelSteer(enemyY,targetY,age,phase,dt){
+  const target=(targetY-enemyY)*.56+Math.sin(age*2.8+phase)*34;
+  return hoverClamp(target,-73,73)*hoverClamp(dt,0,.05);
 }
 
 const W = 960, H = 540, TAU = Math.PI * 2;
@@ -1907,6 +2241,11 @@ const ships = {
     ellipse(g, '#2a0b50', 26, 25, 9, 6); ellipse(g, '#bcf5ff', 24, 24, 4, 2);
     g.fillStyle='#ffe066';g.fillRect(64,21,8,9);
   }),
+  portal: sprite(58, 58, g => {
+    g.lineWidth=6;g.strokeStyle='#61eaf9';g.beginPath();g.arc(29,29,24,0,TAU);g.stroke();
+    g.lineWidth=2;g.strokeStyle='#d5a0ff';g.beginPath();g.ellipse(29,29,18,25,-.28,0,TAU);g.stroke();
+    g.fillStyle='#edffff';for(let i=0;i<6;i++){const a=i*TAU/6;g.beginPath();g.arc(29+24*Math.cos(a),29+24*Math.sin(a),2.5,0,TAU);g.fill();}
+  }),
   asteroid: sprite(62, 60, g => {
     path(g, '#916e81', [[8,16],[23,5],[41,7],[55,21],[54,40],[35,56],[15,47],[5,32]]);
     path(g, '#b69394', [[8,16],[23,5],[35,17],[28,28],[13,26]]);
@@ -1934,25 +2273,46 @@ const ships = {
   })
 };
 
+/** Cache the exact rotated alpha + binary collision mask for each animated atlas frame.
+ * The image AND the mask use identical quantized pixels, including anti-aliased edges.
+ */
+const pitchSpriteCache=new WeakMap();
+function pitchSprite(base,angle){
+  const bucket=Math.round(Math.max(-1.25,Math.min(1.25,angle))/.05);
+  let cache=pitchSpriteCache.get(base);
+  if(!cache){cache=new Map();pitchSpriteCache.set(base,cache);}
+  if(cache.has(bucket))return cache.get(bucket);
+  const size=Math.ceil(Math.hypot(base.width,base.height))+4;
+  const c=document.createElement('canvas');c.width=size;c.height=size;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  g.translate(size/2,size/2);g.rotate(bucket*.05);
+  g.drawImage(base.image,-base.width/2,-base.height/2);
+  g.setTransform(1,0,0,1,0,0);
+  const result={image:c,mask:maskFromImageData(g.getImageData(0,0,size,size)),width:size,height:size};
+  if(cache.size>32)cache.delete(cache.keys().next().value);
+  cache.set(bucket,result);
+  return result;
+}
+
 function useArt(frames) {
   if (!frames) return;
   artFrames = frames;
   for (const kind of ['player','scout','manta','boss','asteroid','missile','shield']) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
-  if (player) player.sprite = ships.player;
+  if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
   for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
   if (!artFrames) return;
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.sprite = artFrames.player[frame % artFrames.player.length];
+  player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
     const frames = artFrames[enemy.kind];
     if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
   }
-  for(const rocket of missiles) rocket.sprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -1967,10 +2327,14 @@ let lastHudSecond = -1;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
+let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
+let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
 
 function reset(fromCheckpoint = false) {
-  player = {sprite:ships.player,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
+  player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
+  warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
+  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -1982,7 +2346,7 @@ function reset(fromCheckpoint = false) {
   dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
-  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
+  score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
@@ -1990,7 +2354,9 @@ function reset(fromCheckpoint = false) {
   updateHud();
 }
 function updateHud() {
+  score=scoreRun(runBaseScore,universe.totalScore);
   $('#score').textContent=String(score).padStart(6,'0');
+  $('#highScore').textContent=String(personalHighScore(universe.hall)).padStart(6,'0');
   $('#hp').textContent=('♥ '.repeat(Math.max(0,player.hp)).trim()||'0')+' · '+player.pv+'/'+PV_PER_HEART+' PV';
   $('#hp').setAttribute('aria-label',`${player.hp} cœurs, ${player.pv} points de vie sur ${PV_PER_HEART} dans le cœur actif`);
   $('#shield').textContent='◇ '+player.shield;
@@ -1999,7 +2365,7 @@ function updateHud() {
   $('#wave').textContent='VAGUE '+wave;
   const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
   $('#terrainStatus').hidden = false;
-  $('#terrainStatus').textContent = ({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family;
+  $('#terrainStatus').textContent = warp?'🌀 PORTAIL WARP · BONUS '+Math.ceil(warp.remaining)+' s':(({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family);
   $('#distance').textContent = formatDuration(elapsed);
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
@@ -2035,12 +2401,15 @@ function finishRun(cause) {
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
+  const isNewRecord=earned>personalHighScore(universe.hall);
   const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
   universe.recordElapsed(elapsed);
   const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
     newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
     region:s.region,world:identity.family,cause,time:new Date().toISOString()};
   const rank=universe.recordRun(entry);
+  $('#endRecord').hidden=!isNewRecord;
+  $('#endRecord').textContent=isNewRecord?'🏆 NOUVEAU RECORD !':'';
   $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
   $('#endScore').textContent=earned.toLocaleString('fr-FR');
   $('#endDetails').textContent=`${kills} ennemis détruits · ${formatDuration(elapsed)} de survie · ${identity.family}` +
@@ -2052,7 +2421,7 @@ function finishRun(cause) {
   $('#endReplay').focus();
   updateHud();
 }
-function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
+function reward(points){universe.addPoints(points);updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
@@ -2061,25 +2430,141 @@ function mutableAsteroid() {
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
   return {...original,image,mask:copy};
 }
-function spawnEnemy(kind='scout',species=null) {
+/** Each asteroid's alpha raster is its only collision shape, not an invisible circle. */
+function rockSprite(size,seed=.5){
+  const w=Math.max(14,Math.floor(size)),r=w*.48;
+  return sprite(w,w,g=>{
+    const n=10,pts=[];
+    for(let i=0;i<n;i++){
+      const a=i*TAU/n,rough=.76+.21*Math.sin(seed*149+i*37.7);
+      pts.push([w*.5+Math.cos(a)*r*rough,w*.5+Math.sin(a)*r*rough]);
+    }
+    path(g,'#9c8793',pts);
+    g.save();g.globalCompositeOperation='source-atop';
+    const glow=g.createLinearGradient(0,0,w,w);
+    glow.addColorStop(0,'#d9c6b0');glow.addColorStop(.48,'#947789');glow.addColorStop(1,'#51455c');
+    g.fillStyle=glow;g.fillRect(0,0,w,w);
+    g.strokeStyle='#65546d';g.lineWidth=Math.max(1,w*.035);
+    for(let i=0;i<3;i++){
+      const x=w*(.23+.19*i),y=w*(.30+.20*((i+Math.floor(seed*7))%2));
+      g.beginPath();g.ellipse(x,y,w*.07,w*.045,i*.8,0,TAU);g.stroke();
+    }g.restore();
+  });
+}
+/** Metallic sentry painted *inside* rock alpha, so no decorative hitbox can lie. */
+function sentinelSprite(size,seed){
+  const s=rockSprite(size,seed),g=s.image.getContext('2d',{willReadFrequently:true});
+  const w=s.width;
+  g.save();g.globalCompositeOperation='source-atop';
+  g.fillStyle='#30475e';g.fillRect(w*.14,w*.25,w*.72,w*.50);
+  g.fillStyle='#8898b4';g.fillRect(w*.17,w*.25,w*.65,w*.10);
+  g.fillStyle='#182f48';g.fillRect(w*.29,w*.42,w*.51,w*.20);
+  g.fillStyle='#f24e81';g.fillRect(w*.33,w*.46,w*.40,w*.09);
+  g.fillStyle='#ffe5a2';g.fillRect(w*.41,w*.47,w*.24,w*.05);
+  g.strokeStyle='#77e9ff';g.lineWidth=Math.max(1.5,w*.035);
+  g.beginPath();g.arc(w*.68,w*.50,w*.15,-1.25,1.25);g.stroke();
+  g.restore();
+  s.mask=maskFromImageData(g.getImageData(0,0,w,w));
+  return s;
+}
+function spawnRock(profile,y,x=W+12){
+  if(enemies.length>=17)return false;
+  const robot=profile.kind==='sentry';
+  const stats=robot?sentinelStats(profile.size,profile.threat):null;
+  const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
+  const posY=clamp(y,16,H-s.height-16),posX=x;
+  if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
+  const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
+  enemies.push({kind:'asteroid',robot,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
+    species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
+    vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
+    hp,maxHp:hp,phase:rand(0,TAU),fire:robot?rand(.7,1.6):99,age:0,hue:0,blockedTime:0,drillCooldown:0});
+  return true;
+}
+function nearbyPortal(){
+  if(warp)return null;
+  for(const r of [stageAt(terrain.scroll+W*.5).region,stageAt(terrain.scroll+W*.5).region+1]){
+    const p=portalPosition(universe.seed,r);
+    if(!p||portalSeen.has(r))continue;
+    const x=p.worldX-terrain.scroll;
+    if(x<-65||x>W+66)continue;
+    const o={kind:'portal',sprite:ships.portal,x,y:p.y,region:r};
+    if(terrain.collideEntity(o))continue;
+    return o;
+  }
+  return null;
+}
+function enterWarp(portal){
+  portalSeen.add(portal.region);
+  warp={remaining:WARP_DURATION,clock:0,broken:0,region:portal.region};
+  terrain.active=false;warpClock=0;bossActive=false; // A portal must not leave a cleared boss lock on the main route.
+  enemies=[];bullets=[];enemyShots=[];missiles=[];powerups=[];
+  invulnerable=Math.max(invulnerable,1.1);
+  music.scene('battle');msg('🌀 PORTAIL SECRET — PLUIE D’ASTÉROÏDES !',3.5);
+  particlesAt(player.x+37,player.y+23,'shield',46);
+  sound.play('pickup');updateHud();
+}
+function leaveWarp(){
+  if(!warp)return;
+  const broken=warp.broken;
+  warp=null;terrain.active=true;bossActive=false;
+  enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
+  spawnClock=2;invulnerable=1.2;
+  reward(350+broken*45);
+  msg('✨ RETOUR DANS TON UNIVERS · BONUS WARP +'+(350+broken*45),3.5);
+  updateHud();
+}
+function drawWarpBackground(){
+  ctx.fillStyle='#06031e';ctx.fillRect(0,0,W,H);
+  const t=warp?.clock||0;
+  ctx.save();ctx.translate(W*.45,H*.5);
+  for(let i=0;i<28;i++){
+    const z=((i/28+t*.47)%1),radius=6+z*z*680;
+    ctx.strokeStyle=i%3?'#5932a9':'#67e9f3';
+    ctx.globalAlpha=.09+z*.32;ctx.lineWidth=1+z*3;
+    ctx.beginPath();ctx.ellipse(0,0,radius*1.6,radius*.73,0,0,TAU);ctx.stroke();
+  }
+  for(let n=0;n<100;n++){
+    const a=n*2.3999,z=(n*.618+t*.56)%1,r=z*z*740;
+    ctx.fillStyle=n%4===0?'#ffcaed':'#9bdfff';ctx.globalAlpha=.2+z*.6;
+    ctx.fillRect(Math.cos(a)*r*1.5,Math.sin(a)*r*.72,1+z*5,1+z*2);
+  }
+  ctx.restore();ctx.globalAlpha=1;
+}
+function drawHiddenPortal(o){
+  const dist=Math.hypot(o.x+29-player.x-37,o.y+29-player.y-23);
+  const reveal=clamp((220-dist)/170,0,1);
+  ctx.save();ctx.globalAlpha=.14+.76*reveal;
+  const pulse=1+.09*Math.sin(elapsed*4);
+  ctx.translate(o.x+29,o.y+29);ctx.scale(pulse,pulse);
+  ctx.drawImage(o.sprite.image,-29,-29);
+  ctx.restore();
+}
+function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
+  if(kind==='asteroid'&&!warp&&gravityFlight(terrain.lastStage.phase)){
+    const region=terrain.lastStage.region;
+    const rock=asteroidSpec(universe.seed,region,rockSerial++,'column');
+    const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
+    return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
+  }
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+rand(-80,80),24,H-s.height-16);
+  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
   // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
+  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
   enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
   for(let i=0;i<count && particles.length<850;i++) {
     const angle=rand(0,TAU),speed=rand(25,180);
-    particles.push({x,y,vx:Math.cos(angle)*speed+dx,vy:Math.sin(angle)*speed,life:rand(.2,.75),age:0,color:colors[Math.floor(rand(0,colors.length))],size:rand(1.5,4.4)});
+    particles.push({x,y,vx:Math.cos(angle)*speed+dx,vy:Math.sin(angle)*speed,life:rand(.2,.75),age:0,color:colors[Math.floor(rand(0,colors.length))],size:rand(1.5,4.4),mass:rand(.2,4.5)});
   }
 }
 function choosePixel(result) {
@@ -2105,20 +2590,70 @@ function impactResult(result,target) {
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
   return p;
 }
-function firePlayer() {
-  const y=player.y+player.sprite.height/2-4;
-  const count=player.fireLevel;
-  for(let j=0;j<count;j++){const offset=j-(count-1)/2;
-    bullets.push({sprite:ships.laser,x:player.x+player.sprite.width-5,y:y+offset*11,vx:780,vy:offset*40});
+/** Downward thruster jets and dust puffs at the actual geological ground silhouette. */
+function updateHoverPlume(dt,stage){
+  const grav=!warp&&gravityFlight(stage.phase);
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const base=player.baseSprite||ships.player;
+  const floor=grav?terrainBounds(universe.seed,terrain.scroll+cx).bottom:Infinity;
+  const hull=projectedHullBottom(cy,base.width,base.height,player.pitch);
+  hoverState=hoverPlume(grav?stage.phase:'space',floor,hull);
+  hoverClock-=dt;
+  if(hoverState.jet&&hoverClock<=0&&hoverClouds.length<HOVER_DUST_LIMIT-9){
+    hoverClock=.036;
+    for(const sign of [-1,1]){
+      const x=cx+sign*base.width*.20;
+      hoverClouds.push({kind:'jet',x:x+rand(-3,3),y:hull-4,vx:sign*rand(4,16),vy:rand(105,170),
+        age:0,life:rand(.18,.35),r:rand(2.5,5.5),color:'#75d7f5'});
+      if(hoverState.dust>.07){
+        hoverClouds.push({kind:'dust',x:x+sign*rand(5,30),y:floor-rand(1,8),
+          vx:sign*rand(45,118),vy:-rand(12,48)*(1+hoverState.dust*.6),
+          age:0,life:rand(.35,.85),r:rand(5,14)*hoverState.dust+2,
+          color:biomeFor(universe.seed,stage.region).rock});
+      }
+    }
   }
-  particlesAt(player.x+player.sprite.width-4,y+4,'shield',2,110);
+  for(const p of hoverClouds){
+    p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.kind==='dust'){p.vx*=Math.max(0,1-dt*1.7);p.vy+=dt*21;}
+  }
+  hoverClouds=hoverClouds.filter(p=>p.age<p.life&&p.x>-35&&p.x<W+35&&p.y<H+20);
+}
+function renderHoverPlume(){
+  if(!hoverClouds.length)return;
+  ctx.save();
+  for(const p of hoverClouds){
+    const fade=Math.max(0,1-p.age/p.life);
+    ctx.globalAlpha=fade*(p.kind==='dust'?.28:.65);
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.ellipse(p.x,p.y,p.r*(p.kind==='dust'?1+p.age*.9:1),p.r*(p.kind==='dust'?.45:1.8),0,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+}
+function firePlayer() {
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  for(let j=0;j<player.fireLevel;j++){
+    const lane=j-(player.fireLevel-1)/2;
+    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
+    const beam=pitchSprite(ships.laser,a.angle);
+    bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
+  }
+  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+  particlesAt(nose.x,nose.y,'shield',2,110);
   sound.play('laser');
 }
 function launchMissile() {
   if(gameOver||paused||player.ammo<=0)return;
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
-  for(let i=0;i<player.missileLevel;i++) missiles.push({kind:'missile',sprite:ships.missile,x:player.x+58,y:player.y+18+i*10-5,vx:345,vy:(i-(player.missileLevel-1)/2)*75,age:0});
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  for(let i=0;i<player.missileLevel;i++){
+    const lane=i-(player.missileLevel-1)/2;
+    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shape=pitchSprite(ships.missile,shot.angle);
+    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+  }
 }
 function spawnBonus(type,x,y,vx=-90) {
   const choice=BONUS_TYPES.includes(type)?type:'shield';
@@ -2130,9 +2665,19 @@ function dropBonus(enemy) {
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
-  const burst=enemy.species?.weapon==='burst'?3:1;
-  for(let i=0;i<burst;i++)enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
-    vx:enemy.kind==='boss'?-270:-210,vy:(i-(burst-1)/2)*95+(enemy.kind==='boss'?rand(-60,60):rand(-25,25))});
+  if(enemyShots.length>=135)return;
+  const weapon=enemy.species?.weapon||'single';
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
+  const aimed=clamp(dy/dx*225,-190,190);
+  for(let i=0;i<burst&&enemyShots.length<140;i++){
+    const spread=i-(burst-1)/2;
+    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+      weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
+      spread*95+rand(-25,25);
+    enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
+      vx:enemy.kind==='boss'?-270:-210,vy});
+  }
 }
 function playerDamage(r) {
   if(invulnerable>0) return;
@@ -2149,7 +2694,8 @@ function hitEnemy(enemy,r) {
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
     if(enemy.kind==='asteroid'){
-      burnHole(enemy.sprite,px,py,9);
+      burnHoleLimited(enemy.sprite,px,py,enemy.robot?3:9,
+        Number.isFinite(enemy.maxHp)&&enemy.maxHp>0 ? 1-(enemy.hp-1)/enemy.maxHp : 0);
       particlesAt(point.x,point.y,'motor',12);
     }else{
       // Small transparent impact holes, with incandescent lips; every atlas frame
@@ -2161,13 +2707,26 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
-  if(enemy.kind==='asteroid'&&enemy.sprite.mask.filled<120)enemy.hp=0;
+  // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
+  if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
   if(enemy.hp<=0){
     const epicentre=point||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
-    particlesAt(epicentre.x,epicentre.y,'hull',enemy.kind==='boss'?75:32);
-    shockwaves.push({x:epicentre.x,y:epicentre.y,life:.58,age:0,size:enemy.kind==='boss'?75:34,color:'#ffb062'});
-    sound.play('explosion');
-    if(enemy.kind==='asteroid')dropBonus(enemy);
+    particlesAt(epicentre.x,epicentre.y,enemy.robot?'motor':'hull',enemy.robot?32:enemy.kind==='boss'?75:32);
+    shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
+      size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
+    sound.play(enemy.robot?'impact':'explosion');
+    if(enemy.kind==='asteroid' && (enemy.rockType!=='rain'&&enemy.rockType!=='warp'||Math.random()<.14))dropBonus(enemy);
+    if(warp&&enemy.kind==='asteroid')warp.broken++;
+    if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
+      const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
+      for(const [i,shard] of fragments.entries()){
+        if(enemies.length>=16)break;
+        const profile={size:shard.size,speed:Math.abs(enemy.vx)*(.88+i*.14),vy:enemy.vy+shard.angle*80,
+          mass:Math.max(.22,shard.size**3/30000),seed:(enemy.rockSeed+i*.19)%1,
+          kind:'fragment',depth:shard.depth};
+        spawnRock(profile,enemy.y+enemy.sprite.height*.5-shard.size*.5+shard.angle*14,enemy.x+15+i*9);
+      }
+    }
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
@@ -2224,6 +2783,9 @@ function advanceMissile(b,dt) {
   const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
   if(target){const dy=target.y+target.sprite.height*.5-b.y;
     b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  const source=b.baseSprite||ships.missile;
+  const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
+  b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
   const sx=b.x,sy=b.y, stopped=advanceProjectile(b,dt,enemies,true);
   if(stopped){shockwaves.push({x:b.x,y:b.y,life:.35,age:0,size:30,color:'#71e6ff'});}
   return stopped||b.age>4;
@@ -2232,20 +2794,26 @@ function update(dt) {
   elapsed+=dt;
   universe.recordElapsed(elapsed);
   $('#distance').textContent=formatDuration(elapsed);
-  terrain.update(dt);
-  const stage=terrain.lastStage;
-  music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
+  if(warp){warp.clock+=dt;warp.remaining-=dt;if(warp.remaining<=0)leaveWarp();}
+  else terrain.update(dt);
+  const stage=warp?{...terrain.lastStage,phase:'space'}:terrain.lastStage;
+  music.scene(warp?'battle':sceneMusic(stage.phase,bossActive,player.hp<=1));
   if(stage.phase!==lastWorldPhase){
     if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);}
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
   }
   stageHudClock-=dt;
-  if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
+  if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
+  if(!warp){
+    const portal=nearbyPortal();
+    if(portal && check(player,portal).hit)enterWarp(portal);
+  }
+  const beforeCenterX=player.x+player.sprite.width*.5;
   const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
@@ -2260,28 +2828,100 @@ function update(dt) {
     player.x=clamp(player.x+mx/diagonal*325*dt,10,W-player.sprite.width-15);
     player.y=clamp(player.y+my/diagonal*325*dt,35,H-player.sprite.height-15);
   }
+  const moved=(player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt*325,.0001);
+  const grounded=!warp&&gravityFlight(stage.phase);
+  player.pitch=pitchStep(player.pitch,moved,dt,grounded);
+  const base=player.baseSprite||ships.player;
+  const nextSprite=grounded?pitchSprite(base,player.pitch):base;
+  player.x+=(player.sprite.width-nextSprite.width)*.5;
+  player.y+=(player.sprite.height-nextSprite.height)*.5;
+  player.sprite=nextSprite;
+  player.x=clamp(player.x,10,W-player.sprite.width-15);
+  player.y=clamp(player.y,35,H-player.sprite.height-15);
+  updateHoverPlume(dt,stage);
   fireClock-=dt;
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
-  if(spawnClock<=0&&!bossActive){
-    const bossWave=spawnCount>0&&spawnCount%14===0;
-    if(bossWave){
-      if (spawnEnemy('boss')) {bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-      else spawnClock=.42; // Retry when the incoming lane opens, never embed the boss in rock.
-    } else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
-      const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
-      const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
-      if(spawnEnemy(species.base,species)){spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
-      else spawnClock=.42;
+  if(warp){
+    warpClock-=dt;
+    if(warpClock<=0 && enemies.length<15){
+      const batch=2+(rockSerial%3);
+      for(let j=0;j<batch;j++){
+        const p=asteroidSpec(universe.seed,warp.region,rockSerial++,'warp');
+        const y=20+keyedFloat(universe.seed,warp.region*100000+rockSerial,848)*(H-p.size-40);
+        spawnRock(p,y,W+25+j*48);
+      }
+      warpClock=.42+keyedFloat(universe.seed,rockSerial,849)*.18;
+    }
+  }
+  if(spawnClock<=0&&!bossActive&&!warp){
+    const profile=difficultyAt({seconds:elapsed,region:stage.region,kills,hearts:player.hp,phase:stage.phase,seed:universe.seed});
+    const active=enemies.filter(e=>e.hp>0).length;
+    // Bounded director: rest periods and an active-entity cap protect both the player and mobile FPS.
+    if(profile.rest)spawnClock=.65;
+    else if(active>=profile.maxActive)spawnClock=.35;
+    else {
+      const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
+      if(bossWave){
+        if(spawnEnemy('boss',null,0,profile.bossPhases)){
+          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          spawnCount++;spawnClock=4.5;
+        }else spawnClock=.42;
+      }else if(spawnCount>0&&spawnCount%11===0){
+        const rocks=obstructionColumn(universe.seed,stage.region,spawnCount,player.y+player.sprite.height*.5);
+        const gravitational=gravityFlight(stage.phase);
+        let placed=0;
+        for(const rock of rocks){
+          if(enemies.length>=profile.maxActive+3)break;
+          const candidate=gravitational?sentinelRock(rock,profile.threat):rock;
+          placed+=Number(spawnRock(candidate,rock.y,W+12+placed*15));
+        }
+        if(placed){msg(gravitational?'🤖 COLONNE DE SENTINELLES — TROUVE LA BRÈCHE':'☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
+        else spawnClock=.48;
+      }else if(asteroidWeather(universe.seed,stage.region,elapsed,stage.phase).active&&spawnCount%2===0){
+        const kind=asteroidWeather(universe.seed,stage.region,elapsed,stage.phase).kind;
+        const raw=asteroidSpec(universe.seed,stage.region,rockSerial++,'rain');
+        const rock=kind==='sentry'?sentinelRock(raw,profile.threat):{...raw,vy:0,kind:'belt'};
+        const y=16+keyedFloat(universe.seed,stage.region*100000+rockSerial,850)*(H-rock.size-32);
+        if(spawnRock(rock,y)){spawnCount++;spawnClock=Math.max(.55,profile.spawnInterval*.65);}
+        else spawnClock=.43;
+      }else{
+        const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+        const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
+        const adapted=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
+        const species={...adapted,speed:Math.round(adapted.speed*profile.speedFactor),
+          hp:Math.max(1,Math.round(adapted.hp*profile.healthFactor)),
+          fireRate:(adapted.fireRate??1)*profile.fireFactor};
+        // Wing, pincer and echelon groups appear in deterministic slots, all checked by A & B.
+        const offset=formationOffset(profile.formation,spawnCount);
+        if(spawnEnemy(species.base,species,offset)){
+          spawnCount++;
+          const variation=.88+.25*keyedFloat(universe.seed,stage.region*100000+spawnCount,750);
+          spawnClock=profile.spawnInterval*variation;
+        }else spawnClock=.42; // Retry only when there is a traversable entrance.
+      }
     }
   }
   for(const enemy of enemies){
     enemy.age+=dt;
-    const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+    if(enemy.kind==='boss'){
+      const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
+      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      enemy.vx=-(28+enemy.bossPhase*6);
+    }
+    const robot=enemy.robot===true;
+    const rock=enemy.kind==='asteroid'&&!robot;
+    const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+    const motion=rock?moveDebris(enemy,dt,g):null;
+    if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
+      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
-    // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
-    // Substeps prevent them from crossing thin rock or a moving piston in one frame.
-    const navigation=advanceEnemyOnTerrain(enemy,terrain,enemy.vx*dt,moveY);
+    const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
+    // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
+    const navigation=warp?{trapped:false,blocked:false}:
+      advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
+    if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
       enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
@@ -2306,11 +2946,12 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
-    if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
+    if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
       else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
-      enemy.fire=(enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
+      enemy.fire=(robot?rand(1.1,1.85):enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
@@ -2322,9 +2963,9 @@ function update(dt) {
   // Ship-to-ship and asteroid contact, with a short damage invulnerability period.
   if(invulnerable<=0) for(const enemy of enemies) {
     const r=check(enemy,player);
-    if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
+    if(r.hit){playerDamage(r);if(enemy.kind!=='boss'&&!enemy.robot){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
-  if (!gameOver && invulnerable<=0) {
+  if (!gameOver && !warp && invulnerable<=0) {
     const collision = terrain.collideEntity(player);
     if (collision) {
       const p = terrain.firstWorldImpact(collision);
@@ -2350,8 +2991,8 @@ function update(dt) {
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
-  const gravity=debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
-  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.vy+=gravity*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
+  const gravity=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+  for(const p of particles){p.age+=dt;Object.assign(p,moveDebris(p,dt,gravity));}
   particles=particles.filter(p=>p.age<p.life);
   decals=decals.filter(d=>{d.age+=dt;return d.age<d.life&&d.target.hp>0;});
   shockwaves=shockwaves.filter(w=>{w.age+=dt;return w.age<w.life;});
@@ -2360,6 +3001,7 @@ function update(dt) {
   for(const cloud of clouds){cloud.x-=cloud.speed*dt;if(cloud.x<-cloud.r)cloud.x=W+cloud.r;}
 }
 function drawBackground() {
+  if(warp){drawWarpBackground();return;}
   drawOmegaWorld(ctx,universe.seed,terrain.scroll,elapsed,W,H);
   for(const c of clouds){
     const grad=ctx.createRadialGradient(c.x,c.y,10,c.x,c.y,c.r);
@@ -2381,7 +3023,9 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
-  terrain.draw(ctx, W);
+  if(!warp)terrain.draw(ctx, W);
+  const portal=nearbyPortal();
+  if(portal)drawHiddenPortal(portal);
   for(const item of powerups){
     // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
@@ -2390,15 +3034,19 @@ function render() {
   for(const enemy of enemies)drawEntity(enemy);
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
+  renderHoverPlume();
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
   drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
-    ctx.fillStyle='#142242dd';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50,5);
-    ctx.fillStyle=player.pv===1?'#ff6c7c':'#6dffbf';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50*player.pv/PV_PER_HEART,5);
+    const base=player.baseSprite||ships.player,cy=player.y+player.sprite.height*.5;
+    const hullY=projectedHullBottom(cy,base.width,base.height,player.pitch);
+    const barX=player.x+player.sprite.width*.5-25,barY=hullY+5;
+    ctx.fillStyle='#142242dd';ctx.fillRect(barX,barY,50,5);
+    ctx.fillStyle=player.pv===1?'#ff6c7c':'#6dffbf';ctx.fillRect(barX,barY,50*player.pv/PV_PER_HEART,5);
   }
   if(player.shield>0){
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
-    ctx.beginPath();ctx.ellipse(player.x+37,player.y+23,52,36,0,0,TAU);ctx.stroke();
+    ctx.beginPath();ctx.ellipse(player.x+player.sprite.width*.5,player.y+player.sprite.height*.5,52,36,0,0,TAU);ctx.stroke();
   }
   if (artFrames?.fx) for (const fx of bursts) {
     const frame = artFrames.fx[Math.min(artFrames.fx.length-1,Math.floor(fx.age/fx.life*artFrames.fx.length))];
@@ -2420,6 +3068,7 @@ function render() {
     ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
   }
   ctx.restore();
+  if(warp){ctx.fillStyle='#110d2cbb';ctx.fillRect(300,12,360,23);ctx.fillStyle='#c4faff';ctx.font='bold 15px sans-serif';ctx.fillText('🌀 WARP BONUS  ·  '+Math.ceil(warp.remaining)+' s  ·  '+warp.broken+' roches',317,29);}
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';

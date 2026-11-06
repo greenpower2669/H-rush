@@ -4,10 +4,31 @@ import {screenGravity,tiltAxis,TiltController} from '../src/tilt.js';
 
 test('gravity is remapped for all four screen rotations',()=>{
  assert.deepEqual(screenGravity(2,3,0),{x:2,y:-3});
- assert.deepEqual(screenGravity(2,3,1),{x:-3,y:-2});
+ assert.deepEqual(screenGravity(2,3,1),{x:3,y:2});
  assert.deepEqual(screenGravity(2,3,2),{x:-2,y:3});
- assert.deepEqual(screenGravity(2,3,3),{x:3,y:2});
+ assert.deepEqual(screenGravity(2,3,3),{x:-3,y:-2});
  assert.equal(screenGravity(NaN,0,0),null);
+});
+test('landscape controls follow physical tilt right and down in both orientations',()=>{
+  for (const {rotation, right, down} of [
+    {rotation:0,right:[3.5,0],down:[0,-3.5]},
+    {rotation:1,right:[0,3.5],down:[3.5,0]},
+    {rotation:2,right:[-3.5,0],down:[0,3.5]},
+    {rotation:3,right:[0,-3.5],down:[-3.5,0]}
+  ]) {
+    const steering=(sample)=>{
+      const ctl=new TiltController(null,()=>1000);
+      ctl.setMode('tilt');
+      ctl.accept(0,0,rotation);
+      ctl.accept(sample[0],sample[1],rotation);
+      return ctl.getVector();
+    };
+    const horizontal=steering(right),vertical=steering(down);
+    assert.ok(horizontal.active && horizontal.x>0,`rotation ${rotation}: right should steer right`);
+    assert.equal(horizontal.y,0,`rotation ${rotation}: right should not steer vertically`);
+    assert.ok(vertical.active && vertical.y>0,`rotation ${rotation}: down should steer down`);
+    assert.equal(vertical.x,0,`rotation ${rotation}: down should not steer horizontally`);
+  }
 });
 test('tilt has deadzone, bounded speed and invert option',()=>{
  assert.equal(tiltAxis(.05,1),0);

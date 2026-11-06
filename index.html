@@ -15,7 +15,7 @@
     <header class="header">
       <div class="brand"><img class="brand-mark" src="assets/branding/h-rush-icon-original.png" alt="" width="32" height="32"><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
-        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
+        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>HIGH SCORE</small><strong id="highScore">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
         <div><small>CŒURS / PV</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
@@ -25,7 +25,7 @@
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.7</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -39,6 +39,7 @@
             <div class="end-eyebrow">🚀 H-RUSH OMEGA</div>
             <h2>GAME OVER</h2>
             <p id="endCause">Vaisseau détruit</p>
+            <div id="endRecord" class="end-record" hidden>🏆 NOUVEAU RECORD !</div>
             <div class="end-score">SCORE DE LA PARTIE <strong id="endScore">0</strong></div>
             <div class="end-details" id="endDetails"></div>
             <div class="end-actions"><button id="endReplay" class="action-primary">↻ REJOUER</button><button id="endHall">🏆 HALL OF FAME</button></div>
@@ -88,7 +89,7 @@
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.7 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
   </div>
 </body>
 </html>

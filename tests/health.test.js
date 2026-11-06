@@ -34,7 +34,7 @@ test('a healing pickup restores one heart and refills its PV',()=>{
 });
 test('the game respects invulnerability for wall contact and keeps Fab AND collisions',()=>{
   const g=read('src/game.js'),html=read('ash-rush-standalone.html');
-  assert.match(g,/if \(!gameOver && invulnerable<=0\) \{\s+const collision = terrain\.collideEntity\(player\)/);
+  assert.match(g,/if \(!gameOver && !warp && invulnerable<=0\) \{\s+const collision = terrain\.collideEntity\(player\)/);
   assert.match(g,/Object\.assign\(player,applyHealthDamage\(player,'wall'\)\)/);
   assert.match(g,/invulnerable=1\.65/);
   assert.doesNotMatch(g,/player\.hp\s*=\s*0;\s*sound\.play\('explosion'\)/);

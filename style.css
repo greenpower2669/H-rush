@@ -137,3 +137,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #controlMode{font-weight:800;padding:7px 10px;border-color:#67e0ff}
 #touchOffsetX,#touchOffsetY{width:105px;accent-color:#71f6d0}
 @media(orientation:landscape) and (max-height:420px){.control-subsection{padding:5px;gap:5px}.tilt-settings{gap:6px}}
+
+/* OMEGA 0.4.8 — personal run record always visible alongside the survival timer. */
+#highScore{color:#ffe29c}.end-record{font-weight:900;letter-spacing:.1em;color:#fff0ab;text-shadow:0 0 15px #ffb74a;font-size:clamp(14px,2vw,22px)}
+@media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px}.hud small{font-size:7.5px}.hud strong{font-size:10px}}

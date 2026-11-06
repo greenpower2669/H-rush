@@ -1,7 +1,7 @@
 /** Immersive OMEGA backdrops. Every skyline object has its foot below the terrain silhouette.
  * Scenery is visual only; all gameplay contacts are the same AND masks as before.
  */
-import { stageAt, regionIdentity } from './universe.js';
+import { stageAt, regionIdentity, PHASE_START } from './universe.js';
 import { biomeFor } from './biomes.js';
 const PI2=Math.PI*2;
 const scenicClamp=t=>Math.max(0,Math.min(1,t));
@@ -64,88 +64,161 @@ function paintLandmark(g,x,y,L,biome,phase,frame){
   }
 }
 
-function paintScenery(g,biome,worldX,time,W,H,phase){
-  const space=phase==='space';
-  const kind=biome.kind;
-  if(space){
-    g.save();g.globalAlpha=.30;
-    for(let i=0;i<12;i++){
-      const x=mod(i*159+biome.motifSeed-worldX*.11,W+200)-100;
-      const y=70+mod(i*131+biome.motifSeed,H-130);
-      const r=4+hash(i,biome.motifSeed)*15;
-      g.strokeStyle=biome.glow;g.beginPath();g.ellipse(x,y,r,r*.42,i*.37,0,PI2);g.stroke();
-    }g.restore();return;
-  }
-  if(phase==='interior'){
-    g.save();g.globalAlpha=.15;
-    for(let i=0;i<12;i++){
-      const x=mod(i*173-worldX*.28,W+110)-55,y=95+(i*127)%345;
-      g.strokeStyle=biome.glow;g.lineWidth=3;g.beginPath();g.moveTo(x,y+21);g.lineTo(x+18,y);g.lineTo(x,y-25);g.stroke();
-    }g.restore();return;
-  }
-  // The far layer is drawn first; wide buildings and rock formations reach deep into the ground.
+/** Continuous altitude envelopes in the same local coordinate system as terrainBounds.
+ * A surface object's opacity is precisely zero in deep space and before spaceTail.
+ * No stateful random or frame-dependent spawn is involved.
+ */
+export function visualEnvelope(stage) {
+  const p=stage.local;
+  // Geological thresholds are shared with the collision terrain.
+  const a=PHASE_START.atmosphere, s=PHASE_START.surface, i=PHASE_START.interior;
+  const e=PHASE_START.exit, tail=PHASE_START.spaceTail;
+  let surface=0,planet=0;
+  if(p<a-1250)planet=0;
+  else if(p<a)planet=.58*scenicSmooth((p-(a-1250))/1250);
+  else if(p<s)planet=.58+.42*scenicSmooth((p-a)/(s-a)*1.6);
+  else if(p<i)planet=1;
+  else if(p<i+900)planet=1-.86*scenicSmooth((p-i)/900);
+  else if(p<e-650)planet=.14;
+  else if(p<e+170)planet=.14+.86*scenicSmooth((p-(e-650))/820);
+  else if(p<tail)planet=1-scenicSmooth((p-(e+170))/(tail-(e+170)));
+  if(p<a+650)surface=0;
+  else if(p<s+260)surface=scenicSmooth((p-(a+650))/(s+260-(a+650)));
+  else if(p<i-500)surface=1;
+  else if(p<i+900)surface=1-scenicSmooth((p-(i-500))/1400);
+  else if(p<e-650)surface=0;
+  else if(p<e+170)surface=scenicSmooth((p-(e-650))/820);
+  else if(p<tail-440)surface=1-scenicSmooth((p-(e+170))/(tail-440-(e+170)));
+  surface=scenicClamp(surface);
+  planet=scenicClamp(planet);
+  const atmosphere=stage.phase==='atmosphere'
+    ? scenicSmooth((p-a)/1100)*(1-.20*scenicSmooth((p-s+480)/480))
+    : stage.phase==='exit'?scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(tail-480))/480))
+    : stage.phase==='surface'?.68:0;
+  return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
+}
+
+/** OMEGA 0.5.3: a large globe is already built at its final apparent diameter.
+ * It enters from the right, remains full-size, then exits to the left.
+ * Translating its pre-existing center, never changing its scale, prevents the
+ * conspicuous swelling/shrinking atmospheric bubble.
+ * Out-of-frame rest positions include the entire radial halo (1.27x radius).
+ */
+export function atmosphereGlobePosition(local,W=960,H=540){
+  const p=Math.max(0,Number(local)||0);
+  const radius=Math.max(W,H)*1.28;
+  const outerRadius=radius*1.27;
+  const settledX=W*.63;
+  const y=H*.72;
+  const offRight=W+outerRadius+24;
+  const offLeft=-outerRadius-24;
+  const enterStart=PHASE_START.atmosphere-1500;
+  const enterEnd=PHASE_START.surface-450;
+  const leaveStart=PHASE_START.exit-900;
+  const leaveEnd=PHASE_START.spaceTail-140;
+  let x=offRight;
+  if(p>=leaveEnd)x=offLeft;
+  else if(p>leaveStart)x=settledX+(offLeft-settledX)*scenicSmooth((p-leaveStart)/(leaveEnd-leaveStart));
+  else if(p>=enterEnd)x=settledX;
+  else if(p>enterStart)x=offRight+(settledX-offRight)*scenicSmooth((p-enterStart)/(enterEnd-enterStart));
+  return {x,y,radius,outerRadius,visible:x+outerRadius>0&&x-outerRadius<W};
+}
+
+function paintScenery(g,biome,worldX,time,W,H,visibility) {
+  if(visibility<=.001)return; // Never paint terrestrial objects in the space field.
+  const kind=biome.kind, depth=.60+.40*visibility;
+  g.save();
+  g.globalAlpha*=visibility;
+  // Distinct angular speeds by physical depth, both moderated when high above the surface.
   for(let layer=0;layer<2;layer++){
-    const spacing=layer===0?135:190;
-    const drift=worldX*(layer===0?.105:.21);
-    const start=Math.floor((drift-130)/spacing),end=Math.ceil((drift+W+160)/spacing);
-    g.save();g.globalAlpha=layer===0?.31:.65;
-    for(let i=start;i<=end;i++){
-      const x=i*spacing-drift+(hash(i+55,biome.motifSeed)-.5)*spacing*.49;
-      const L=landmarkGeometry(biome.motifSeed,i,layer,kind,H);
-      // Mountain and architecture bases lie below the foreground terrain horizon.
-      paintLandmark(g,x,L.foot,L,biome,phase,time);
+    const spacing=layer===0?156:205;
+    const speed=(layer===0?.065:.17)*(.45+.55*visibility);
+    const drift=worldX*speed;
+    const start=Math.floor((drift-170)/spacing),end=Math.ceil((drift+W+220)/spacing);
+    g.save();g.globalAlpha*=layer===0?.33:.64;
+    for(let n=start;n<=end;n++){
+      const x=n*spacing-drift+(hash(n+55,biome.motifSeed)-.5)*spacing*.49;
+      const L=landmarkGeometry(biome.motifSeed,n,layer,kind,H);
+      // Scale towards the observer while always leaving the foundation below the matte.
+      const scaled={...L,height:L.height*depth,width:L.width*depth,foot:H+40+layer*12};
+      paintLandmark(g,x,scaled.foot,scaled,biome,'surface',time);
     }
     g.restore();
   }
-  // Foreground matte is painted AFTER all scenery. It hides their feet and anchors them.
+  // The three geological foreground mattes hide the feet of the architecture.
+  // Each foreground layer travels faster than the last and reacts to altitude.
   for(let layer=0;layer<3;layer++){
     g.beginPath();g.moveTo(0,H);
-    const h=layer===0?408:layer===1?450:490;
+    const horizon=(layer===0?408:layer===1?450:490)+(1-depth)*48;
     for(let x=0;x<=W+20;x+=20){
-      const wx=worldX*(.14+layer*.13)+x*(.25+layer*.11);
-      const y=h+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)+Math.sin(wx/38+biome.tone)*8;
+      const wx=worldX*(.14+layer*.13)*(.60+.40*visibility)+x*(.25+layer*.11);
+      const y=horizon+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)*depth+Math.sin(wx/38+biome.tone)*8*depth;
       g.lineTo(x,y);
     }
     g.lineTo(W,H);g.closePath();
     g.fillStyle=layer===0?biome.far+'c9':layer===1?biome.rock+'b3':'#151c39dd';g.fill();
   }
-  const baseGlow=g.createLinearGradient(0,H*.70,0,H);
-  baseGlow.addColorStop(0,biome.glow+'00');baseGlow.addColorStop(1,biome.far+'a8');
-  g.fillStyle=baseGlow;g.fillRect(0,H*.70,W,H*.30);
+  const haze=g.createLinearGradient(0,H*.63,0,H);
+  haze.addColorStop(0,biome.glow+'00');haze.addColorStop(1,biome.far+'a8');
+  g.fillStyle=haze;g.fillRect(0,H*.63,W,H*.37);
+  g.restore();
 }
 
 export function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
-  const s=stageAt(Math.max(0,worldX+W*.45)),id=regionIdentity(seed,s.region);
-  const biome=biomeFor(seed,s.region);
-  const grad=ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#020d2c');grad.addColorStop(.62,biome.sky);grad.addColorStop(1,biome.far);
-  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-  for(let i=0;i<90;i++){
-    const x=mod(i*149+id.familyIndex*73-worldX*(.06+(i%3)*.02),W);
-    const y=(i*239+id.faction*39)%H;
-    ctx.globalAlpha=.18+.42*((Math.sin(frame*.6+i*4.1)+1)/2);
-    ctx.fillStyle=i%11===0?biome.glow:'#c5e9ff';ctx.fillRect(x,y,i%7===0?2:1,i%7===0?2:1);
-  }ctx.globalAlpha=1;
-  if(['atmosphere','surface','exit'].includes(s.phase)){
-    const intensity=s.phase==='surface'?1:s.phase==='atmosphere'?scenicSmooth(s.phaseProgress):1-scenicSmooth(s.phaseProgress);
-    ctx.save();ctx.globalAlpha=.25+intensity*.65;
-    const gx=730+(s.local-3900)*.014,gy=325,radius=260+intensity*145;
-    const halo=ctx.createRadialGradient(gx-75,gy-80,30,gx,gy,radius);
-    halo.addColorStop(0,'#b8f3de');halo.addColorStop(.32,['#396bac','#a46ed8','#5ebabc','#e5a36f'][id.familyIndex%4]);
-    halo.addColorStop(.83,'#193b78');halo.addColorStop(1,'#4274e700');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(gx,gy,radius,0,PI2);ctx.fill();ctx.restore();
-    // A faint orange plasma veil during atmospheric penetration, not full-screen blinding fire.
-    if(s.phase==='atmosphere'||s.phase==='exit'){
-      const heat=(s.phase==='atmosphere'?Math.sin(s.phaseProgress*Math.PI):Math.sin(s.phaseProgress*Math.PI))*.13;
-      ctx.fillStyle=`rgba(255,116,50,${Math.max(0,heat)})`;ctx.fillRect(0,0,W,H);
-    }
-  }
-  paintScenery(ctx,biome,worldX,frame,W,H,s.phase);
-  if(s.phase==='space'&&s.region>0){
-    ctx.save();ctx.globalAlpha=.15;ctx.translate(W*.77,H*.34);ctx.rotate(frame*.025);
-    ctx.strokeStyle='#a7abff';ctx.lineWidth=5;
-    for(let radius=35;radius<=120;radius+=24){ctx.beginPath();ctx.ellipse(0,0,radius,radius*.24,0,0,PI2);ctx.stroke();}
+  const stage=stageAt(Math.max(0,worldX+W*.45));
+  const id=regionIdentity(seed,stage.region),biome=biomeFor(seed,stage.region);
+  const env=visualEnvelope(stage);
+  // Start from genuinely dark interplanetary space, not a permanent terrestrial horizon.
+  ctx.fillStyle='#020715';ctx.fillRect(0,0,W,H);
+  const globe=atmosphereGlobePosition(stage.local,W,H);
+  if(globe.visible){
+    // The full-sized sphere and its atmospheric halo cross the viewport intact.
+    // Neither apparent radius nor brightness is animated: geometry alone reveals it.
+    const {x:cx,y:cy,radius}=globe;
+    ctx.save();
+    const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.27);
+    glow.addColorStop(0,biome.sky);glow.addColorStop(.55,biome.far);
+    glow.addColorStop(.78,biome.rock);glow.addColorStop(.92,biome.glow+'95');
+    glow.addColorStop(1,biome.sky+'00');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,globe.outerRadius,0,PI2);ctx.fill();
     ctx.restore();
   }
-  return {...s,name:id.family,faction:id.faction};
+  // Starfield remains a cosmic reference; atmospheric scattering gradually veils it.
+  for(let n=0;n<90;n++){
+    const x=mod(n*149+id.familyIndex*73-worldX*(.055+(n%3)*.023),W);
+    const y=(n*239+id.faction*39)%H;
+    ctx.globalAlpha=(.16+.42*(Math.sin(frame*.6+n*4.1)**2))*(1-env.atmosphere*.85);
+    ctx.fillStyle=n%11===0?biome.glow:'#c5e9ff';
+    ctx.fillRect(x,y,n%7===0?2:1,n%7===0?2:1);
+  }ctx.globalAlpha=1;
+  // Atmospheric scattering and cloud layers obey altitude, never a region toggle.
+  if(env.atmosphere>.001){
+    ctx.save();ctx.globalAlpha=env.atmosphere*.35;
+    const air=ctx.createLinearGradient(0,0,0,H);
+    air.addColorStop(0,biome.sky+'00');air.addColorStop(.48,biome.glow+'26');
+    air.addColorStop(1,biome.sky+'a6');
+    ctx.fillStyle=air;ctx.fillRect(0,0,W,H);
+    for(let n=0;n<7;n++){
+      const x=mod(n*197+biome.motifSeed-worldX*(.09+n%3*.06),W+320)-160;
+      const y=H*(.20+n*.094)+Math.sin(frame*.13+n)*18;
+      ctx.globalAlpha=env.atmosphere*(.035+n%3*.028);
+      ctx.fillStyle=biome.glow;
+      ctx.beginPath();ctx.ellipse(x,y,115+n%3*32,15+n%4*9,.10,0,PI2);ctx.fill();
+    }
+    ctx.restore();
+  }
+  paintScenery(ctx,biome,worldX,frame,W,H,env.surface);
+  // Warm entry/exit plasma is gentle and never changes a gameplay mask.
+  if(stage.phase==='atmosphere'||stage.phase==='exit'){
+    const heat=Math.sin(stage.phaseProgress*Math.PI)*.11;
+    ctx.fillStyle='rgba(255,116,50,'+Math.max(0,heat)+')';
+    ctx.fillRect(0,0,W,H);
+  }
+  if(stage.phase==='space'&&stage.region>0&&env.planet<.01){
+    ctx.save();ctx.globalAlpha=.13;ctx.translate(W*.79,H*.33);ctx.rotate(frame*.025);
+    ctx.strokeStyle='#a7abff';ctx.lineWidth=4;
+    for(let r=35;r<=110;r+=25){ctx.beginPath();ctx.ellipse(0,0,r,r*.24,0,0,PI2);ctx.stroke();}
+    ctx.restore();
+  }
+  return {...stage,name:id.family,faction:id.faction};
 }

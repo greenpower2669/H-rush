@@ -79,7 +79,9 @@ test('gameplay keeps AND collision for terrain and reacts to obstructed spawns',
   assert.match(standalone,/function safeEnemySpawn/);
   assert.match(standalone,/function advanceEnemyOnTerrain/);
   assert.match(code,/safeEnemySpawn\(terrain,s,spawnX,preferredY\)/);
-  assert.match(code,/advanceEnemyOnTerrain\(enemy,terrain,enemy\.vx\*dt,moveY\)/);
+  assert.match(code,/advanceEnemyOnTerrain\(enemy,terrain,moveX,moveY\)/);
+  assert.match(code,/const navigation=warp\?\{trapped:false,blocked:false\}:\s+advanceEnemyOnTerrain/);
+  assert.match(code,/const moveX=rock\?motion\.x-enemy\.x:/);
   assert.match(code,/if\s*\(!position\)\s*return false/);
   assert.match(code,/if\(navigation\.trapped\)/);
 });

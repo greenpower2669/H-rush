@@ -202,3 +202,72 @@
 - [ ] Une signature de publication stable et l'option d'actualiser l'appli sans export/import restent à préparer.
 - [ ] Nouveaux biomes artistiques non répétitifs, davantage de factions et variantes de boss pour les prochaines versions.
 - [ ] Play Store/AAB uniquement sur nouvelle demande explicite.
+
+## H-RUSH OMEGA 0.4.8 — progression et parallaxe (mission 06/11/2026)
+- [x] Lire Djipie et les cinq mémoires, identifier le HEAD `9bf5c0f` et préserver la Release 0.4.7.
+- [x] Créer `feature/omega-048-progression-parallaxe-20261106` sans toucher à `main`.
+- [x] Ajouter directeur de difficulté deterministe avec plafonds, repos, formations et boss à phases bornées.
+- [x] Afficher SCORE de partie, HIGH SCORE local, TEMPS et NOUVEAU RECORD en fin de partie.
+- [x] Supprimer les monuments de l'espace profond, interpoler atmosphère/surface et sortie, conserver leurs bases masquées.
+- [x] Garder le noyau `A & B`, les cicatrices, la sauvegarde JSON format 1, l'ID Android et le build APK uniquement.
+- [x] Écrire tests de progression et de parallaxe et synchroniser le HTML autonome.
+- [ ] Vérifier `npm test` et la reconstruction exacte `npm run build:standalone` dans GitHub Actions.
+- [ ] Obtenir captures d'un véritable navigateur aux cinq phases et évaluer artistiquement leur continuité.
+- [ ] Contrôler FPS/RAM et anciennes sauvegardes sur un Samsung physique ; la validation locale seule ne suffit pas.
+- [ ] Contrôler compilation APK v0.4.8 code 48, `apksigner`, SHA-256, ressources et asset direct de Release ; aucun AAB.
+- [ ] Conserver anciennes Releases et ne pas fusionner la branche dans `main` sans autorisation distincte.
+
+### Vérifications réalisées après l'implémentation 0.4.8
+- [x] `npm test` : 82 tests réussis via GitHub Actions (run `42212267579`).
+- [x] HTML autonome régénéré par les sources et comparé byte-à-byte (workflow réussi).
+- [x] Gradle assembleDebug Android version 0.4.8 code 48 ; aucune compilation AAB.
+- [x] Signature Android v2 (clé Debug), package et ressources du ZIP APK vérifiés en CI ; SHA-256 calculé et attaché en complément de la Release.
+- [x] Nouvel APK direct publié dans `v0.4.8-progression-parallaxe-preview`, anciennes Releases conservées.
+- [ ] **QA manuelle restante :** captures comparatives dans vrai navigateur, FPS/RAM Android Samsung, entrée-sortie atmosphérique et équilibrage en partie longue.
+- [ ] **Compatibilité d'installation :** la clé de signature Debug n'est pas encore stable ; vérifier un processus de mise à jour sur place, en conservant les univers par export JSON, avant de garantir l'absence de perte de données.
+- [ ] **Visuels :** revoir les silhouettes à très haute altitude et les couches parallax sur Samsung ; ajuster la richesse artistique selon observations, ne pas présenter les tests de logique comme une validation graphique.
+
+## 2026-11-06 — OMEGA 0.4.9, commandes à l'inclinaison en paysage
+- [x] Corriger les transformations ROTATION_90/270° des données Android `TYPE_GRAVITY` vers le repère logique du jeu.
+- [x] Ajouter des cas de test direction physique droite/bas pour rotations 0/90/180/270 et garder calibrage, mode tactile, sensibilité, inversion paramétrable.
+- [x] Préserver score, terrain, seed personnelle, collisions A & B, format JSON et identifiant Android.
+- [x] CI `42215613968` réussie : APK 0.4.9 13 969 487 octets, contrôles version/package/signature `apksigner` et SHA-256 ; Release `v0.4.9-tilt-axes-preview` et asset `.apk` direct présents.
+- [ ] Contrôler physiquement sur Samsung les deux orientations paysage (90° et 270°), les inversions volontairement cochées et le recalibrage du neutre.
+- [ ] Valider la conservation de données après mise à jour depuis la version installée ; signature Debug potentiellement différente, prévoir export JSON avant réinstallation.
+
+## 2026-11-06 — OMEGA 0.5.0, météores et passages bonus
+- [x] Ajouter mouvements et tirs contextuels, enrichir les formations sans dépasser les plafonds de difficulté.
+- [x] Ajouter météo d'astéroïdes de tailles variées, des colonnes avec ouverture, fragmentation bornée, et sprites alpha dérivés du masque AND.
+- [x] Ajouter portails cachés déterministes et séquence bonus warp de 16s, sans avance ni mutation de la progression d'univers pendant le détour.
+- [x] Distinguer débris inertiels du vide et débris sous gravité/traînée des phases planétaires ; tests unitaires.
+- [x] Validation GitHub Actions `42220971930` : 91 tests OK, HTML autonome identique aux sources, compilation Gradle, signature v2, versionCode 50/versionName 0.5.0, SHA-256, Release GitHub avec APK autonome direct de 13 974 539 octets.
+- [ ] Contrôler sur Samsung : fluidité des pluies et splits, temps de transition portal, impossibilité de collision terrain pendant warp, qualité de l'animation et équilibre réel.
+- [ ] Tester endurance de 10 minutes, densité de projectiles et comportement des portails en présence de grandes barrières.
+- [ ] Valider installation par-dessus l'ancienne APK ; exporter JSON avant désinstallation car clé Debug CI susceptible de varier.
+
+## 2026-11-06 — OMEGA 0.5.1, sentinelles blindées et poussée près du sol
+- [x] Réserver les météores naturels à l'espace / sortie / bonus warp ; phases atmosphère/surface/intérieur : sentinelles robotiques résistantes à tirs dirigés, sans explosion de mine au contact.
+- [x] Modéliser un tangage progressif proportionnel au déplacement horizontal (avance nez bas, recul nez haut) et les trajectoires laser/missile alignées sur le nez.
+- [x] Tourner la forme visible du vaisseau et des tirs avec le masque AND issu des mêmes pixels, sans redimensionnement de masque théorique approximatif.
+- [x] Ajouter panaches de propulseurs et poussière stratifiée près du vrai relief, avec limite RAM/entités, aucune poussière en espace profond.
+- [x] GitHub Actions `42223944592` réussi : **99/99 tests**, HTML autonome reconstruit identique, musiques CC0, Gradle APK Debug, `apksigner` v2, `aapt` package/versionCode 51, ressources et SHA-256 ; Release `v0.5.1-sentinelles-hover-preview`, asset APK direct vérifié.
+- [ ] QA Samsung : assiette et sensations tactiles / capteur, tirs bien dans le prolongement du nez, collisions de la silhouette réellement pivotée, qualité nuages dans les 40 environnements, performances de longue partie et perception des robots.
+- [ ] Vérifier si la taille des robots, leur cadence et absence de mine correspondent à l'intention exacte de Fab ; ajustement sur retour de partie.
+- [ ] Tester installation / sauvegarde JSON lors d'une mise à jour Android signée Debug avec certificat variable.
+
+## OMEGA 0.5.2 — dégâts visibles limités et robots durables (6 novembre 2026)
+- [x] Plafonner l'effacement cumulé des ennemis (dont robots) à 15% des pixels initiaux, sur chaque frame d'animation ; plus aucune disparition excessive du sprite.
+- [x] Réduire les rayons de brûlure à mesure que la proportion effacée approche du repère de 20% ; rendre les bords plus jaunes/blancs et lumineux, uniquement sur alpha existant.
+- [x] Conserver les PV et dégâts de combat au-delà du plafond ; éviter le déclenchement de destruction instantanée des robots à partir de leur masque.
+- [x] Ajouter tests longue durée avec 55+ impacts, contrôle des masques et de toutes les frames animées.
+- [x] GitHub Actions `42228246873` : **104/104 tests**, standalone HTML régénéré identique, Gradle APK Debug, package/version code 52, contrôle signature v2, ressources CC0, Release `v0.5.2-incandescence-15pct-preview` et lien APK direct vérifiés ; **13 979 311 octets**, SHA-256 `9cb2d417103666c274379c0eff6645075d210bd0793c69fe09a615032b8ba89c`.
+- [ ] Réglage visuel Samsung : équilibre entre petit trou et halo lumineux après ~10–30 tirs, FPS et atlas animé ; possibilité future de tester plafonds 5%, 10%, 15%.
+- [ ] Vérifier signature Debug d'installation et sauvegarde de l'univers avant désinstallation.
+
+## H-RUSH OMEGA 0.5.3 — bulle atmosphérique préformée et translative (6 novembre 2026)
+- [x] Retirer le rayon animé du globe (ancien 105→1345 px) ; calculer une sphère et halo déjà grands avant leur première apparition.
+- [x] Laisser seulement un déplacement déterministe et continu du centre droite→gauche pour l'entrée et sortie, hors champ complet aux deux bornes.
+- [x] Conserver effets de chaleur, brumes, parallaxe, relief ET moteur A & B sans changement de sauvegarde ni d'anciens APK.
+- [x] Tests de géométrie de rendu et non-régression des transitions et d'absence de saut visible.
+- [x] GitHub Actions `42231334713` : **109/109 tests**, HTML autonome identique, Gradle APK Debug, ressources/musiques CC0, vérification `apksigner` v2, versionCode 53/versionName 0.5.3, publication Release `v0.5.3-atmosphere-translation-preview`. Asset APK direct vérifié, **13 979 807 octets**, SHA-256 `cbfe7f200185d821c153976ee67218260ce2e44d0796df5b8877d48a073272a6`.
+- [ ] QA manuelle Samsung : comparer approche, entrée, surface, intérieur, sortie, début de région suivante, halos réellement sans artefact visuel ni baisse FPS.

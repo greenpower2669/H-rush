@@ -76,3 +76,31 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 - L'indicateur principal de voyage est un **chronomètre** qui s'arrête en pause. Le meilleur temps `bestTime` est persistant (facultatif lors de l'import des JSON anciens). Les distances historiques restent calculées en interne pour la notation et la continuité du score.
 - Les anciennes sauvegardes et cicatrices ne sont pas effacées lors du changement de taille de région ; une migration géométrique parfaite des anciennes cicatrices reste un point de QA.
 - Livraison APK autonome uniquement, aucune génération d'AAB avant décision explicite de Fab.
+
+## H-RUSH OMEGA 0.4.8 — invariants de progression et de parallaxe
+- `src/difficulty.js` dirige des rencontres à pression plafonnée selon survie, régions, victimes et santé ; la graine personnelle fixe les formations. Les périodes de récupération suspendent les nouveaux spawns et le plafond d'ennemis simultanés protège la jouabilité et la fluidité. Les collisions, spawns géologiquement sûrs et les impacts conservent uniquement `A & B`.
+- Les phases de boss dépendant des PV sont bornées (1 à 4), sans changement d'algorithme d'intersection. Le score affiché est le score **de la partie**, dérivé du total monotone moins le total initial. Le HIGH SCORE provient du Hall local, importable/exportable. Un nouveau record exige un score de partie strictement supérieur à l'ancien.
+- `visualEnvelope` utilise les seuils `PHASE_START` pour interpoler continûment les présences planète/atmosphère/surface, sans architecture terrestre en espace profond. Les bases des monuments restent derrière trois mattes géologiques de parallaxe. La sortie masque complètement le sol AVANT `spaceTail`.
+- Garder l'identifiant Android `fr.fab.ashrush.omegaimmersion` et le format de sauvegarde 1 inchangés ; livrer un APK autonome signé, sans AAB ni altération de `main` avant validation.
+
+## OMEGA 0.4.9 — repère de gravité Android
+- Le capteur Android fournit X/Y dans le repère physique de l'appareil ; le jeu utilise X vers la droite et Y vers le bas. Avec écran en paysage, `screenGravity` transforme ROTATION_90 en `{x:+deviceY,y:+deviceX}` et ROTATION_270 en `{x:-deviceY,y:-deviceX}` ; portrait 0/180 inchangé. Le calibrage neutre et les inversions utilisateur restent indépendants.
+- Ne jamais modifier collision A & B ni la sauvegarde pour corriger un simple repère de commande ; valider les deux paysages sur matériel avant de considérer la prise en main certifiée.
+
+## OMEGA 0.5.0 — événements, passages et corps physiques
+- `src/omega-events.js` définit les portails déterministes par seed/région, les fenêtres météoriques, les colonnes à brèche garantie, la fragmentation à profondeur <=2 et l'intégration inertielle ou sous pesanteur/traînée. Les particules et météores ne tombent pas artificiellement en espace profond.
+- Les portails bonus sont temporaires (16 secondes), sans progression de la distance pendant le détour : terrain, cicatrices, graine, sauvegarde JSON et collision `A & B` sont préservés. Le portail est une silhouette alpha contrôlée par le même masque AND ; son halo discret est un indice visuel seulement.
+- Dans le modèle ludique, gravité identique pour petits/grands débris, mais décélération liée à la masse ; ne pas confondre ceci avec une simulation orbitale ou une prédiction physique exacte.
+
+## OMEGA 0.5.1 — vol gravitationnel et sentinelles
+- En phase atmosphère/surface/intérieur : l'inclinaison longitudinale suit le déplacement horizontal, 0 à ±0,31 rad avec détente exponentielle. Avancer = nez abaissé (+ angle dans l'écran), reculer = nez relevé. Les lasers et missiles partent du nez suivant sa direction ; chaque sprite tourné (joueur/munitions) est redessiné puis masqué par le même raster alpha pour conserver la collision `A & B` exacte.
+- Les jets de propulsion et nuages de poussière sont purement visuels ; leur force dépend de la hauteur par rapport au vrai sol géologique (pas un fond de décor), sans poussière en espace/warp et avec cap d'entités. Aucun bonus de dégât par poussière.
+- `asteroidWeather` produit des sentinelles robotiques blindées dans les trois phases gravitationnelles. Elles poursuivent et tirent, persistent après une collision avec le joueur et ne détonent pas comme des mines ; destruction finale = étincelles, sans souffle de zone. Les pluies de roches naturelles et fragments persistent en espace/warp. Les formations gardent une brèche praticable.
+
+## H-RUSH OMEGA 0.5.2 — intégrité visible après les tirs
+- Un ennemi perd au maximum **15% des pixels alpha opaques de sa silhouette initiale**, et cela séparément sur chaque frame d'animation, avec vraie suppression `AND NOT` et image effacée au même endroit. Les robots ne sont jamais détruits par simple seuil de masque : leurs PV seuls régissent leur résistance.
+- Le repère **20%** sert uniquement au calcul du rétrécissement du rayon et de la progression de lumière, sans autoriser 20% d'effacement. À saturation, nouveaux tirs causent toujours des dégâts en PV mais pas de nouvelle disparition ; auréoles source-atop jaunes/blanches intenses préservant l'alpha. Test automatisé long sur 55+ impacts.
+
+## H-RUSH OMEGA 0.5.3 — planète/bulle atmosphérique sans zoom perceptible
+- La planète et sa bulle/hale volumétrique ont un **rayon fixe pendant toute la traversée**. À l'approche, leur centre démarre en dehors de la fenêtre (droite, halo entièrement caché) et avance continûment vers le décor ; à la sortie, le centre translate à gauche jusqu'à disparition du halo entier. Il n'y a plus de croissance/rétrécissement du diamètre ni de flash d'alpha pour révéler l'atmosphère.
+- `atmosphereGlobePosition` est pure, monotone et liée au `local` de la région ; départ et arrivée hors champ, positions fixes aux seuils, aucun pop lors des phases ou au changement de région. L'ancienne enveloppe `visualEnvelope` reste dédiée aux atmosphères, silhouettes et profondes couches parallax afin de ne pas toucher à la géologie/collision A & B.

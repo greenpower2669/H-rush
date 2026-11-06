@@ -5,9 +5,9 @@ export const TILT_DEADZONE = 0.10;
 export function screenGravity(x, y, rotation = 0) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   switch (rotation) {
-    case 1: return {x:-y, y:-x}; // 90° landscape
+    case 1: return {x:y, y:x}; // 90° landscape: screen right = device +Y
     case 2: return {x:-x, y:y};
-    case 3: return {x:y, y:x}; // 270° landscape
+    case 3: return {x:-y, y:-x}; // 270° landscape: screen right = device -Y
     default: return {x:x, y:-y}; // portrait
   }
 }

@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -14,7 +14,13 @@ on:
       - 'index.html'
       - 'style.css'
       - 'ash-rush-standalone.html'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: hrush-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -77,6 +83,12 @@ jobs:
           assert 'function biomeFor' in html and 'function paintScenery' in html
           assert 'function addEnemyBurn' in html and 'function burnHole' in html
           assert 'function craterRadius' in html
+          assert 'function difficultyAt' in html and 'function visualEnvelope' in html
+          assert 'function portalPosition' in html and 'function moveDebris' in html
+          assert 'function pitchSprite' in html and 'function hoverPlume' in html and 'function sentinelStats' in html
+          assert 'function atmosphereGlobePosition' in html
+          assert 'function burnHoleLimited' in html and 'MAX_ENEMY_CUT_FRACTION = .15' in html
+          assert 'id="highScore"' in html and 'id="endRecord"' in html
           assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
           assert 'function formatDuration' in html and 'function landmarkGeometry' in html
           assert 'id="distance">00:00' in html
@@ -121,11 +133,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
+          APK=HRush-Omega-v0.5.3-atmosphere-translation-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='47' versionName='0.4.7'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='53' versionName='0.5.3'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -138,7 +150,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.7-immersion-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.3-atmosphere-translation-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -156,6 +168,12 @@ jobs:
             assert b'function biomeFor' in html and b'function paintScenery' in html
             assert b'function addEnemyBurn' in html and b'function burnHole' in html
             assert b'function craterRadius' in html
+            assert b'function difficultyAt' in html and b'function visualEnvelope' in html
+            assert b'function portalPosition' in html and b'function moveDebris' in html
+            assert b'function pitchSprite' in html and b'function hoverPlume' in html and b'function sentinelStats' in html
+            assert b'function atmosphereGlobePosition' in html
+            assert b'function burnHoleLimited' in html and b'MAX_ENEMY_CUT_FRACTION = .15' in html
+            assert b'id="highScore"' in html and b'id="endRecord"' in html
             assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
             assert b'function formatDuration' in html and b'function landmarkGeometry' in html
             assert b'id="distance">00:00' in html
@@ -166,19 +184,28 @@ jobs:
           test "$(stat -c %s "$APK")" -gt 5500000
           sha256sum "$APK" > SHA256SUMS.txt
       - name: Publier uniquement APK direct sur GitHub Releases
+        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          TAG=v0.4.7-immersion-preview
-          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
+          # A final tagged Release on main; keep separate feature previews intact.
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            TAG=v0.5.3
+            RELEASE_FLAGS=()
+          else
+            TAG=v0.5.3-atmosphere-translation-preview
+            RELEASE_FLAGS=(--prerelease)
+          fi
+          APK=HRush-Omega-v0.5.3-atmosphere-translation-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.4.7 - immersion, atmosphères et temps" \
-              --notes "OMEGA 0.4.7 : chaque région est allongée à 16 384 unités, avec immersion prolongée espace/atmosphère/surface/cavernes/sortie ; paysages à silhouettes agrandies, tours et montagnes multi-formes ancrées derrière le relief via parallaxe ; rentrée et sortie atmosphériques à échauffement visuel progressif du vaisseau, sans modifier la collision ; HUD TEMPS mm:ss ou hh:mm:ss, meilleur temps sauvegardé, Hall of Fame affiche la durée. Distance conservée uniquement dans les calculs de score et statistiques historiques. Les 12 biomes, 40 familles de mondes, collisions exactes A & B, dégâts, cœurs, réglages tactile/inclinaison, 24 bonus, musique CC0 Djipie et branding sont conservés. APK autonome Debug seulement, aucun AAB. Source historique des cicatrices conservée, mais migration d'anciennes parties après allongement des régions à confirmer sur téléphone." \
-              --prerelease --target "$GITHUB_SHA"
+              --title "H-RUSH OMEGA 0.5.3 - atmosphère fixe en translation" \
+              --notes "H-RUSH OMEGA 0.5.3 : la planète et sa grande bulle atmosphérique restent à diamètre constant avant, pendant et après la traversée ; elles arrivent depuis la droite déjà formées, passent devant la fenêtre par simple translation latérale puis sortent entièrement à gauche. Suppression du zoom qui faisait grossir et diminuer la bulle. Aucun pop à l'entrée/sortie, trajectoire déterministe monotone, globe caché seulement quand son halo entier est hors champ. Tous les progrès 0.5.2 préservés (limite 15% de trous incandescents, robots, pilotage gravitationnel, moteur AND, portails, sauvegarde JSON). APK de test autonome, aucun AAB. Vérifier qualité sur Samsung et signature Debug de mise à jour." \
+              "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
