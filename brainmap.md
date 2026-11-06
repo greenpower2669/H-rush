@@ -71,3 +71,8 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/omega-visuals.js` : sortie de la bulle après la terre, taille fixe et brouillard prolongé. `src/bonuses.js` : `bonusDropAllowed` et cadence plafonnée.
 - `src/omega-events.js` : `warpExitWorld`, `offscreenSpawnX`, portails près du sol réel ; `src/game.js` : décor portail discret, retour espace, distribution clairsemée et colonnes derrière la géologie. `src/omega-terrain.js` : barrières dessinées derrière le vrai terrain.
 - `tests/omega-054-visual-pacing.test.js` : géologie/halo, bonus, warp spatial, occultation, apparition hors écran et progression de la difficulté.
+
+## OMEGA 0.5.5 — détourage et richesses des créatures
+- `src/art.js` : `cleanFrameMatte` avant création des masques, suppression des fonds opaques rectangulaires par flood-fill bordé.
+- `src/bestiary.js` : 49 ennemis morphologiques et 16 boss, peintres Canvas à silhouettes distinctes, cache 140, variantes 2 frames, boss 4 phases ; `src/ecology.js` : 52 rôles combattants, et `src/game.js` : attaches au relief / sauts et tirs différenciés.
+- `tests/atlas-clean-055.test.js` et `tests/bestiary-055.test.js` : matte alpha, identité, sélections déterministes, contrôles boss/combat et intégration source/standalone.
