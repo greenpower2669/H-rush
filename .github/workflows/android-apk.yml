@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -91,6 +91,7 @@ jobs:
           assert 'function spriteForMorph' in html and 'function cleanFrameMatte' in html
           assert 'class TouchMissileGestures' in html and 'function paintSurfaceDetails' in html
           assert 'function twoFingerNoseShot' in html and 'function acquireTwoFingerTarget' in html
+          assert 'function missileAutofocusVelocity' in html and 'id="autofocusToggle"' in html
           assert 'function stopBrokenFrame' in html and 'id="crashPanel"' in html
           assert 'function gnawTerrainByAnd' in html and 'function ballisticSolution' in html
           assert 'function groundPitchByAnd' in html and 'MAX_ENEMY_DAMAGE_FRAMES=12' in html
@@ -150,11 +151,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.9-crash-recovery-debug.apk
+          APK=HRush-Omega-v0.5.10-manual-aim-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='59' versionName='0.5.9'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='60' versionName='0.5.10'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -167,7 +168,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.9-crash-recovery-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.10-manual-aim-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -193,6 +194,7 @@ jobs:
             assert b'function spriteForMorph' in html and b'function cleanFrameMatte' in html
             assert b'class TouchMissileGestures' in html and b'function bevelMorphPixels' in html
             assert b'function twoFingerNoseShot' in html and b'function acquireTwoFingerTarget' in html
+            assert b'function missileAutofocusVelocity' in html and b'id="autofocusToggle"' in html
             assert b'function stopBrokenFrame' in html and b'id="crashPanel"' in html
             assert b'function gnawTerrainByAnd' in html and b'function ballisticSolution' in html
             assert b'function groundPitchByAnd' in html and b'MAX_ENEMY_DAMAGE_FRAMES=12' in html
@@ -210,7 +212,7 @@ jobs:
       - name: Publier uniquement APK direct sur GitHub Releases
         # Only the named first-party crash-fix PR may publish a preview after all checks.
         # Untrusted forks and unrelated pull requests retain read-only QA.
-        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/omega-059-webview-crash-recovery-20261106') }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/omega-060-manual-aim-default-20261106') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -219,19 +221,19 @@ jobs:
           set -euo pipefail
           # A final tagged Release on main; keep separate feature previews intact.
           if [ "$GITHUB_REF_NAME" = "main" ]; then
-            TAG=v0.5.9
+            TAG=v0.5.10
             RELEASE_FLAGS=()
           else
-            TAG=v0.5.9-crash-recovery-preview
+            TAG=v0.5.10-manual-aim-preview
             RELEASE_FLAGS=(--prerelease)
           fi
-          APK=HRush-Omega-v0.5.9-crash-recovery-debug.apk
+          APK=HRush-Omega-v0.5.10-manual-aim-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.9 - correction crashes Android et mode memoire" \
-              --notes "H-RUSH OMEGA 0.5.9 : recuperation native si le rendu WebView est tue par Android ou plante, avec protection contre les boucles de redemarrage, journal local du motif et bouton Reessayer. Le moteur JS capture ses erreurs, affiche un diagnostic copiable, et preserve la sauvegarde. Memoire reduite : cache des rotations de sprites blesses plafonne a 4 par frame et suppression des recalculs visuels identiques ; DPR reduit en mode securite apres incident. Contenu 0.5.8 et controles missiles double tap conserves. APK debug autonome, sans AAB ; tests sur Samsung requis." \
+              --title "H-RUSH OMEGA 0.5.10 - tirs droits, autofocus facultatif" \
+              --notes "H-RUSH OMEGA 0.5.10 : tir manuel par defaut, sans verrouillage automatique des ennemis et sans guidage des missiles ; direction determinee uniquement au lancement. Visée tactile libre au deuxieme doigt. Option Autofocus facultative et persistante dans Univers / Commandes pour retrouver le suivi des ennemis et le guidage si souhaite. Versions 0.5.8 et 0.5.9 conservees, collisions AND et garde-fous Android inchanges. APK Android Debug autonome, aucun AAB ; essais Samsung necessaires." \
               "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
