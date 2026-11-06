@@ -63,7 +63,9 @@ test('large scene landmarks are rooted below terrain foreground and vary by fami
   const source=code('src/omega-visuals.js');
   assert.match(source,/paintLandmark\(/);
   assert.match(source,/paintScenery\(/);
-  assert.ok(source.indexOf('paintLandmark(g,x,L.foot')<source.indexOf('Foreground matte is painted AFTER all scenery'));
+  const landmark=source.indexOf('paintLandmark(g,x,scaled.foot');
+  const foreground=source.indexOf('The three geological foreground mattes hide the feet');
+  assert.ok(landmark>=0 && foreground>landmark,'architecture must be painted before the foreground matte');
 });
 
 test('region extension preserves fully traversable geological corridor and distributes barriers',()=>{
