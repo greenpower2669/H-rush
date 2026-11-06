@@ -78,3 +78,6 @@ Retour joueur : la bulle atmosphérique gonfle et rétrécit visiblement, ce qui
 
 ## 2026-11-06 — ordre de mise en commun et Release 0.5.3
 Fab : « Ouinrelease merge la » — interprété comme autorisation explicite de publier et de fusionner maintenant. Consigne exécutée : PR #6 fusionnant toutes les versions de 0.4.8 à 0.5.3 dans `main` ; Release finale GitHub v0.5.3 distincte des préversions, avec APK direct signé Debug (pas d'AAB), sauvegardes et historique préservés. Validation Android matérielle et certification d'une clé de signature pérenne restent des suites à gérer séparément.
+
+## OMEGA 0.5.4 — atmosphère, bonus, warp et obstacles (6 novembre 2026)
+Message de Fab : « L'atmosphère termine trop tôt, la terre d'abord et la bulle d'atmosphère après ; trop de bonus ; warp portals cachés dans du décor et réapparition dans l'espace ; colonnes d'obstruction mouvante nées hors écran et placées derrière terre/grotte ; difficulté progressive ? » Puis autorisation : « Ok code ça ». Préserver la difficulté graduelle et ses plafonds, la graine 128 bits, la sauvegarde JSON, les collisions AND, les cœurs et versions précédentes. Créer 0.5.4 sur branche issue de `main`, tester, livrer l'APK direct en préversion et ne pas fusionner `main` sans consentement distinct.
