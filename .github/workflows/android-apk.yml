@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-second-finger-vector-aim-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -89,6 +89,7 @@ jobs:
           assert 'function atmosphereGlobePosition' in html
           assert 'function warpExitWorld' in html and 'function bonusDropAllowed' in html
           assert 'function spriteForMorph' in html and 'function cleanFrameMatte' in html
+          assert 'function vectorShotFromNose' in html and 'function steerSecondFingerShot' in html
           assert 'function burnHoleLimited' in html and 'MAX_ENEMY_CUT_FRACTION = .15' in html
           assert 'id="highScore"' in html and 'id="endRecord"' in html
           assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
@@ -135,11 +136,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.5-bestiary-alpha-debug.apk
+          APK=HRush-Omega-v0.5.6-second-finger-aim-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='55' versionName='0.5.5'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='56' versionName='0.5.6'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -152,7 +153,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.5-bestiary-alpha-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.6-second-finger-aim-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -176,6 +177,7 @@ jobs:
             assert b'function atmosphereGlobePosition' in html
             assert b'function warpExitWorld' in html and b'function bonusDropAllowed' in html
             assert b'function spriteForMorph' in html and b'function cleanFrameMatte' in html
+            assert b'function vectorShotFromNose' in html and b'function steerSecondFingerShot' in html
             assert b'function burnHoleLimited' in html and b'MAX_ENEMY_CUT_FRACTION = .15' in html
             assert b'id="highScore"' in html and b'id="endRecord"' in html
             assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
@@ -197,19 +199,19 @@ jobs:
           set -euo pipefail
           # A final tagged Release on main; keep separate feature previews intact.
           if [ "$GITHUB_REF_NAME" = "main" ]; then
-            TAG=v0.5.5
+            TAG=v0.5.6
             RELEASE_FLAGS=()
           else
-            TAG=v0.5.5-bestiary-alpha-preview
+            TAG=v0.5.6-second-finger-aim-preview
             RELEASE_FLAGS=(--prerelease)
           fi
-          APK=HRush-Omega-v0.5.5-bestiary-alpha-debug.apk
+          APK=HRush-Omega-v0.5.6-second-finger-aim-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.5 - bestiaire et boss distincts, correction des cadres de sprites" \
-              --notes "H-RUSH OMEGA 0.5.5 : correction des cadres de sprites résiduels par détourage flood-fill du fond aux coins et suppression des fuites d'atlas avant construction du vrai masque AND, même ImageData pour collisions et dessin. Bestiaire largement enrichi : 52 rôles de combat, 49 morphologies ennemies non interchangeables et 16 boss différents. Racines et tentacules au plafond, worms sauteurs, défenses fixes, tourelles, chars, rovers, marcheurs, drones, chasseurs et grands vaisseaux. Deux images d'animation par forme, cache borné, cicatrices et trous alpha synchronisés ; boss à quatre phases alternant vrais types de tirs. Choix déterministe par seed/biome/phase ; difficulté progressive, sauvegardes JSON, warp et atmosphères 0.5.4 préservés. APK Debug autonome non AAB. Tests visuels réels sur Samsung et certificat de mise à jour restent nécessaires." \
+              --title "H-RUSH OMEGA 0.5.6 - visée vectorielle au deuxième doigt" \
+              --notes "H-RUSH OMEGA 0.5.6 : deux doigts tactiles indépendants. Le premier dirige le vaisseau, le second désigne la cible avec verrouillage même placé sous une racine/tentacule au plafond, près des unités terrestres et des vers sauteurs, ou en haut/bas autour des aéronefs. Lasers et missiles partent de la position exacte du nez incliné vers la cible ; la vitesse avant/arrière du vaisseau influe sur la trajectoire, compensée pour garder le guidage. Les tirs déjà en vol peuvent corriger leur route dans un cône borné de 16 degrés pour sol/plafond et 21 degrés pour cibles aériennes ; alignement des vrais masques alpha AND avec les projectiles pivotés. Le second doigt ne lance plus accidentellement les missiles : bouton HUD ou touche M/Maj. Moteur 0.5.5 et diversité de boss/racines/vers, bonus rares, warp spatial, sauvegarde JSON, progression préservés. APK Debug autonome, pas d'AAB ; ergonomie multitouch et FPS Samsung à vérifier."" \
               "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
