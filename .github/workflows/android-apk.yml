@@ -18,6 +18,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: hrush-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -172,6 +176,7 @@ jobs:
           test "$(stat -c %s "$APK")" -gt 5500000
           sha256sum "$APK" > SHA256SUMS.txt
       - name: Publier uniquement APK direct sur GitHub Releases
+        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
