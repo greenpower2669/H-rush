@@ -963,6 +963,21 @@ function drawBackground() {
   ctx.globalAlpha=1;
   // Horizon and rocky silhouette are owned by the seeded OMEGA renderer and terrain masks.
 }
+function drawSecondFingerReticle(){
+  if(!activeAim)return;
+  const {x,y,locked,mode}=activeAim;
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch);
+  ctx.save();
+  ctx.strokeStyle=locked?'#ffeb8f':'#80f1ff';
+  ctx.lineWidth=1.5;ctx.globalAlpha=.64;ctx.setLineDash([7,8]);
+  ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(x,y);ctx.stroke();
+  ctx.setLineDash([]);ctx.globalAlpha=.89;
+  const radius=locked?(mode==='air'?20:24):13;
+  ctx.beginPath();ctx.arc(x,y,radius,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.moveTo(x,y-6);ctx.lineTo(x,y+6);ctx.stroke();
+  ctx.restore();
+}
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
@@ -987,6 +1002,7 @@ function render() {
   }
   for(const rocket of missiles)drawEntity(rocket);
   for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
+  drawSecondFingerReticle();
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
@@ -1088,10 +1104,21 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // Second finger aims the lasers; missiles still use the HUD button or keyboard.
+    if(aimPointerId===null){aimPointerId=e.pointerId;aimPointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}
+    e.preventDefault();return;
+  }
+  if(mainPointerId===null){mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}e.preventDefault();});
+canvas.addEventListener('pointermove',e=>{
+   if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
+   if(e.pointerId===aimPointerId)aimPointer=pointFromEvent(e);
+ });
+for(const event of ['pointerup','pointercancel','lostpointercapture'])
+   canvas.addEventListener(event,e=>{
+     if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+     if(e.pointerId===aimPointerId){aimPointerId=null;aimPointer=null;activeAim=null;}
+   });
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -1104,7 +1131,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
