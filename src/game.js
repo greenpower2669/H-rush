@@ -20,7 +20,7 @@ import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
-import { acquireTwoFingerTarget, twoFingerAimPoint, twoFingerNoseShot, guidedMissileVelocity } from './two-finger-aim.js';
+import { acquireTwoFingerTarget, twoFingerAimPoint, twoFingerNoseShot, missileAutofocusVelocity, readAutofocus, saveAutofocus } from './two-finger-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -35,6 +35,7 @@ const touch = new TouchCalibration(storage);
 const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
 const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
 const touchMissiles = new TouchMissileGestures();
+let autofocusEnabled=readAutofocus(storage); // OFF on fresh and legacy installations
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -567,7 +568,7 @@ function renderHoverPlume(){
   ctx.restore();
 }
 function activeSecondFingerAim(){
-  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H):null;
+  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
@@ -595,7 +596,8 @@ function launchMissile() {
       player.pitch,345,lane,aim);
     const shape=pitchSprite(ships.missile,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,lockTarget:aim?.target||null});
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      autoGuide:autofocusEnabled,lockTarget:autofocusEnabled?(aim?.target||null):null});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
@@ -767,14 +769,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const locked=b.lockTarget&&b.lockTarget.hp>0&&enemies.includes(b.lockTarget)?b.lockTarget:null;
-  const target=locked||enemies.filter(e=>e.hp>0).sort((a,c)=>
-    (a.x-b.x)**2+(a.y-b.y)**2-((c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(locked){
-    const steer=guidedMissileVelocity(b,locked,dt);
+  // No implicit missile homing: manual shots preserve their initial heading.
+  // The option is captured at launch, so changing settings never bends a
+  // missile that is already in flight.
+  if(b.autoGuide===true){
+    const steer=missileAutofocusVelocity(b,enemies,dt,true);
     b.vx=steer.vx;b.vy=steer.vy;
-  }else if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -1163,6 +1164,12 @@ function frame(now){
     requestAnimationFrame(frame);
   }catch(error){stopBrokenFrame(error);}
 }
+function updateAutofocusUi(){
+  $('#autofocusToggle').checked=autofocusEnabled;
+  $('#autofocusStatus').textContent=autofocusEnabled
+    ? 'Activé : les ennemis peuvent être accrochés, les missiles corrigent leur trajectoire.'
+    : 'Désactivé (conseillé) : tirs droits, visée libre au deuxième doigt, sans poursuite automatique.';
+}
 function updateTiltUi() {
   const active=tilt.getVector();
   $('#tiltToggle').textContent=tilt.enabled?'🎮 Inclinaison':'✋ Tactile';
@@ -1183,6 +1190,14 @@ window.addEventListener('ashrush:gravity',event=>{
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
 $('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
+$('#autofocusToggle').addEventListener('change',e=>{
+  autofocusEnabled=saveAutofocus(storage,e.target.checked);
+  if(secondFingerAim){
+    secondFingerAim.target=autofocusEnabled
+      ? acquireTwoFingerTarget(enemies,secondFingerAim.current,W,H) : null;
+  }
+  updateAutofocusUi();
+});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -1221,7 +1236,7 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     if(!secondFingerAim){
       const point=pointFromEvent(e);
       secondFingerAim={id:e.pointerId,start:point,current:point,
-        target:acquireTwoFingerTarget(enemies,point,W,H)};
+        target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
       canvas.setPointerCapture(e.pointerId);
       if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
     }
@@ -1289,4 +1304,4 @@ $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
-reset();updateTiltUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
+reset();updateTiltUi();updateAutofocusUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
