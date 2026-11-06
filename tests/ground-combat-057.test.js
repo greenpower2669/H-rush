@@ -131,7 +131,7 @@ test('cannon, shell, rotated enemy wounds and gnawing are wired to actual game p
  assert.ok(game.includes('pitchSpriteCache.delete(damaged)'));
  assert.ok(art.includes('paintMorph(g,morph,frame,phase,resolvedAngle)'));
  assert.ok(art.includes('maskFromImageData(data,42)'));
- assert.ok(art.includes("if(morph.shape==='worm'||morph.shape==='crawler')"));
+ assert.ok(art.includes("morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'"));
  assert.ok(MAX_ENEMY_DAMAGE_FRAMES<=12);
  const html=src('ash-rush-standalone.html');
  assert.ok(html.includes('function gnawTerrainByAnd'));

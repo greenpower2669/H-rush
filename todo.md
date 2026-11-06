@@ -313,3 +313,17 @@
 - [ ] QA Samsung : véritable multitouch en paysage, cas premier doigt pilotant + second doigt glissant, verrou sous racine/tentacule, au-dessus du worm sauteur, tir en arrière/avant, guidage missiles, troisième doigt et relâchements rapides, FPS.
 - [ ] Vérifier si changement de certificat Debug impose une réinstallation ; **exporter l'univers JSON avant désinstallation**, ne jamais le faire perdre.
 - [ ] Valider la 0.5.5 et 0.5.6 avant éventuelle fusion des PR #8/#9 vers `main`. Aucune fusion sans autorisation explicite ; aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.8 — double-tap, passage graphique global (6 novembre 2026)
+- [x] Créer une branche dédiée 0.5.8 depuis 0.5.7 sans fusion automatique ; PR #12 en brouillon.
+- [x] Ajouter double tap missile au premier doigt (sans interrompre le pilotage), puis au deuxième ; conserver l'acquisition ciblée et le premier missile immédiat du deuxième doigt ; éviter une deuxième consommation de munition sur ce geste.
+- [x] Bornes d'anti-erreur temporelles/spatiales, vérification du déplacement cumulatif et nettoyage des identifiants de pointer sur blur, reset ou cancel.
+- [x] Revoir les 49 ennemis et 16 boss par familles de matériaux, couleurs cohérentes, détails de coque/cockpit, lumières, textures et orientation des aéronefs vers la gauche ; biseau RGB uniquement, aucune modification d'alpha ou des masques AND.
+- [x] Conserver la visée deuxième doigt 0.5.6, le combat au sol et les vers 0.5.7, les sauvegardes et l'état du gameplay.
+- [x] Actualiser le guide tactile et assembler les sources dans l'HTML autonome identique à la version Android.
+- [x] Ajouter des tests double-tap, anti-drag et invariance alpha du traitement graphique ; adapter deux assertions anciennes sur le sens des vers et le reset des touches.
+- [x] CI validée : GitHub Actions [42272382589](https://github.com/greenpower2669/H-rush/actions/runs/42272382589), **152/152 tests**, bundle autonome reconstruit à l'identique, APK Debug Android 0.5.8/code 58, signature/package/musiques/branding vérifiés. Prérelease [v0.5.8-double-tap-bestiary-preview](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.8-double-tap-bestiary-preview), APK [direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.8-double-tap-bestiary-preview/HRush-Omega-v0.5.8-double-tap-bestiary-debug.apk) : **14 000 499 octets**, SHA-256 `2d01be8dc4f8042272ad2f1ba25b2d07b4af81c81cc1505db09c152ab9f21fd2` (digest d'asset GitHub).
+- [ ] QA Samsung en paysage : tap/double tap des deux doigts, pilotage pendant tir, mouvements vers et depuis l'ennemi, absence de double dépense de munitions, contrôles rapides, absence de faux missiles lors des glissés.
+- [ ] QA visuelle et performances : silhouettes reconnaissables (49 ennemis/16 boss), orientation, contraste, masques et cratères AND exacts, fluidité RAM/FPS et rendu de longues parties. Si le style procédural n'est toujours pas assez riche, planches artistiques HD à étudier avant une version finale.
+- [ ] Exporter l'univers JSON avant toute désinstallation, vérifier la compatibilité du certificat Debug sur appareil, faire valider la PR #12 avant toute fusion vers main. Aucun AAB demandé.

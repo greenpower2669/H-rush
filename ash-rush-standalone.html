@@ -170,7 +170,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -193,7 +193,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : double tap du 1er ou 2e doigt, ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
@@ -230,11 +230,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour verrouiller un ennemi et lancer un missile ; maintenir puis glisser ce doigt pour guider les lasers depuis le nez du vaisseau : gauche/droite sur les racines et ennemis du sol/plafond, haut/bas sur les ennemis volants. Relâcher pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; le premier contact du deuxième doigt lance également un missile et verrouille un ennemi ; maintenir puis glisser ce doigt pour guider les lasers depuis le nez du vaisseau : gauche/droite sur les racines et ennemis du sol/plafond, haut/bas sur les ennemis volants. Relâcher pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.8 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -1639,11 +1639,16 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
-  const hue=(m.hue+damagePhase*14)%360;
-  const hull=`hsl(${hue} 55% ${m.boss?32:38}%)`;
-  const lit=`hsl(${(hue+85)%360} 92% 68%)`;
-  const dark=`hsl(${(hue+260)%360} 58% 17%)`;
-  const metal=`hsl(${(hue+18)%360} 30% 72%)`;
+  // Limited palette per material prevents the old rainbow hue-shifted toy look.
+  // Local variations keep species recognisable within a faction.
+  const baseHue={space:213,mechanical:202,aerial:189,organic:320,
+    hybrid:275,ground:35,defense:13}[m.family]??215;
+  const hue=(baseHue+(m.index*13)%31-15+damagePhase*9+360)%360;
+  const accentHue=(hue+([175,44,107,138,91][m.index%5]))%360;
+  const hull=`hsl(${hue} 49% ${m.boss?29:35}%)`;
+  const lit=`hsl(${accentHue} 96% 72%)`;
+  const dark=`hsl(${hue} 68% 12%)`;
+  const metal=`hsl(${hue} 24% 77%)`;
   g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
   g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
   const shape=m.shape;
@@ -1800,6 +1805,100 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
     oval(g,px,py,3,3,lit);
   }
 }
+/** Shared high-contrast art direction: armor relief, anatomy, cockpit glass,
+ * rivets, engines and luminous veins. SOURCE-ATOP guarantees no painted
+ * embellishment can extend beyond the real collision silhouette.
+ */
+function paintSurfaceDetails(g,m,frame,phase){
+  const w=m.boss?176:86,h=m.boss?112:62;
+  const accent={space:'#70f5ff',mechanical:'#92cfff',aerial:'#ffd88e',
+    organic:'#ff8ba9',hybrid:'#d5afff',ground:'#ffd178',defense:'#ffb68b'}[m.family]||'#a8eeff';
+  g.save();
+  g.globalCompositeOperation='source-atop';
+  const alloy=g.createLinearGradient(0,1,w*.20,h);
+  alloy.addColorStop(0,'rgba(255,255,255,.42)');
+  alloy.addColorStop(.28,'rgba(255,255,255,.05)');
+  alloy.addColorStop(.56,'rgba(8,12,30,.12)');
+  alloy.addColorStop(1,'rgba(2,5,21,.53)');
+  g.fillStyle=alloy;g.fillRect(0,0,w,h);
+  const halo=g.createRadialGradient(w*.38,h*.28,0,w*.38,h*.28,w*.55);
+  halo.addColorStop(0,'rgba(255,255,255,.13)');
+  halo.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=halo;g.fillRect(0,0,w,h);
+  g.translate(w*.5,h*.5);g.scale(w*.43,h*.40);
+  g.lineCap='round';g.lineJoin='round';
+  const organic=m.family==='organic'||m.family==='hybrid';
+  const ground=m.anchor==='ground',ceiling=m.anchor==='ceiling';
+  const flying=m.anchor==='air';
+  const pulse=.76+.24*((frame&1)?1:0);
+  g.strokeStyle=accent;g.fillStyle=accent;
+  g.globalAlpha=.66*pulse;g.lineWidth=.036;
+  if(ceiling){
+    for(let i=-2;i<=2;i++){
+      const x=i*.28;
+      g.beginPath();g.moveTo(x,-.74);g.bezierCurveTo(x+.20,-.33,x-.18,.13,x+.16,.67);g.stroke();
+      oval(g,x-.03,-.55,.048,.06,accent);
+    }
+  }else if(organic){
+    for(let i=0;i<5;i++){
+      const x=-.66+i*.30;
+      g.beginPath();g.moveTo(x,-.37);g.quadraticCurveTo(x+.20,-.05,x+.31,.35);g.stroke();
+      oval(g,x,-.28,.065,.040,accent);
+    }
+  }else if(flying){
+    // Visible wings, engine ports and cockpit ribs—not flat geometric stickers.
+    for(const side of [-1,1]){
+      g.beginPath();g.moveTo(-.63,side*.12);g.lineTo(-.12,side*.22);
+      g.lineTo(.40,side*.51);g.stroke();
+      g.beginPath();g.moveTo(-.44,side*.15);g.lineTo(-.18,side*.31);g.stroke();
+      oval(g,-.63,side*.17,.10,.065,accent);
+    }
+    oval(g,.27,0,.19,.105,'#e4fdff');
+    g.globalAlpha=.27;oval(g,.32,-.038,.10,.042,'#fff');
+  }else if(ground){
+    for(let i=0;i<5;i++){
+      const x=-.72+i*.34;
+      g.fillRect(x,-.14,.045,.32);
+      oval(g,x+.03,.37,.065,.045,accent);
+    }
+    g.beginPath();g.moveTo(-.71,-.31);g.lineTo(.64,-.31);g.stroke();
+  }else {
+    for(let i=-2;i<=2;i++){
+      const x=i*.23;
+      g.beginPath();g.moveTo(x,-.55);g.lineTo(x+.12,-.13);g.stroke();
+      oval(g,x,.37,.06,.06,accent);
+    }
+  }
+  if(m.boss){
+    g.globalAlpha=.88;g.lineWidth=.048;
+    for(let side of [-1,1]){
+      g.beginPath();g.moveTo(-.88,side*.26);g.lineTo(-.30,side*.49);
+      g.lineTo(.43,side*.65);g.stroke();
+    }
+    const step=Math.max(0,Math.min(3,Math.floor(phase)));
+    for(let i=0;i<=step;i++)oval(g,-.2+i*.16,-.01,.045,.05,'#fff4bd');
+  }
+  g.restore();
+}
+/** Deterministic 1px bevel + micrograin; RGB only, alpha NEVER changes.
+ * Pixel-edge shading remains consistent with each destructive AND/AND-NOT mask.
+ */
+function bevelMorphPixels(data,m){
+  const {width:w,height:h,data:d}=data;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const k=(y*w+x)*4;
+    if(d[k+3]<42)continue;
+    const top=d[k-w*4+3],left=d[k-4+3],right=d[k+4+3],bottom=d[k+w*4+3];
+    const light=(top<42?25:0)+(left<42?18:0);
+    const shade=(right<42?20:0)+(bottom<42?25:0);
+    const grain=((x*29+y*41+m.index*71)%11)-5;
+    const v=light-shade+grain;
+    d[k]=Math.max(0,Math.min(255,d[k]+v));
+    d[k+1]=Math.max(0,Math.min(255,d[k+1]+v));
+    d[k+2]=Math.max(0,Math.min(255,d[k+2]+v));
+  }
+}
+
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
@@ -1813,14 +1912,17 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  // Ground worms advance head-first to the LEFT. Their flipped pixels and AND
-  // mask come from the same canvas, unlike an image-only CSS flip.
-  if(morph.shape==='worm'||morph.shape==='crawler'){
+  // Aerial enemies and ground worms face LEFT, toward the approaching player.
+  // Raster, detailed paint, orientation, and AND mask all share one transform.
+  if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
     g.translate(w,0);g.scale(-1,1);
   }
   paintMorph(g,morph,frame,phase,resolvedAngle);
+  paintSurfaceDetails(g,morph,frame,phase);
   g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
+  bevelMorphPixels(data,morph); // RGB only: preserve exact opaque bits.
+  g.putImageData(data,0,0);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
   while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
@@ -2068,6 +2170,49 @@ class TouchCalibration {
   target(point,shipWidth,shipHeight,width=960,height=540,options={}) {
     return touchTarget(point,shipWidth,shipHeight,width,height,{...options,offsetX:this.offsetX,offsetY:this.offsetY});
   }
+}
+
+/** OMEGA 0.5.8: two short taps by EITHER steering or targeting finger fire once.
+ * Secondary single-touch fire remains immediate for backwards compatibility.
+ * Pointer IDs are transient on Android; gestures pair by role, not pointerId.
+ * All times are monotonic PointerEvent.timeStamp milliseconds.
+ */
+const DOUBLE_TAP_WINDOW_MS=320;
+const MAX_TAP_MS=230;
+const MAX_TAP_TRAVEL=28;
+const MAX_DOUBLE_TAP_DISTANCE=72;
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+class TouchMissileGestures{
+  constructor(){this.reset();}
+  reset(){this.active=new Map();this.previous={primary:null,secondary:null};}
+  /** Returns true ONLY for an immediate secondary-finger launch. */
+  down(id,role,point,time){
+    if(!validPoint(point)||!Number.isFinite(time)||this.active.has(id))return false;
+    if(role!=='primary'&&role!=='secondary')return false;
+    const previous=this.previous[role];
+    const paired=!!previous&&time>=previous.time&&time-previous.time<=DOUBLE_TAP_WINDOW_MS&&
+      distance(previous.point,point)<=MAX_DOUBLE_TAP_DISTANCE;
+    this.active.set(id,{role,start:{...point},last:{...point},time,paired,maxTravel:0});
+    if(previous&&(!paired||time-previous.time>DOUBLE_TAP_WINDOW_MS))this.previous[role]=null;
+    // Legacy: first touch of the SECOND finger launches; the second touch of
+    // its double-tap pair is swallowed to avoid consuming two ammunition.
+    return role==='secondary'&&!paired;
+  }
+  move(id,point){const a=this.active.get(id);if(a&&validPoint(point)){a.last={...point};a.maxTravel=Math.max(a.maxTravel,distance(a.start,point));}}
+  /** Returns true on the second completed PRIMARY tap; secondary was already fired. */
+  up(id,point,time,cancelled=false){
+    const a=this.active.get(id);if(!a)return false;
+    this.active.delete(id);
+    const end=validPoint(point)?point:a.last;
+    const quick=!cancelled&&Number.isFinite(time)&&time>=a.time&&
+      time-a.time<=MAX_TAP_MS&&a.maxTravel<=MAX_TAP_TRAVEL&&distance(a.start,end)<=MAX_TAP_TRAVEL;
+    if(!quick){this.previous[a.role]=null;return false;}
+    if(a.paired){this.previous[a.role]=null;return a.role==='primary';}
+    this.previous[a.role]={point:{...end},time};
+    return false;
+  }
+  cancel(id){return this.up(id,null,0,true);}
 }
 
 /** Enemy navigation against the actual terrain 2D AND masks, never a graphical approximation.
@@ -2892,6 +3037,7 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const touchMissiles = new TouchMissileGestures();
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -3087,7 +3233,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;secondFingerAim=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -3893,7 +4039,8 @@ function drawBackground() {
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
-  if(o.hue)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
+  // Curated morphology palettes must not be destroyed by a second full-hull hue rotation.
+  if(o.hue&&!o.morph)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
   ctx.drawImage(o.sprite.image,x,y);
 
   ctx.restore();
@@ -4013,7 +4160,7 @@ $('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target
 $('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
 $('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
 $('#touchCalibrate').addEventListener('click',()=>{
-  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;touchMissiles.reset();
   $('#omegaPanel').hidden=true;paused=false;
   msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
 });
@@ -4040,16 +4187,24 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
       secondFingerAim={id:e.pointerId,start:point,current:point,
         target:acquireTwoFingerTarget(enemies,point,W,H)};
       canvas.setPointerCapture(e.pointerId);
-      launchMissile(); // retain the existing second-finger missile gesture
+      if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
     }
     e.preventDefault();return;
   }
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
+  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);
+  touchMissiles.down(e.pointerId,'primary',pointer,e.timeStamp);
+  canvas.setPointerCapture(e.pointerId);e.preventDefault();});
 canvas.addEventListener('pointermove',e=>{
-  if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
-  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=pointFromEvent(e);
+  const point=pointFromEvent(e);
+  touchMissiles.move(e.pointerId,point);
+  if(dragging&&e.pointerId===mainPointerId)pointer=point;
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
+  // A short double tap of the steering finger launches without steering loss.
+  // Secondary single touch already launches; its second tap cannot spend ammo twice.
+  const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
+  if(fire)launchMissile();
   if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
   if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
 });
@@ -4065,7 +4220,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
