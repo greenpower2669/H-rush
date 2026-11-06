@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-059-stability-apk-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
