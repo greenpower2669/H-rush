@@ -75,6 +75,20 @@ test('multi-lane spread and guided missiles preserve physical trajectories',()=>
  assert.ok(next.vy>0);
  assert.deepEqual(guidedMissileVelocity(missile,{},.033),{vx:345,vy:0});
 });
+test('aim point chooses the nearest ACTUAL alpha pixel, even on hollow roots',async()=>{
+ const {createMask,hasPixel}=await import('../src/collision.js');
+ const root=e('ceiling',100,50,30,30);
+ root.sprite.mask=createMask(30,30,(x,y)=>y===2&&x>=12&&x<=18);
+ const state={start:{x:110,y:100},current:{x:110,y:100},target:root};
+ let aim=twoFingerAimPoint(state,[root]);
+ assert.ok(hasPixel(root.sprite.mask,aim.x-root.x,aim.y-root.y));
+ const hitY=aim.y;
+ root.sprite.mask.rows.fill(0);
+ root.sprite.mask.filled=1;
+ root.sprite.mask.rows[28*root.sprite.mask.stride]=1<<25;
+ aim=twoFingerAimPoint(state,[root]);
+ assert.ok(aim.y>hitY,'cache invalidation must follow a disappearing alpha pixel');
+});
 test('primary steering and second aiming use distinct pointer IDs and releases',()=>{
  const game=src('src/game.js'),html=src('ash-rush-standalone.html');
  for(const token of ['secondFingerAim={id:e.pointerId','secondFingerAim?.id===e.pointerId',
