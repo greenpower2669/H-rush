@@ -34,8 +34,9 @@ Invariants :
 22. Le mode OMEGA est un premier parcours horizontal procédural à phases, pas encore une simulation géographique libre de planètes ni 40 mondes artistiquement terminés. Les 20 profils adverses partagent encore des familles de sprites.
 23. Ne pas modifier les mémoires de Djipie ou de SpaceFortressVs au titre de la mission OMEGA. La sonothèque WAV attribuée est réutilisée telle quelle, sans dupliquer les mémoires des projets.
 
-## Convention de livraison (6 novembre 2026)
-Fab demande uniquement des fichiers `.apk` directement téléchargeables depuis les Releases de test. Suspendre la génération des `.aab`, y compris dans GitHub Actions, jusqu'à décision explicite de préparer une publication Google Play. Ne pas supprimer les anciennes Releases ou leurs fichiers historiques.
+18. Fin de partie : blocage de l'update uniquement, overlay GAME OVER visible sur écran paysage, Rejouer au checkpoint de région et classement personnel. Le monde, les cratères et la graine restent intacts.
+19. Hall personnel : 10 meilleurs scores **de partie**, calculés par différence du score total monotone entre début et fin de run, exportés avec l'univers. Classement mondial distinct, nécessite un backend fiable.
+20. Ennemis : archétypes permanents et variantes contextuelles `adaptSpecies` (phase, région, situation joueur), déterministes pour entrées identiques ; sprite atlas et moteur AND inchangés.
 
-## Audio CC0 Djipie (OMEGA 0.4.2)
-Musiques CC0 de Djipie : fichiers d'origine téléchargés durant la CI depuis OpenGameArt et contrôlés strictement contre les SHA-256 de la médiathèque. Quatre pistes par scène (espace, atmosphère/surface, caverne, boss/danger) avec fondu et volume commun aux SFX. Les fichiers sont intégrés hors ligne dans l'APK, jamais chargés depuis Internet pendant le jeu ; ne pas republier les sons privés Sonniss. Aucun AAB avant nouvelle autorisation.
+## Musique (OMEGA 0.4.2)
+Musique d'ambiance depuis le catalogue CC0 de Djipie, **pistes originales téléchargées chez les auteurs et SHA-256 strictement vérifié à la compilation**. Soundtrack hors réseau dans l'APK. Transitions déterministes : espace -> Space Echo, atmosphère/surface -> Action_A, intérieur -> Horror, boss/danger -> Battle. Ne pas copier de musiques de licence inconnue ni de fichiers privés Sonniss. Pas d'AAB.

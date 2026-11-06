@@ -66,6 +66,8 @@ jobs:
           assert 'function drawOmegaWorld' in html
           assert 'function gateY' in html
           assert 'function finishRun' in html
+          assert 'function applyHealthDamage' in html
+          assert 'function safeEnemySpawn' in html
           assert 'function insertHallEntry' in html
           assert 'id="endReplay"' in html
           assert '<script>' in html
@@ -98,11 +100,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.2-music-debug.apk
+          APK=AshRush-Omega-v0.4.3-terrain-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegamusic' versionCode='42' versionName='0.4.2'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegahearts' versionCode='43' versionName='0.4.3'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -110,13 +112,15 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.2-music-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.3-terrain-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
             assert b'function finishRun' in html and b'id="gameOverPanel"' in html
             assert b'function adaptSpecies' in html and b'function insertHallEntry' in html
             assert b'function sceneMusic' in html and b'function createMusicEngine' in html
+            assert b'function applyHealthDamage' in html and b'PV_PER_HEART = 4' in html
+            assert b'function safeEnemySpawn' in html and b'function advanceEnemyOnTerrain' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
             for filename in ('space_echo.ogg','action_a.mp3','battle.mp3','horror.mp3'):
               assert len(apk.read('assets/assets/music/djipie/'+filename)) > 100000
@@ -129,14 +133,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.2-music-preview
-          APK=AshRush-Omega-v0.4.2-music-debug.apk
+          TAG=v0.4.3-terrain-preview
+          APK=AshRush-Omega-v0.4.3-terrain-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.2 - musiques CC0 Djipie" \
-              --notes "OMEGA 0.4.2 : 4 musiques CC0 issues du catalogue Djipie, contrôlées SHA-256, transitions selon environnement et danger. Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegamusic indépendant des anciennes installations pour éviter conflit de signature. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
+              --title "Ash Rush OMEGA 0.4.3 - cœurs, PV et obstacles denses" \
+              --notes "OMEGA 0.4.3 : onze obstacles mobiles par région, placement et trajectoires des ennemis et boss confirmés par AND; les bosses creusent le terrain au besoin; collision paroi = un cœur, 4 PV par cœur contre les petits tirs, 1.65 s invulnérabilité et recul, HUD cœurs et jauge de PV, bonus de soin adaptés. Quatre musiques CC0 Djipie, contrôlées SHA-256 et transitions selon les scènes. Game Over avec Rejouer et Hall of Fame local, dix meilleurs scores persistants et exportables avec l’univers, 20 archétypes variants selon les mondes, leur phase et la situation. Socle OMEGA conservé : univers par graine cryptographique de 128 bits, zones espace/atmosphère/surface/intérieur, parois mobiles destructibles, masque AND exact, cratères persistants, 20 profils ennemis paramétrés, atlas nettoyé, export/import JSON Android et Web, bande son Space Fortress. APK DEBUG TEST uniquement, package fr.fab.ashrush.omegahearts indépendant des anciennes installations pour éviter conflit de signature. Pas encore 40 biomes artistiques distincts ni civilisations autonomes : voir todo.md." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

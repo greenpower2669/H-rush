@@ -28,5 +28,15 @@ Concepteur : Fabrice Gourdant. Étendre Ash Rush à un univers 2D personnel gén
 
 **Premier jalon confié à OMEGA 0.4.0 :** seed, génération régionale, parois mobiles destructibles, score, sauvegarde/transport, 20 profils paramétrés, rendu de phases et test d'Android ; toutes les ambitions avancées sont reportées avec traçabilité à `todo.md`.
 
-## Mission complémentaire — 2026-11-06, musiques Djipie
-Intégrer progressivement les musiques avec licence CC0 prouvée, en contrôlant SHA-256, provenance et disponibilité. Ambiances qui changent selon les phases spatiales, planétaires, souterraines et les combats. Préserver gameplay A & B, fonds animés, commandes tactiles, Hall of Fame, tous les FX et le fonctionnement offline. Livraison exclusivement en APK direct GitHub Release, sans AAB avant décision Play Store.
+## 2026-11-05 — Complément OMEGA 0.4.1
+À la destruction du vaisseau : afficher GAME OVER, score de partie, Rejouer visible en paysage et Hall of Fame personnel. Ne jamais laisser le joueur croire que l'application est figée ; garder l'univers, les trous creusés et les découvertes après une défaite. Adapter les variantes d'ennemis et leurs actions selon les mondes visités et les situations. Préserver collision de gameplay `A & B`, sprites intégrés, sons, tactile et paysage. Hall mondial restant en tâche séparée faute d'infrastructure sécurisée.
+
+## Correction Fab — 6 novembre 2026 : résistance aux chocs
+« One shot » signifiait perte d'un cœur par collision avec une paroi, non destruction immédiate du vaisseau. Un cœur possède plusieurs PV : quatre petits dégâts retirent un cœur. Cinq cœurs au départ. Garder collision AND exacte, pause, Hall of Fame, enregistrement des mondes et bande-son Djipie. Livrer uniquement un APK Android de test direct GitHub Release, sans AAB.
+
+## Addendum OMEGA 0.4.3 — corrections demandées
+- Collision roche/paroi : perdre un cœur seulement ; les petits tirs enlèvent des PV avant le prochain cœur. Conserver la protection et les bonus.
+- Aucun ennemi ou boss ne doit apparaître ni se déplacer dans le relief opaque. Collision du terrain effective sur toute leur trajectoire et positions des parois mobiles.
+- Ajouter des obstacles réellement saillants et bloquants dans les passages, avec diversité de matériaux, oscillations et destruction sauvegardée.
+- Préserver l'algorithme `A & B`, les musiques CC0 Djipie, les sons, le tactile paysage, l'univers personnel et le Hall of Fame.
+- Livrer uniquement un APK direct sur GitHub, jamais un AAB pour le moment.

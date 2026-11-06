@@ -15,3 +15,11 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/ecology.js` : 20 archétypes paramétrés, combinaisons comportementales.
 - `src/terrain.js` : ancien moteur de grotte 0.3 conservé pour tests, jamais chargé dans le gameplay OMEGA.
 - `tools/clean-atlas.py` : nettoyage des fonds opaques résiduels des vraies planches.
+
+- `src/hall.js` : classement local Top 10 des parties OMEGA, exporté avec le profil.
+- `src/ecology.js` : variantes contextuelles des 20 archétypes selon monde, région et situation.
+
+- `src/health.js` : convention OMEGA 0.4.3, cinq cœurs avec quatre PV chacun ; test de résistance indépendant du moteur AND.
+
+- `src/obstacle-navigation.js` : placement, déplacement contrôlé, gestion des collisions avec le relief via le moteur `A & B`.
+- `src/health.js` : règles séparées de cœurs/PV et seuils de dégâts.

@@ -129,7 +129,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       <div class="brand"><span class="brand-icon" aria-hidden="true">🚀</span><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
         <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>RECORD</small><strong id="distance">0.0 km</strong></div>
-        <div><small>COQUE</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
+        <div><small>CŒURS / PV</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
         <div><small>MISSILES</small><strong id="missiles">🚀 5 ×1</strong></div>
@@ -138,7 +138,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 ASH RUSH · OMEGA 0.4.1</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 ASH RUSH · OMEGA 0.4.3</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
           <div class="end-content">
@@ -177,7 +177,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.1 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.3 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -638,18 +638,36 @@ function terrainBounds(seed,worldX){
 }
 function rockAt(seed,wx,y){const {top,bottom}=terrainBounds(seed,wx);return y<top||y>=bottom;}
 
-/** Gates are independent moving mask objects; translations apply to pixels and collision equally. */
+/** Gates are independent moving mask objects; translations apply to pixels and collision equally.
+ * Types 0/1/2 and their saved scar IDs are frozen for backward compatibility.
+ * The extra 8 deterministic hazards make atmosphere, surface and tunnels denser.
+ */
+const GATE_TYPES = 11;
+const EXTRA_GATE_OFFSETS = Object.freeze([1190, 1540, 2310, 2640, 2930, 3610, 4040, 4530]);
+
 function gateSpec(seed,region,which){
-  if(which!==0 && which!==1 && which!==2) throw RangeError('gate type');
-  const p=[1930,3330,3840][which],full=which===1;
+  if(!Number.isInteger(which)||which<0||which>=GATE_TYPES) throw RangeError('gate type');
+  const legacy=which<3;
+  const p=legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3];
+  const full=which===1; // Full crossing remains destructible by the basic laser.
   const f=keyedFloat(seed,region,40+which);
   const amplitude=full?9+f*12:15+f*19;
-  return {id:region*3+which,worldX:region*REGION_SIZE+p,
-    width:full?40:58,height:full?620:340,
-    baseY:full?-40:which===0?-75:230,
+  const shape=legacy?'legacy':(which%3===0?'crystal':'rock');
+  const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
+  const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
+  const anchorTop=which===3||which===5||which===7||which===9;
+  const localBounds=legacy?null:terrainBounds(seed,region*REGION_SIZE+p);
+  // Attach to the actual local ceiling/floor, never to the physical screen edge:
+  // in a cavern the hazard MUST protrude into the flyable corridor.
+  const baseY=legacy?(full?-40:which===0?-75:230):
+    anchorTop?(localBounds.top<0?-30:Math.round(localBounds.top-height*.54)):
+    localBounds.bottom>WORLD_H?(WORLD_H-height+20):Math.round(localBounds.bottom-height*.46);
+  return {id:legacy?region*3+which:10000000+region*16+which,
+    worldX:region*REGION_SIZE+p,width,height,baseY,
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
-    phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,
-    material:which===1?'metal':which===0?'crystal':'basalt'};
+    phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
+    material:which===1?'metal':which===0?'crystal':which===2?'basalt':
+      which%3===0?'crystal':which%3===1?'metal':'basalt'};
 }
 function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
 /** A 60px laser crater crosses a 40px-thick gate while leaving ~90px of vertical clearance. */
@@ -720,10 +738,25 @@ class OmegaTerrain {
     if(material==='metal'){grad.addColorStop(0,'#677598');grad.addColorStop(.18,'#c0d8e3');grad.addColorStop(.47,'#36446d');grad.addColorStop(.78,'#9e9ac2');grad.addColorStop(1,'#4a4366');}
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
-    g.fillStyle=grad;g.fillRect(0,0,spec.width,spec.height);
+    g.fillStyle=grad;
+    if(spec.shape==='legacy')g.fillRect(0,0,spec.width,spec.height);
+    else {
+      // Distinct rocky/crystal edge, with real alpha holes: the mask is rasterized from this exact image.
+      const w=spec.width,h=spec.height;
+      g.beginPath();g.moveTo(w*.18,0);g.lineTo(w*.82,0);
+      for(let y=0;y<=h;y+=18){
+        const x=w*(.78+.11*Math.sin(y*.064+spec.id));g.lineTo(x,Math.min(h,y));
+      }
+      g.lineTo(w*.18,h);
+      for(let y=h;y>=0;y-=18){
+        const x=w*(.17+.10*Math.sin(y*.055+spec.id*3));g.lineTo(x,Math.max(0,y));
+      }
+      g.closePath();g.fill();
+    }
+    if(spec.shape!=='legacy')g.globalCompositeOperation='source-atop';
     g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
-    g.globalAlpha=1;
+    g.globalAlpha=1;g.globalCompositeOperation='source-over';
     const mask=maskFromImageData(g.getImageData(0,0,spec.width,spec.height));
     const s={...spec,image:c,mask,width:spec.width,height:spec.height};
     for(const [x,y,r] of this.universe.scars('g:'+spec.id)) this.applyDisc(s,x,y,r);
@@ -731,7 +764,7 @@ class OmegaTerrain {
   }
   specs(region){
     if(this.specCache.has(region))return this.specCache.get(region);
-    const arr=[0,1,2].map(which=>gateSpec(this.universe.seed,region,which));
+    const arr=Array.from({length:GATE_TYPES},(_,which)=>gateSpec(this.universe.seed,region,which));
     this.specCache.set(region,arr);
     if(this.specCache.size>15)this.specCache.delete(this.specCache.keys().next().value);
     return arr;
@@ -746,7 +779,7 @@ class OmegaTerrain {
   visibleGates(x0,x1){
     const first=Math.floor(x0/REGION_SIZE)-1,last=Math.floor(x1/REGION_SIZE)+1;
     const a=[];
-    for(let region=Math.max(0,first);region<=last;region++)for(let type=0;type<3;type++){
+    for(let region=Math.max(0,first);region<=last;region++)for(let type=0;type<GATE_TYPES;type++){
       const spec=this.specs(region)[type];
       if(spec.worldX + spec.width < x0 || spec.worldX>x1)continue;
       a.push(this.gate(region,type));
@@ -822,7 +855,9 @@ class OmegaTerrain {
     }
   }
   nextBlockedGate(){
-    return this.visibleGates(this.scroll,this.scroll+1450).find(g=>g.full && g.worldX-this.scroll>0 && g.mask.filled>g.width*g.height*.1) || null;
+    return this.visibleGates(this.scroll,this.scroll+1450).find(g=>
+      (g.full || (g.shape!=='legacy' && g.height>=250)) &&
+      g.worldX-this.scroll>0 && g.mask.filled>g.width*g.height*.10) || null;
   }
 }
 
@@ -1216,11 +1251,123 @@ function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worldHeight
   };
 }
 
+/** Enemy navigation against the actual terrain 2D AND masks, never a graphical approximation.
+ * Functions accept any terrain with collideEntity(entity), to permit deterministic oracles.
+ */
+const clampEnemyNav = (x, a, b) => Math.max(a, Math.min(b, x));
+
+/** Reject both an occupied spawn and a short immediately-blocked approach corridor. */
+function safeEnemySpawn(terrain, sprite, x, preferredY, opts = {}) {
+  const h = opts.worldHeight ?? 540;
+  const minY = opts.minY ?? 24;
+  const maxY = Math.max(minY, h - sprite.height - (opts.bottomMargin ?? 16));
+  const stride = opts.searchStep ?? 12;
+  const ahead = opts.lookAhead ?? [0, 48, 96, 144];
+  const first = clampEnemyNav(Math.round(preferredY), minY, maxY);
+  const seen = new Set();
+  for (let n = 0; n < Math.ceil((maxY - minY) / stride) + 3; n++) {
+    for (const sign of (n === 0 ? [1] : [1, -1])) {
+      const y = clampEnemyNav(first + sign * n * stride, minY, maxY);
+      if (seen.has(y)) continue;
+      seen.add(y);
+      if (ahead.every(shift => !terrain.collideEntity({sprite,x:x-shift,y}))) return {x,y};
+    }
+  }
+  // A fully closed gate can make every corridor unsafe: delay the spawn, never embed an enemy.
+  return null;
+}
+
+function positionClear(terrain,enemy,x,y){
+  return !terrain.collideEntity({sprite:enemy.sprite,x,y});
+}
+
+/** Evict a ship if an oscillating obstacle swept into its old position this frame. */
+function evictEnemyFromTerrain(enemy,terrain,opts={}) {
+  if (positionClear(terrain,enemy,enemy.x,enemy.y)) return true;
+  const h = opts.worldHeight ?? 540;
+  const maxY=h-enemy.sprite.height-12;
+  const x0=enemy.x,y0=enemy.y;
+  for (const shift of [10,22,38,60,86,120,164,220]) {
+    const probes = [
+      [x0+shift,y0],[x0-shift,y0],
+      [x0,y0-shift],[x0,y0+shift],
+      [x0+shift,y0-shift],[x0+shift,y0+shift],
+    ];
+    for (const [x,y] of probes) {
+      if (x < -enemy.sprite.width || x > 1120 || y < 14 || y > maxY) continue;
+      if (positionClear(terrain,enemy,x,y)) {
+        enemy.x=x;enemy.y=y;return true;
+      }
+    }
+  }
+  // Never render a creature half inside an opaque wall if it is fully trapped.
+  return false;
+}
+
+/** Swept movement with binary 2D confirmation and wall sliding, no tunnelling on long frames. */
+function advanceEnemyOnTerrain(enemy,terrain,dx,dy,opts={}) {
+  if (!evictEnemyFromTerrain(enemy,terrain,opts)) return {trapped:true,blocked:true,hit:terrain.collideEntity(enemy)};
+  const h=opts.worldHeight ?? 540,stepSize=opts.stepSize ?? 7;
+  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/stepSize));
+  const minY=24,maxY=Math.max(minY,h-enemy.sprite.height-14);
+  let blocked=false,hit=null;
+  for(let i=0;i<steps;i++) {
+    const sx=dx/steps,sy=dy/steps;
+    const nextY=clampEnemyNav(enemy.y+sy,minY,maxY);
+    const collision=terrain.collideEntity({sprite:enemy.sprite,x:enemy.x+sx,y:nextY});
+    if(!collision){enemy.x+=sx;enemy.y=nextY;continue;}
+    blocked=true;hit=collision;
+    // Sliding along the obstacle: only accept another position after a real AND test.
+    if(positionClear(terrain,enemy,enemy.x,nextY)){enemy.y=nextY;continue;}
+    if(positionClear(terrain,enemy,enemy.x+sx,enemy.y)){enemy.x+=sx;continue;}
+    // A blocked craft steers toward the closest available open lane gradually.
+    let moved=false;
+    for (const steer of [stepSize,-stepSize,stepSize*2,-stepSize*2]) {
+      const y=clampEnemyNav(enemy.y+steer,minY,maxY);
+      if(positionClear(terrain,enemy,enemy.x,y)){enemy.y=y;moved=true;break;}
+    }
+    if(!moved)break;
+  }
+  return {blocked,hit,trapped:false};
+}
+
+/** H-RUSH OMEGA — five hearts, four hull PV per heart.
+ * A wall costs exactly one heart; a small hit costs one PV.
+ * Pure state transitions, independent of rendering and Fab's AND collision engine.
+ */
+const MAX_HEARTS = 5;
+const PV_PER_HEART = 4;
+
+function initialHealth() { return { hp: MAX_HEARTS, pv: PV_PER_HEART }; }
+
+function applyHealthDamage(state, kind = 'hit') {
+  const hp = state.hp, pv = state.pv;
+  if (!Number.isInteger(hp) || hp < 0 || hp > MAX_HEARTS ||
+      !Number.isInteger(pv) || pv < 0 || pv > PV_PER_HEART ||
+      (hp === 0 && pv !== 0) || (hp > 0 && pv === 0)) throw RangeError('Invalid hull health');
+  if (kind !== 'hit' && kind !== 'wall') throw RangeError('Invalid damage type');
+  if (hp === 0) return { hp: 0, pv: 0 };
+  if (kind === 'wall') {
+    const hearts = hp - 1;
+    return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0 };
+  }
+  if (pv > 1) return { hp, pv: pv - 1 };
+  const hearts = hp - 1;
+  return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0 };
+}
+
+/** Healing pickups restore one heart and refill the active heart's PV. */
+function restoreHeart(state) {
+  if (state.hp <= 0) return initialHealth();
+  return { hp: Math.min(MAX_HEARTS, state.hp + 1), pv: PV_PER_HEART };
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
 const grid = new SpatialGrid(112);
-const universe = new OmegaUniverse(typeof localStorage === 'undefined' ? null : localStorage);
+const storage = (() => {try {return globalThis.localStorage;} catch {return null;}})();
+const universe = new OmegaUniverse(storage);
 const terrain = new OmegaTerrain(universe);
 let artFrames = null;
 let bursts = [];
@@ -1343,7 +1490,7 @@ let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 
 function reset(fromCheckpoint = false) {
-  player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
+  player = {sprite:ships.player,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
@@ -1364,7 +1511,8 @@ function reset(fromCheckpoint = false) {
 }
 function updateHud() {
   $('#score').textContent=String(score).padStart(6,'0');
-  $('#hp').textContent='♥ '.repeat(Math.max(0,player.hp)).trim()||'0';
+  $('#hp').textContent=('♥ '.repeat(Math.max(0,player.hp)).trim()||'0')+' · '+player.pv+'/'+PV_PER_HEART+' PV';
+  $('#hp').setAttribute('aria-label',`${player.hp} cœurs, ${player.pv} points de vie sur ${PV_PER_HEART} dans le cœur actif`);
   $('#shield').textContent='◇ '+player.shield;
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
@@ -1434,11 +1582,17 @@ function mutableAsteroid() {
 }
 function spawnEnemy(kind='scout',species=null) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
-  const y = rand(52,H-65-s.height);
+  const spawnX=W+12;
+  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+rand(-80,80),24,H-s.height-16);
+  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
+  if (!position) return false;
   const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:W+10,y,vy:kind==='manta'?rand(-40,40):0,
+  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0});
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
+    blockedTime:0,drillCooldown:0});
+  return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
@@ -1498,7 +1652,8 @@ function playerDamage(r) {
   if(invulnerable>0) return;
   impactResult(r,player);
   if(player.shield>0){player.shield--;particlesAt(latestImpact.x,latestImpact.y,'shield',22);sound.play('shield');}
-  else {player.hp--;sound.play('damage');}
+  else {Object.assign(player,applyHealthDamage(player,'hit'));sound.play('damage');
+    if(player.hp>0)msg('⚡ COQUE : '+player.pv+'/'+PV_PER_HEART+' PV',1.2);}
   invulnerable=.9;
   if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
@@ -1620,17 +1775,47 @@ function update(dt) {
   spawnClock-=dt;
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
-    if(bossWave){spawnEnemy('boss');bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-    else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+    if(bossWave){
+      if (spawnEnemy('boss')) {bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
+      else spawnClock=.42; // Retry when the incoming lane opens, never embed the boss in rock.
+    } else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
       const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
       const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
-      spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+      if(spawnEnemy(species.base,species)){spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+      else spawnClock=.42;
+    }
   }
   for(const enemy of enemies){
-    enemy.age+=dt; enemy.x+=enemy.vx*dt;
-    if(enemy.species)enemy.y+=movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt);
-    else if(enemy.kind==='manta'||enemy.kind==='boss')enemy.y+=Math.sin(enemy.age*3+enemy.phase)*16*dt;
-    enemy.y=clamp(enemy.y,35,H-enemy.sprite.height-15);
+    enemy.age+=dt;
+    const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
+    // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
+    // Substeps prevent them from crossing thin rock or a moving piston in one frame.
+    const navigation=advanceEnemyOnTerrain(enemy,terrain,enemy.vx*dt,moveY);
+    if(navigation.trapped){
+      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
+      continue;
+    }
+    if(navigation.blocked){
+      enemy.blockedTime+=dt;
+      enemy.drillCooldown-=dt;
+      if(enemy.kind==='boss'&&navigation.hit&&enemy.drillCooldown<=0){
+        // A boss excavates rock rather than phasing through it; all holes remain persistent.
+        const p=terrain.firstWorldImpact(navigation.hit);
+        if(p){
+          const dug=terrain.carveImpact(navigation.hit,p,26);
+          if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
+        }
+        enemy.drillCooldown=.36;
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+        enemy.hp=0;
+        particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
+        sound.play('impact');
+        continue;
+      }
+    }else enemy.blockedTime=0;
+    enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
     enemy.fire-=dt;
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
@@ -1649,14 +1834,18 @@ function update(dt) {
     const r=check(enemy,player);
     if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
-  if (!gameOver) {
+  if (!gameOver && invulnerable<=0) {
     const collision = terrain.collideEntity(player);
     if (collision) {
       const p = terrain.firstWorldImpact(collision);
-      if (p) { particlesAt(p.screenX,p.y,'motor',75); spawnSpriteExplosion(p.screenX,p.y,1.9); }
-      player.hp = 0;
-      sound.play('explosion');
-      finishRun('wall');
+      if (p) { particlesAt(p.screenX,p.y,'motor',40); spawnSpriteExplosion(p.screenX,p.y,1.25); }
+      Object.assign(player,applyHealthDamage(player,'wall'));
+      invulnerable=1.65;
+      // Move the ship away from the rock so the same physical contact is not counted repeatedly.
+      player.x=clamp(player.x-72,10,W-player.sprite.width-15);
+      sound.play(player.hp===0?'explosion':'damage');
+      if (player.hp===0) finishRun('wall');
+      else msg('💥 CHOC : −1 CŒUR · '+player.hp+' RESTANTS',1.9);
       updateHud();
     }
   }
@@ -1665,7 +1854,7 @@ function update(dt) {
     if(check(player,item).hit){
       if(item.type==='laser') {player.fireLevel=Math.min(3,player.fireLevel+1);msg('TIR MULTIPLE !',1.6);}
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
-      else if(item.type==='heal'){player.hp=Math.min(5,player.hp+1);msg('COQUE RÉPARÉE !',1.6);}
+      else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
       else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
@@ -1708,6 +1897,10 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
+  if(player.hp>0){
+    ctx.fillStyle='#142242dd';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50,5);
+    ctx.fillStyle=player.pv===1?'#ff6c7c':'#6dffbf';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50*player.pv/PV_PER_HEART,5);
+  }
   if(player.shield>0){
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(player.x+37,player.y+23,52,36,0,0,TAU);ctx.stroke();

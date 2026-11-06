@@ -63,8 +63,15 @@
 - Android et AAB : build, signature Debug, vérification SHA-256 et publication à établir via GitHub Actions pour le commit final. Installation et performance sur Samsung encore à valider, comme l'usage réel des fichiers d'export/import via le sélecteur système.
 - Fonctionnalités non validées : planètes libres, 40 palettes de graphismes uniques, boss multi-écrans, IA de factions, fragments physiques, monde multijoueur, Hall of Fame mondial, continuité au-delà du domaine exact de `Number` JavaScript.
 
-## 2026-11-06 — OMEGA 0.4.2, musique CC0
-- Sources consultées dans Djipie et OpenGameArt : Space Echo OGG, Action_A MP3, Battle MP3, Horror MP3, CC0. Quatre SHA-256 Djipie contrôlés obligatoirement par le script de CI.
-- La logique musicale et les transitions disposent de nouveaux tests simulés Node. Les tests physiques Android, la disponibilité des téléchargements externes et l'intégrité de l'APK doivent être vérifiés dans GitHub Actions avant d'annoncer une livraison.
+## 2026-11-05 — OMEGA 0.4.1 / Game Over et Hall de gloire
+- Correction de l'écran figé : `finishRun` enclenché à la mort combat / paroi, écran GAME OVER, score de run, Rejouer et Hall local. Ancien Rejouer masqué par CSS en paysage.
+- Classement Top 10 sauvegardé dans `OmegaUniverse.state.hall` et transporté dans export/restauration JSON, sans serveur mondial. Valeurs validées à l'import.
+- `adaptSpecies` varie par phase, région et situation, sans modifier l'archétype de référence.
+- Test Node ajouté et smoke headless Chromium (`set_content` + faux stockage local car les URL sont bloquées par la politique de l'environnement).
+- Reprise après Game Over et conservation du classement vérifiées en Chromium ; test réel Android à confirmer.
 
-- Validation GitHub Actions 42133059313 : SUCCESS, 33 tests, quatre pistes contrôlées SHA-256, fichier APK signé et intégré dans Release v0.4.2-music-preview (8 535 710 octets, SHA-256 7c4f167fa3c85d182f49cd8b3b9d0c2ee350f721a91ecf9cb2d7d6d2c063a626). Exécution sur Samsung toujours à valider.
+## 2026-11-06 — Préparation musicale 0.4.2
+- Catalogue Djipie : 17 fichiers musicaux CC0 et 85 jingles Kenney vérifiés dans l'index ; 4 titres retenus pour ce jalon.
+- Origines CC0 : drakzlin/OpenGameArt (Action_A, Battle, Horror) et Centurion_of_war/OpenGameArt (Space Echo).
+- Le build GitHub récupère les sources publiques et vérifie quatre SHA-256 avant de les intégrer à l'APK, sans accès aux Releases privées.
+- Les tests Node vérifient la logique de scène, fondu, pause et muet ; test Android physique reste à faire.

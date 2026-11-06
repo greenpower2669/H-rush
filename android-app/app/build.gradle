@@ -3,11 +3,11 @@ android {
   namespace 'fr.fab.ashrush'
   compileSdk 35
   defaultConfig {
-    applicationId 'fr.fab.ashrush.omegamusic'
+    applicationId 'fr.fab.ashrush.omegahearts'
     minSdk 26
     targetSdk 35
-    versionCode 42
-    versionName '0.4.2'
+    versionCode 43
+    versionName '0.4.3'
   }
   buildTypes {
     release { minifyEnabled false }

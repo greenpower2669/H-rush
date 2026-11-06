@@ -110,16 +110,22 @@
 - [ ] Hall of Fame mondial avec serveur, opt-in et mécanismes anti-triche
 - [ ] Équilibrage du forage avec laser de base et préavis sur les passages, sans mort injuste
 
-## Décision livraison Android — 6 novembre 2026
-- [x] Workflow Android : générer et contrôler uniquement un fichier `.apk` autonome, plus SHA-256 ; aucune compilation ni publication `.aab`.
-- [x] Ne pas déclencher une republication de la version 0.4.1 par un simple changement de workflow.
-- [ ] Publication Google Play / génération `.aab` : à reprendre uniquement sur nouvelle demande expresse de Fab.
-- [ ] Préparer la prochaine version fonctionnelle et son APK direct, sans modifier les Releases historiques.
+## 2026-11-05 — OMEGA 0.4.1 · fin de partie / records / adaptation
+- [x] Écran GAME OVER accessible en paysage après mort en combat ou contre une paroi ; simulation arrêtée
+- [x] Rejouer depuis un point sûr au début de la région ; conserver la graine et les destructions
+- [x] Hall of Fame **personnel local** avec dix meilleures parties (score gagné par session, nouvelles distances, victimes, monde)
+- [x] Hall intégré à l'export/restauration JSON de l'univers, validation des champs pour résister aux sauvegardes invalides
+- [x] Variations déterministes de vitesse, HP, comportements, armes, couleurs et fréquence selon phase du monde et état du joueur
+- [x] Tests unitaires des scores, du classement, des sauvegardes, de l'UI et des variantes ; navigateur paysage à vérifier
+- [ ] Vrai Hall of Fame mondial : serveur partagé/authentification, consentement, anti-triche et protection des données, sans réutiliser les secrets de Space Fortress
+- [ ] Planche dédiée par archétype et sons propres à chaque civilisation (les 20 variantes réutilisent encore une partie de l'atlas actuel)
+- [ ] Tester manuellement sur Samsung la visibilité des commandes en paysage, le son et la fluidité réelle
+- [ ] Clé de signature Android stable pour des mises à jour sans installation parallèle
 
-## 2026-11-06 — bande-son Djipie 0.4.2
-- [x] Sélectionner quatre compositions CC0, sources et SHA-256 du catalogue Djipie.
-- [x] Programmer musique dynamique avec fondu, pause, volume/muet, activation tactile et changement de biomes/boss.
-- [x] Préparer téléchargement public vérifié SHA-256 et inclusion Android dans le seul APK (aucun AAB).
-- [x] GitHub Actions 42133059313 : 33/33 tests, quatre musiques CC0 téléchargées avec SHA-256 validés, signature Android, APK 8 535 710 octets publié, SHA-256 `7c4f167fa3c85d182f49cd8b3b9d0c2ee350f721a91ecf9cb2d7d6d2c063a626`.
-- [ ] Tester sur Samsung la lecture réelle, volume, retour de veille et performances en paysage.
-- [ ] Sélectionner après écoute d'autres musiques et jingles CC0, par civilisation et situation.
+## 2026-11-06 — Musique Djipie CC0, OMEGA 0.4.2
+- [x] Sélectionner quatre morceaux CC0 du catalogue Djipie et leurs empreintes SHA-256
+- [x] Implémenter ambiance musique dynamique avec fondu selon environnement et combat
+- [x] Téléchargement public par GitHub Actions avec vérification SHA-256 et inclusion APK uniquement ; aucun AAB
+- [ ] Validation CI GitHub : source téléchargeable, empreintes valides, APK avec quatre pistes
+- [ ] Tester sur Samsung la lecture, transition, pause/reprise, écran éteint et bouton Muet
+- [ ] Ajouter d'autres pistes et jingles CC0 après écoute et vérification audio

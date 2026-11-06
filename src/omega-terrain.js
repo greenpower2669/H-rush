@@ -42,18 +42,36 @@ export function terrainBounds(seed,worldX){
 }
 export function rockAt(seed,wx,y){const {top,bottom}=terrainBounds(seed,wx);return y<top||y>=bottom;}
 
-/** Gates are independent moving mask objects; translations apply to pixels and collision equally. */
+/** Gates are independent moving mask objects; translations apply to pixels and collision equally.
+ * Types 0/1/2 and their saved scar IDs are frozen for backward compatibility.
+ * The extra 8 deterministic hazards make atmosphere, surface and tunnels denser.
+ */
+export const GATE_TYPES = 11;
+const EXTRA_GATE_OFFSETS = Object.freeze([1190, 1540, 2310, 2640, 2930, 3610, 4040, 4530]);
+
 export function gateSpec(seed,region,which){
-  if(which!==0 && which!==1 && which!==2) throw RangeError('gate type');
-  const p=[1930,3330,3840][which],full=which===1;
+  if(!Number.isInteger(which)||which<0||which>=GATE_TYPES) throw RangeError('gate type');
+  const legacy=which<3;
+  const p=legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3];
+  const full=which===1; // Full crossing remains destructible by the basic laser.
   const f=keyedFloat(seed,region,40+which);
   const amplitude=full?9+f*12:15+f*19;
-  return {id:region*3+which,worldX:region*REGION_SIZE+p,
-    width:full?40:58,height:full?620:340,
-    baseY:full?-40:which===0?-75:230,
+  const shape=legacy?'legacy':(which%3===0?'crystal':'rock');
+  const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
+  const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
+  const anchorTop=which===3||which===5||which===7||which===9;
+  const localBounds=legacy?null:terrainBounds(seed,region*REGION_SIZE+p);
+  // Attach to the actual local ceiling/floor, never to the physical screen edge:
+  // in a cavern the hazard MUST protrude into the flyable corridor.
+  const baseY=legacy?(full?-40:which===0?-75:230):
+    anchorTop?(localBounds.top<0?-30:Math.round(localBounds.top-height*.54)):
+    localBounds.bottom>WORLD_H?(WORLD_H-height+20):Math.round(localBounds.bottom-height*.46);
+  return {id:legacy?region*3+which:10000000+region*16+which,
+    worldX:region*REGION_SIZE+p,width,height,baseY,
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
-    phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,
-    material:which===1?'metal':which===0?'crystal':'basalt'};
+    phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
+    material:which===1?'metal':which===0?'crystal':which===2?'basalt':
+      which%3===0?'crystal':which%3===1?'metal':'basalt'};
 }
 export function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
 /** A 60px laser crater crosses a 40px-thick gate while leaving ~90px of vertical clearance. */
@@ -124,10 +142,25 @@ export class OmegaTerrain {
     if(material==='metal'){grad.addColorStop(0,'#677598');grad.addColorStop(.18,'#c0d8e3');grad.addColorStop(.47,'#36446d');grad.addColorStop(.78,'#9e9ac2');grad.addColorStop(1,'#4a4366');}
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
-    g.fillStyle=grad;g.fillRect(0,0,spec.width,spec.height);
+    g.fillStyle=grad;
+    if(spec.shape==='legacy')g.fillRect(0,0,spec.width,spec.height);
+    else {
+      // Distinct rocky/crystal edge, with real alpha holes: the mask is rasterized from this exact image.
+      const w=spec.width,h=spec.height;
+      g.beginPath();g.moveTo(w*.18,0);g.lineTo(w*.82,0);
+      for(let y=0;y<=h;y+=18){
+        const x=w*(.78+.11*Math.sin(y*.064+spec.id));g.lineTo(x,Math.min(h,y));
+      }
+      g.lineTo(w*.18,h);
+      for(let y=h;y>=0;y-=18){
+        const x=w*(.17+.10*Math.sin(y*.055+spec.id*3));g.lineTo(x,Math.max(0,y));
+      }
+      g.closePath();g.fill();
+    }
+    if(spec.shape!=='legacy')g.globalCompositeOperation='source-atop';
     g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
-    g.globalAlpha=1;
+    g.globalAlpha=1;g.globalCompositeOperation='source-over';
     const mask=maskFromImageData(g.getImageData(0,0,spec.width,spec.height));
     const s={...spec,image:c,mask,width:spec.width,height:spec.height};
     for(const [x,y,r] of this.universe.scars('g:'+spec.id)) this.applyDisc(s,x,y,r);
@@ -135,7 +168,7 @@ export class OmegaTerrain {
   }
   specs(region){
     if(this.specCache.has(region))return this.specCache.get(region);
-    const arr=[0,1,2].map(which=>gateSpec(this.universe.seed,region,which));
+    const arr=Array.from({length:GATE_TYPES},(_,which)=>gateSpec(this.universe.seed,region,which));
     this.specCache.set(region,arr);
     if(this.specCache.size>15)this.specCache.delete(this.specCache.keys().next().value);
     return arr;
@@ -150,7 +183,7 @@ export class OmegaTerrain {
   visibleGates(x0,x1){
     const first=Math.floor(x0/REGION_SIZE)-1,last=Math.floor(x1/REGION_SIZE)+1;
     const a=[];
-    for(let region=Math.max(0,first);region<=last;region++)for(let type=0;type<3;type++){
+    for(let region=Math.max(0,first);region<=last;region++)for(let type=0;type<GATE_TYPES;type++){
       const spec=this.specs(region)[type];
       if(spec.worldX + spec.width < x0 || spec.worldX>x1)continue;
       a.push(this.gate(region,type));
@@ -226,6 +259,8 @@ export class OmegaTerrain {
     }
   }
   nextBlockedGate(){
-    return this.visibleGates(this.scroll,this.scroll+1450).find(g=>g.full && g.worldX-this.scroll>0 && g.mask.filled>g.width*g.height*.1) || null;
+    return this.visibleGates(this.scroll,this.scroll+1450).find(g=>
+      (g.full || (g.shape!=='legacy' && g.height>=250)) &&
+      g.worldX-this.scroll>0 && g.mask.filled>g.width*g.height*.10) || null;
   }
 }

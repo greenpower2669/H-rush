@@ -2,10 +2,12 @@ import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from '.
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
+import { initialHealth, applyHealthDamage, restoreHeart, PV_PER_HEART } from './health.js';
 import { touchTarget } from './input.js';
 import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
 import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
+import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { speciesFor, adaptSpecies, movementDelta } from './ecology.js';
 import { scoreRun } from './hall.js';
@@ -14,7 +16,8 @@ const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
 const grid = new SpatialGrid(112);
-const universe = new OmegaUniverse(typeof localStorage === 'undefined' ? null : localStorage);
+const storage = (() => {try {return globalThis.localStorage;} catch {return null;}})();
+const universe = new OmegaUniverse(storage);
 const terrain = new OmegaTerrain(universe);
 let artFrames = null;
 let bursts = [];
@@ -137,7 +140,7 @@ let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 
 function reset(fromCheckpoint = false) {
-  player = {sprite:ships.player,x:86,y:H/2-23,hp:5,shield:0,fireLevel:1,missileLevel:1,ammo:5};
+  player = {sprite:ships.player,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
@@ -158,7 +161,8 @@ function reset(fromCheckpoint = false) {
 }
 function updateHud() {
   $('#score').textContent=String(score).padStart(6,'0');
-  $('#hp').textContent='♥ '.repeat(Math.max(0,player.hp)).trim()||'0';
+  $('#hp').textContent=('♥ '.repeat(Math.max(0,player.hp)).trim()||'0')+' · '+player.pv+'/'+PV_PER_HEART+' PV';
+  $('#hp').setAttribute('aria-label',`${player.hp} cœurs, ${player.pv} points de vie sur ${PV_PER_HEART} dans le cœur actif`);
   $('#shield').textContent='◇ '+player.shield;
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
@@ -228,11 +232,17 @@ function mutableAsteroid() {
 }
 function spawnEnemy(kind='scout',species=null) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
-  const y = rand(52,H-65-s.height);
+  const spawnX=W+12;
+  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+rand(-80,80),24,H-s.height-16);
+  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
+  if (!position) return false;
   const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:W+10,y,vy:kind==='manta'?rand(-40,40):0,
+  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0});
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
+    blockedTime:0,drillCooldown:0});
+  return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
@@ -292,7 +302,8 @@ function playerDamage(r) {
   if(invulnerable>0) return;
   impactResult(r,player);
   if(player.shield>0){player.shield--;particlesAt(latestImpact.x,latestImpact.y,'shield',22);sound.play('shield');}
-  else {player.hp--;sound.play('damage');}
+  else {Object.assign(player,applyHealthDamage(player,'hit'));sound.play('damage');
+    if(player.hp>0)msg('⚡ COQUE : '+player.pv+'/'+PV_PER_HEART+' PV',1.2);}
   invulnerable=.9;
   if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
@@ -414,17 +425,47 @@ function update(dt) {
   spawnClock-=dt;
   if(spawnClock<=0&&!bossActive){
     const bossWave=spawnCount>0&&spawnCount%14===0;
-    if(bossWave){spawnEnemy('boss');bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-    else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+    if(bossWave){
+      if (spawnEnemy('boss')) {bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
+      else spawnClock=.42; // Retry when the incoming lane opens, never embed the boss in rock.
+    } else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
       const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
       const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
-      spawnEnemy(species.base,species);spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+      if(spawnEnemy(species.base,species)){spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
+      else spawnClock=.42;
+    }
   }
   for(const enemy of enemies){
-    enemy.age+=dt; enemy.x+=enemy.vx*dt;
-    if(enemy.species)enemy.y+=movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt);
-    else if(enemy.kind==='manta'||enemy.kind==='boss')enemy.y+=Math.sin(enemy.age*3+enemy.phase)*16*dt;
-    enemy.y=clamp(enemy.y,35,H-enemy.sprite.height-15);
+    enemy.age+=dt;
+    const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
+    // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
+    // Substeps prevent them from crossing thin rock or a moving piston in one frame.
+    const navigation=advanceEnemyOnTerrain(enemy,terrain,enemy.vx*dt,moveY);
+    if(navigation.trapped){
+      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
+      continue;
+    }
+    if(navigation.blocked){
+      enemy.blockedTime+=dt;
+      enemy.drillCooldown-=dt;
+      if(enemy.kind==='boss'&&navigation.hit&&enemy.drillCooldown<=0){
+        // A boss excavates rock rather than phasing through it; all holes remain persistent.
+        const p=terrain.firstWorldImpact(navigation.hit);
+        if(p){
+          const dug=terrain.carveImpact(navigation.hit,p,26);
+          if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
+        }
+        enemy.drillCooldown=.36;
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+        enemy.hp=0;
+        particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
+        sound.play('impact');
+        continue;
+      }
+    }else enemy.blockedTime=0;
+    enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
     enemy.fire-=dt;
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
@@ -443,14 +484,18 @@ function update(dt) {
     const r=check(enemy,player);
     if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
-  if (!gameOver) {
+  if (!gameOver && invulnerable<=0) {
     const collision = terrain.collideEntity(player);
     if (collision) {
       const p = terrain.firstWorldImpact(collision);
-      if (p) { particlesAt(p.screenX,p.y,'motor',75); spawnSpriteExplosion(p.screenX,p.y,1.9); }
-      player.hp = 0;
-      sound.play('explosion');
-      finishRun('wall');
+      if (p) { particlesAt(p.screenX,p.y,'motor',40); spawnSpriteExplosion(p.screenX,p.y,1.25); }
+      Object.assign(player,applyHealthDamage(player,'wall'));
+      invulnerable=1.65;
+      // Move the ship away from the rock so the same physical contact is not counted repeatedly.
+      player.x=clamp(player.x-72,10,W-player.sprite.width-15);
+      sound.play(player.hp===0?'explosion':'damage');
+      if (player.hp===0) finishRun('wall');
+      else msg('💥 CHOC : −1 CŒUR · '+player.hp+' RESTANTS',1.9);
       updateHud();
     }
   }
@@ -459,7 +504,7 @@ function update(dt) {
     if(check(player,item).hit){
       if(item.type==='laser') {player.fireLevel=Math.min(3,player.fireLevel+1);msg('TIR MULTIPLE !',1.6);}
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
-      else if(item.type==='heal'){player.hp=Math.min(5,player.hp+1);msg('COQUE RÉPARÉE !',1.6);}
+      else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
       else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
@@ -502,6 +547,10 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
+  if(player.hp>0){
+    ctx.fillStyle='#142242dd';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50,5);
+    ctx.fillStyle=player.pv===1?'#ff6c7c':'#6dffbf';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50*player.pv/PV_PER_HEART,5);
+  }
   if(player.shield>0){
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(player.x+37,player.y+23,52,36,0,0,TAU);ctx.stroke();

@@ -102,5 +102,16 @@ ordres-de-mission.md Mission d'origine
 
 Licence : **MIT**. Copyright © 2026 Fabrice Gourdant.
 
-## 🎵 Musiques Djipie CC0 — OMEGA 0.4.2
-Quatre morceaux CC0 indexés dans Djipie sont téléchargés depuis OpenGameArt pendant GitHub Actions et vérifiés par SHA-256 avant intégration dans l'APK autonome. `Space Echo` — Centurion_of_war (espace) ; `Action_A` — drakzlin (atmosphère, surface) ; `Horror` — drakzlin (cavernes) ; `Battle` — drakzlin (boss/danger). Transitions fondues, audio démarrant au premier geste, volume et bouton Son communs avec les FX. Aucun téléchargement pendant le jeu. L'HTML autonome seul ne contient pas les quatre musiques ; les sources et leurs SHA-256 figurent dans `tools/fetch-djipie-cc0.py`. Source et licence : https://opengameart.org/content/space-echo et https://opengameart.org/content/music-loops-0, CC0-1.0.
+## OMEGA 0.4.1 — GAME OVER et records
+- Les morts en combat ou collision frontale affichent un véritable écran **GAME OVER**, avec un bouton **Rejouer** utilisable en paysage et un bouton **Hall of Fame**. La partie reprend au début de la région, avec sa graine et ses destructions intactes.
+- Le Hall of Fame **personnel** classe les dix meilleures parties par score gagné depuis leur début, et conserve les victimes, la nouvelle distance et le monde de la mort. Les records sont exportés/restaurés avec la sauvegarde de l'univers. Il n'y a pas encore de classement mondial : backend et anti-triche restent à développer.
+- Les vingt archétypes existants adaptent désormais certaines caractéristiques (armes, mouvements, vitesse, résistance, couleur) en fonction du milieu rencontré et de la situation du pilote ; des planches artistiques dédiées à chaque archétype restent à produire.
+- APK `fr.fab.ashrush.omegahall` de test signé Debug ; identifiant parallèle pour éviter les conflits entre clés de compilation éphémères.
+
+## 🎵 Musiques de Djipie — 0.4.2
+Quatre morceaux CC0 (OpenGameArt, indexés et contrôlés dans Djipie) intégrés dans l'APK **sans dépendance réseau après installation**. La compilation télécharge les fichiers directement depuis les auteurs et **vérifie SHA-256 contre le catalogue Djipie** ; en cas d'échec, elle s'arrête sans publier d'APK.
+- `space_echo.ogg` — Centurion_of_war, exploration spatiale / sortie
+- `Action_A.mp3` — drakzlin, entrée atmosphérique / survol de surface
+- `Horror.mp3` — drakzlin, cavernes et galeries
+- `Battle.mp3` — drakzlin, boss et situations dangereuses
+Licences CC0 : https://opengameart.org/content/space-echo et https://opengameart.org/content/music-loops-0. Leurs noms dans le moteur sont `space_echo.ogg`, `action_a.mp3`, `horror.mp3`, `battle.mp3`. Fondu entre scènes, volume et muet coordonnés aux commandes du jeu ; lecture débutant après un geste de l'utilisateur. Les fichiers ne sont pas intégrés à l'historique Git : les packs sont embarqués pendant GitHub Actions. Les téléchargements HTML seuls n'incluent pas les musiques binaires ; l'APK les inclut.
