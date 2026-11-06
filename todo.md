@@ -349,6 +349,6 @@
 - [x] En mode autofocus demandé explicitement, conserver l'accrochage et le guidage antérieurs, avec navigation et masques de collision AND inchangés.
 - [x] Tests ciblés (préférence, visée libre, correction facultative, verrou devenu caduc, source + standalone) et adaptation des tests historiques de guidage opt-in.
 - [x] Version Android 0.5.10/code 60, HTML autonome synchronisé ; branche dédiée, aucun commit dans main.
-- [ ] CI GitHub 0.5.10 : tests, comparaison exact build HTML, compilation Android signée, checksum et publication préversion directe (ne fournir APK qu'après vérification effective).
+- [x] CI GitHub [42299088386](https://github.com/greenpower2669/H-rush/actions/runs/42299088386) réussie : **161/161 tests**, HTML autonome régénéré sans différence, APK Android Debug signé 0.5.10/code 60 ; [préversion](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.10-manual-aim-preview), [APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.10-manual-aim-preview/HRush-Omega-v0.5.10-manual-aim-debug.apk), 14 005 631 octets, SHA-256 GitHub `5b83692c4afd16a4c780dfe4fb79966fed1f536c675fd490b632e3ccb0d640ea`.
 - [ ] QA Samsung : tirs au 1er doigt, viser librement au 2e doigt en déplaçant la cible, double-tap missile, tir droit pendant les déplacements, autofocus activé/désactivé, redémarrage avec préférence conservée.
 - [ ] Recueillir vidéo ou diagnostic si les zigzags persistent malgré l'autofocus OFF, comparer le tangage du vaisseau avec le suivi de trajectoire.
