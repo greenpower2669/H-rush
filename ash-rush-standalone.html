@@ -178,7 +178,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.9</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.10</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -233,6 +233,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
             <label>Décalage Y <input id="touchOffsetY" type="range" min="-90" max="90" value="0" step="5"></label>
             <small id="touchStatus" role="status">Calibrage standard</small>
           </div>
+          <div class="control-subsection"><strong>🎯 Assistance de visée — facultative</strong>
+            <label for="autofocusToggle"><input id="autofocusToggle" type="checkbox"> Autofocus : accrochage automatique des ennemis</label>
+            <small id="autofocusStatus" role="status">Désactivé par défaut : tirs droits et visée libre.</small>
+          </div>
           <div class="control-subsection"><strong>🎮 Inclinaison</strong>
             <button id="tiltCalibrate">⌖ Calibrer le point neutre</button>
             <label>Sensibilité <input id="tiltSensitivity" type="range" min="40" max="180" value="100" step="10"></label>
@@ -246,11 +250,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; le premier contact du deuxième doigt lance également un missile et verrouille un ennemi ; maintenir puis glisser ce doigt pour guider les lasers depuis le nez du vaisseau : gauche/droite sur les racines et ennemis du sol/plafond, haut/bas sur les ennemis volants. Relâcher pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; le premier contact du deuxième doigt lance également un missile ; maintenir puis glisser ce doigt pour viser librement, sans accrochage automatique. Une fois lancés, lasers et missiles continuent en ligne droite. L’<strong>autofocus</strong> (ciblage et guidage automatiques) est facultatif et désactivé par défaut dans 🌌 Univers → Commandes. Relâcher le deuxième doigt pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.9 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.10 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -2796,6 +2800,16 @@ function sentinelSteer(enemyY,targetY,age,phase,dt){
  * collide via the unchanged binary A & B sprite mask.
  */
 const aimClamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+/** Optional, local-only assistance. Missing and legacy settings always mean OFF. */
+const AUTOFOCUS_STORAGE_KEY='ashrush-autofocus-v1';
+function readAutofocus(storage){
+  try{return storage?.getItem(AUTOFOCUS_STORAGE_KEY)==='on';}catch{return false;}
+}
+function saveAutofocus(storage,enabled){
+  const on=enabled===true;
+  try{storage?.setItem(AUTOFOCUS_STORAGE_KEY,on?'on':'off');}catch{}
+  return on;
+}
 const ANCHORED_X_TOLERANCE=112;
 const CEILING_BELOW_TOLERANCE=255;
 const GROUND_ABOVE_TOLERANCE=255;
@@ -2859,12 +2873,15 @@ function acquireTwoFingerTarget(enemies,point,W=960,H=540){
   }
   return chosen;
 }
-/** A locked target's current position is sampled on EVERY shot; moving the ship
+/** When optional autofocus is ON, a locked target is sampled on EVERY shot; moving the ship
  * forward/backward thus changes the angle exactly as the player requested.
  */
-function twoFingerAimPoint(state,enemies,W=960,H=540){
+function twoFingerAimPoint(state,enemies,W=960,H=540,autofocus=false){
   if(!state?.current)return null;
   const point=state.current;
+  // Manual aim must never snap to an enemy, even if an old pointer state has
+  // a cached target. The second fingertip is the exact intentional aim point.
+  if(!autofocus)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
   const target=state.target&&state.target.hp>0&&enemies.includes(state.target)?
     state.target:acquireTwoFingerTarget(enemies,point,W,H);
   if(!target)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
@@ -2899,6 +2916,28 @@ function guidedMissileVelocity(missile,target,dt,speed=345){
   delta=aimClamp(delta,-2.3*Math.max(0,dt),2.3*Math.max(0,dt));
   const next=old+delta;
   return {vx:Math.cos(next)*speed,vy:Math.sin(next)*speed};
+}
+/** Only opt-in missiles can adjust their heading after launch. Without it,
+ * every frame preserves both velocity components (no implicit nearest-foe
+ * targeting, even after the original lock dies).
+ * Kept as a pure function so manual straight-line behavior is unit-tested.
+ */
+function missileAutofocusVelocity(missile,enemies,dt,enabled=false){
+  if(!enabled)return {vx:missile.vx,vy:missile.vy};
+  const candidates=Array.isArray(enemies)?enemies:[];
+  const locked=missile.lockTarget&&missile.lockTarget.hp>0&&candidates.includes(missile.lockTarget)
+    ? missile.lockTarget : null;
+  if(locked)return guidedMissileVelocity(missile,locked,dt);
+  let target=null,best=Infinity;
+  for(const enemy of candidates){
+    if(!enemy||enemy.hp<=0||!enemy.sprite)continue;
+    const dist=(enemy.x-missile.x)**2+(enemy.y-missile.y)**2;
+    if(dist<best){best=dist;target=enemy;}
+  }
+  if(!target)return {vx:missile.vx,vy:missile.vy};
+  const dy=target.y+target.sprite.height*.5-missile.y;
+  return {vx:missile.vx,
+    vy:aimClamp(missile.vy+aimClamp(dy*3-missile.vy,-800*Math.max(0,dt),800*Math.max(0,dt)),-235,235)};
 }
 
 /** OMEGA 0.5.7 — terrain-bound enemies.
@@ -3056,6 +3095,7 @@ const touch = new TouchCalibration(storage);
 const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
 const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
 const touchMissiles = new TouchMissileGestures();
+let autofocusEnabled=readAutofocus(storage); // OFF on fresh and legacy installations
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -3588,7 +3628,7 @@ function renderHoverPlume(){
   ctx.restore();
 }
 function activeSecondFingerAim(){
-  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H):null;
+  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
@@ -3616,7 +3656,8 @@ function launchMissile() {
       player.pitch,345,lane,aim);
     const shape=pitchSprite(ships.missile,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,lockTarget:aim?.target||null});
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      autoGuide:autofocusEnabled,lockTarget:autofocusEnabled?(aim?.target||null):null});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
@@ -3788,14 +3829,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const locked=b.lockTarget&&b.lockTarget.hp>0&&enemies.includes(b.lockTarget)?b.lockTarget:null;
-  const target=locked||enemies.filter(e=>e.hp>0).sort((a,c)=>
-    (a.x-b.x)**2+(a.y-b.y)**2-((c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(locked){
-    const steer=guidedMissileVelocity(b,locked,dt);
+  // No implicit missile homing: manual shots preserve their initial heading.
+  // The option is captured at launch, so changing settings never bends a
+  // missile that is already in flight.
+  if(b.autoGuide===true){
+    const steer=missileAutofocusVelocity(b,enemies,dt,true);
     b.vx=steer.vx;b.vy=steer.vy;
-  }else if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -4184,6 +4224,12 @@ function frame(now){
     requestAnimationFrame(frame);
   }catch(error){stopBrokenFrame(error);}
 }
+function updateAutofocusUi(){
+  $('#autofocusToggle').checked=autofocusEnabled;
+  $('#autofocusStatus').textContent=autofocusEnabled
+    ? 'Activé : les ennemis peuvent être accrochés, les missiles corrigent leur trajectoire.'
+    : 'Désactivé (conseillé) : tirs droits, visée libre au deuxième doigt, sans poursuite automatique.';
+}
 function updateTiltUi() {
   const active=tilt.getVector();
   $('#tiltToggle').textContent=tilt.enabled?'🎮 Inclinaison':'✋ Tactile';
@@ -4204,6 +4250,14 @@ window.addEventListener('ashrush:gravity',event=>{
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
 $('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
+$('#autofocusToggle').addEventListener('change',e=>{
+  autofocusEnabled=saveAutofocus(storage,e.target.checked);
+  if(secondFingerAim){
+    secondFingerAim.target=autofocusEnabled
+      ? acquireTwoFingerTarget(enemies,secondFingerAim.current,W,H) : null;
+  }
+  updateAutofocusUi();
+});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -4242,7 +4296,7 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     if(!secondFingerAim){
       const point=pointFromEvent(e);
       secondFingerAim={id:e.pointerId,start:point,current:point,
-        target:acquireTwoFingerTarget(enemies,point,W,H)};
+        target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
       canvas.setPointerCapture(e.pointerId);
       if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
     }
@@ -4310,7 +4364,7 @@ $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled)
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
-reset();updateTiltUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
+reset();updateTiltUi();updateAutofocusUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
 
 </script>
 </body>
