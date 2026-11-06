@@ -76,7 +76,8 @@ test('game uses exact raster alpha for all morphs and preserves original AND',()
   assert.match(bestiary,/maskFromImageData\(data,42\)/);
   assert.match(bestiary,/const data=g\.getImageData\(0,0,w,h\)/);
   const game=read('src/game.js');
-  assert.match(game,/switchDamagedFrame\(enemy,animated\)/);
+  assert.match(game,/switchDamagedFrame\(enemy,base\)/);
+  assert.match(game,/enemy\.sprite=pitchSprite\(enemy\.sprite,enemy\.hullPitch\)/);
   assert.match(game,/terrainBounds\(universe\.seed,Math\.max\(0,worldX\)\)/);
   assert.match(game,/METHODS\.BITMASK/);
   const build=read('tools/build-standalone.mjs'),stand=read('ash-rush-standalone.html');
