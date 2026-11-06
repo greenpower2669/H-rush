@@ -78,7 +78,7 @@ test('gravity projectile mathematically intersects an elevated target on a repro
  assert.ok(shot.pitch>.13&&shot.pitch<1.19);
  const t=(to.x-from.x)/shot.vx;
  const y=from.y+shot.vy*t+.5*shot.gravity*t*t;
- assert.ok(Math.abs(y-to.y)<.000001,'ballistic shell must reach the player's altitude');
+ assert.ok(Math.abs(y-to.y)<.000001,'ballistic shell must reach the player altitude');
 });
 test('worm gnaws the real collision terrain and persists a lasting scar only on contact',()=>{
  const e={x:70,y:72,vx:-60,hp:4,sprite:unit(24,18),
