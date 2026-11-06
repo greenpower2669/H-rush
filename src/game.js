@@ -4,9 +4,12 @@ import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
 import { initialHealth, applyHealthDamage, restoreHeart, grantExtraHeart, PV_PER_HEART } from './health.js';
 import { TouchCalibration } from './input.js';
+import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
-import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
+import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
+import { morphFor, bossMorphFor, spriteForMorph, morphMovement, bossWeapons } from './bestiary.js';
+import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
@@ -15,8 +18,9 @@ import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
 import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
-import { WARP_DURATION, portalPosition, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
+import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
+import { acquireTwoFingerTarget, twoFingerAimPoint, twoFingerNoseShot, missileAutofocusVelocity, readAutofocus, saveAutofocus } from './two-finger-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -28,6 +32,10 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
+const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
+const touchMissiles = new TouchMissileGestures();
+let autofocusEnabled=readAutofocus(storage); // OFF on fresh and legacy installations
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -43,7 +51,7 @@ const $ = selector => document.querySelector(selector);
 let scale = 1;
 function resize() {
   // Conservative DPR limits fill-rate and heat on high-density phones.
-  const dpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, SAFE_GRAPHICS ? 1 : matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   scale = dpr;
@@ -129,7 +137,9 @@ const ships = {
  */
 const pitchSpriteCache=new WeakMap();
 function pitchSprite(base,angle){
-  const bucket=Math.round(Math.max(-1.25,Math.min(1.25,angle))/.05);
+  // Lasers and missiles can now rotate toward a second-finger target above,
+  // below or even behind the muzzle; player's own pitch stays ±0.31 rad.
+  const bucket=Math.round(Math.max(-Math.PI,Math.min(Math.PI,angle))/.05);
   let cache=pitchSpriteCache.get(base);
   if(!cache){cache=new Map();pitchSpriteCache.set(base,cache);}
   if(cache.has(bucket))return cache.get(bucket);
@@ -140,7 +150,10 @@ function pitchSprite(base,angle){
   g.drawImage(base.image,-base.width/2,-base.height/2);
   g.setTransform(1,0,0,1,0,0);
   const result={image:c,mask:maskFromImageData(g.getImageData(0,0,size,size)),width:size,height:size};
-  if(cache.size>32)cache.delete(cache.keys().next().value);
+  // Damage canvases are cloned per hit/enemy; 32 rotated canvases per clone
+  // multiplied by 12 damaged frames and many enemies can exhaust WebView RAM.
+  const cap=base.volatileDamage?4:20;
+  while(cache.size>=cap)cache.delete(cache.keys().next().value);
   cache.set(bucket,result);
   return result;
 }
@@ -152,18 +165,49 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
-function updateSpriteAnimations() {
-  if (!artFrames) return;
+function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.baseSprite = artFrames.player[frame % artFrames.player.length];
+  if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
-    const frames = artFrames[enemy.kind];
-    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
+    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if(enemy.morph){
+      const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
+        isGroundCreature(enemy.morph);
+      if(grounded){
+        enemy.hullPitch=enemy.morph.anchor==='ground'?
+          groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
+          Math.sin(enemy.age*1.5+enemy.phase)*.085;
+      }else enemy.hullPitch=0;
+      // Articulate the REAL barrel and build its AND mask before hull rotation.
+      const cannon=grounded&&isBallisticTurret(enemy.morph)?
+        ballisticSolution(enemy,player):null;
+      enemy.cannonAngle=cannon?.angle??null;
+      const phase=enemy.kind==='boss'?enemy.bossPhase:0;
+      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
+      if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
+        continue; // Avoid per-frame raster mask and damage-cache churn.
+      const centerX=enemy.x+enemy.sprite.width*.5;
+      const centerY=enemy.y+enemy.sprite.height*.5;
+      switchDamagedFrame(enemy,base);
+      if(grounded&&Math.abs(enemy.hullPitch)>.026)
+        enemy.sprite=pitchSprite(enemy.sprite,enemy.hullPitch);
+      // The bitmap may become a square when tilted. Preserve world-space center.
+      enemy.x=centerX-enemy.sprite.width*.5;
+      enemy.y=centerY-enemy.sprite.height*.5;
+      enemy.lastVisualSource=base;
+      enemy.lastVisualPitch=pitchBucket;
+      enemy.visualDirty=false;
+    }else if(artFrames){
+      const frames=artFrames[enemy.kind];
+      if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
+    }
   }
-  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  if(artFrames)for(const rocket of missiles)
+    rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -172,6 +216,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let secondFingerAim=null; // {id,start,current,target}; primary pointer ALWAYS steers.
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -180,12 +225,13 @@ let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
+let lastBonusSpawn=-Infinity;
 
 function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
-  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};
+  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};lastBonusSpawn=-Infinity;
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -194,7 +240,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -318,15 +364,15 @@ function sentinelSprite(size,seed){
   s.mask=maskFromImageData(g.getImageData(0,0,w,w));
   return s;
 }
-function spawnRock(profile,y,x=W+12){
+function spawnRock(profile,y,x=null){
   if(enemies.length>=17)return false;
   const robot=profile.kind==='sentry';
   const stats=robot?sentinelStats(profile.size,profile.threat):null;
   const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
-  const posY=clamp(y,16,H-s.height-16),posX=x;
+  const posY=clamp(y,16,H-s.height-16),posX=x??offscreenSpawnX(W,s.width);
   if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
   const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
-  enemies.push({kind:'asteroid',robot,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
+  enemies.push({kind:'asteroid',robot,column:profile.column===true,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
     species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
     vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
     hp,maxHp:hp,phase:rand(0,TAU),fire:robot?rand(.7,1.6):99,age:0,hue:0,blockedTime:0,drillCooldown:0});
@@ -357,13 +403,23 @@ function enterWarp(portal){
 }
 function leaveWarp(){
   if(!warp)return;
-  const broken=warp.broken;
+  const broken=warp.broken,fromRegion=warp.region;
   warp=null;terrain.active=true;bossActive=false;
   enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
-  spawnClock=2;invulnerable=1.2;
+  hoverClouds=[];hoverClock=0;
+  // Preserve scarred planet data, but resume in the NEXT region's real space phase.
+  terrain.scroll=warpExitWorld(fromRegion);
+  terrain.lastStage=stageAt(terrain.scroll+W*.5);
+  terrain.pendingTime=0;
+  universe.advance(terrain.scroll);
+  terrain.flush();
+  lastWarnedGate=null;lastWorldPhase='space';wave=terrain.lastStage.region+1;
+  player.x=clamp(player.x,12,W-player.sprite.width-15);
+  player.y=clamp(player.y,50,H-player.sprite.height-50);
+  spawnClock=2.7;invulnerable=2.3;
   reward(350+broken*45);
-  msg('✨ RETOUR DANS TON UNIVERS · BONUS WARP +'+(350+broken*45),3.5);
-  updateHud();
+  msg('🌌 RETOUR DANS L’ESPACE · RÉGION '+(fromRegion+2)+' · BONUS WARP +'+(350+broken*45),3.8);
+  music.scene('space');updateHud();
 }
 function drawWarpBackground(){
   ctx.fillStyle='#06031e';ctx.fillRect(0,0,W,H);
@@ -383,12 +439,27 @@ function drawWarpBackground(){
   ctx.restore();ctx.globalAlpha=1;
 }
 function drawHiddenPortal(o){
-  const dist=Math.hypot(o.x+29-player.x-37,o.y+29-player.y-23);
-  const reveal=clamp((220-dist)/170,0,1);
-  ctx.save();ctx.globalAlpha=.14+.76*reveal;
-  const pulse=1+.09*Math.sin(elapsed*4);
-  ctx.translate(o.x+29,o.y+29);ctx.scale(pulse,pulse);
+  const dist=Math.hypot(o.x+29-player.x-player.sprite.width*.5,o.y+29-player.y-player.sprite.height*.5);
+  const reveal=clamp((190-dist)/160,0,1);
+  const biome=biomeFor(universe.seed,o.region);
+  ctx.save();ctx.translate(o.x+29,o.y+29);
+  // A naturally carved alien alcove, rather than a bright ring floating in the sky.
+  ctx.globalAlpha=.37+.45*reveal;
+  ctx.fillStyle=biome.rock;
+  ctx.beginPath();ctx.ellipse(0,4,32,35,0,0,TAU);ctx.fill();
+  ctx.fillStyle='#080e1a';ctx.globalAlpha=.64+.25*reveal;
+  ctx.beginPath();ctx.ellipse(0,0,23,27,0,0,TAU);ctx.fill();
+  ctx.strokeStyle=biome.far;ctx.lineWidth=6;ctx.globalAlpha=.85;
+  ctx.beginPath();ctx.arc(0,2,29,.9,5.5);ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha=.06+.40*reveal;
+  ctx.rotate(.018*Math.sin(elapsed*2.6));
   ctx.drawImage(o.sprite.image,-29,-29);
+  ctx.restore();
+  ctx.globalAlpha=.17+.39*reveal;ctx.strokeStyle=biome.glow;ctx.lineWidth=1.2;
+  for(const [x,y] of [[-22,-8],[19,14],[-14,21]]){
+    ctx.beginPath();ctx.moveTo(x-3,y-4);ctx.lineTo(x+3,y);ctx.lineTo(x-1,y+5);ctx.stroke();
+  }
   ctx.restore();
 }
 function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
@@ -398,17 +469,32 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
-  const s=kind==='asteroid'?mutableAsteroid():ships[kind];
-  const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
-  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
+  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+    (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
+  const spawnX=offscreenSpawnX(W,s.width,70);
+  const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
+  const anchor=morph?.anchor;
+  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+    anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
+  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
-  if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
-    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+  if(!position)return false;
+  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
+    movement:morphMovement(morph),fireRate:1}:species?{...species,
+      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+  enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
+    hullPitch:0,cannonAngle:null,biteClock:0,
+    sourceSprite:s,scars:[],damageFrames:new Map()});
+  const spawned=enemies[enemies.length-1];
+  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -481,11 +567,16 @@ function renderHoverPlume(){
   }
   ctx.restore();
 }
+function activeSecondFingerAim(){
+  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
+}
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim(); // recompute from the MOVING nose for every shot
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
+    const a=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,780,lane,aim);
     const beam=pitchSprite(ships.laser,a.angle);
     bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
   }
@@ -498,32 +589,54 @@ function launchMissile() {
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim();
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,345,lane,aim);
     const shape=pitchSprite(ships.missile,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      autoGuide:autofocusEnabled,lockTarget:autofocusEnabled?(aim?.target||null):null});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
+  if(warp||powerups.length>=BONUS_MAX_SIMULTANEOUS)return false;
   const choice=BONUS_TYPES.includes(type)?type:'shield';
   const variant=bonusVariant(universe.seed,stageAt(terrain.scroll).region,bonusSerial++,choice);
   powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
+  lastBonusSpawn=elapsed;
+  return true;
 }
 function dropBonus(enemy) {
-  const type=pickBonusType();
-  spawnBonus(type,enemy.x,enemy.y);
+  const eligible=bonusDropAllowed({elapsed,sinceLast:elapsed-lastBonusSpawn,active:powerups.length,
+    kind:enemy.kind,rockType:enemy.rockType,warp:!!warp,hearts:player.hp,roll:Math.random()});
+  return eligible&&spawnBonus(pickBonusType(),enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&gravityFlight(terrain.lastStage.phase)){
+    const path=ballisticSolution(enemy,player);
+    const shell=pitchSprite(ships.hostileLaser,path.angle);
+    enemyShots.push({kind:'shell',baseSprite:ships.hostileLaser,
+      sprite:shell,x:path.x-shell.width*.5,y:path.y-shell.height*.5,
+      vx:path.vx,vy:path.vy,gravity:path.gravity});
+    particlesAt(path.x,path.y,'motor',3);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
+    weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
   const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
   const aimed=clamp(dy/dx*225,-190,190);
   for(let i=0;i<burst&&enemyShots.length<140;i++){
     const spread=i-(burst-1)/2;
-    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+    const vy=enemy.kind==='boss'?
+      weapon==='aimed'?aimed+spread*39:
+      weapon==='spiral'?Math.sin(enemy.age*5.8+enemy.phase+i*1.18)*155:
+      weapon==='cross'?spread*130:weapon==='rapid'?aimed*.64+spread*70:
+      spread*94+rand(-40,40):
+      weapon==='aimed'?aimed:
       weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
       spread*95+rand(-25,25);
     enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
@@ -552,7 +665,25 @@ function hitEnemy(enemy,r) {
       // Small transparent impact holes, with incandescent lips; every atlas frame
       // receives the same intrinsic cuts, unlike the old transient-only decal.
       const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
-      addEnemyBurn(enemy,px,py,radius);
+      const angle=Math.round((enemy.hullPitch||0)/.05)*.05;
+      const base=enemy.sourceSprite||enemy.sprite;
+      const renderWidth=enemy.sprite.width,renderHeight=enemy.sprite.height;
+      // Inverse of the EXACT quantized raster rotation: physical impact pixels
+      // are mapped back onto the unrotated mutable atlas frame before AND NOT.
+      const dx=px-renderWidth*.5,dy=py-renderHeight*.5;
+      const localX=Math.cos(angle)*dx+Math.sin(angle)*dy+base.width*.5;
+      const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
+      const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
+      addEnemyBurn(enemy,localX,localY,radius);
+      enemy.visualDirty=true;
+      // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
+      if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
+        pitchSpriteCache.delete(damaged);
+      if(Math.abs(angle)>.026){
+        enemy.sprite=pitchSprite(enemy.sprite,angle);
+        enemy.x=centerX-enemy.sprite.width*.5;
+        enemy.y=centerY-enemy.sprite.height*.5;
+      }
       particlesAt(point.x,point.y,'motor',7);
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
@@ -566,7 +697,7 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
       size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
     sound.play(enemy.robot?'impact':'explosion');
-    if(enemy.kind==='asteroid' && (enemy.rockType!=='rain'&&enemy.rockType!=='warp'||Math.random()<.14))dropBonus(enemy);
+    dropBonus(enemy);
     if(warp&&enemy.kind==='asteroid')warp.broken++;
     if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
       const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
@@ -581,14 +712,21 @@ function hitEnemy(enemy,r) {
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
-    else if(kills%11===0)spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
   }else if(enemy.kind==='boss')reward(5);
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
-  const dx=b.vx*dt,dy=b.vy*dt;
+  const dx=b.vx*dt,dy=(b.vy+(b.gravity||0)*dt*.5)*dt;
+  if(b.gravity){
+    b.vy+=b.gravity*dt;
+    // The spinning shell's alpha AND mask must follow the physical arc.
+    const rotated=pitchSprite(b.baseSprite||ships.hostileLaser,Math.atan2(b.vy,b.vx));
+    b.x+=(b.sprite.width-rotated.width)*.5;
+    b.y+=(b.sprite.height-rotated.height)*.5;
+    b.sprite=rotated;
+  }
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
     Math.min(b.x,b.x+dx)-5,Math.min(b.y,b.y+dy)-5,
@@ -631,9 +769,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  // No implicit missile homing: manual shots preserve their initial heading.
+  // The option is captured at launch, so changing settings never bends a
+  // missile that is already in flight.
+  if(b.autoGuide===true){
+    const steer=missileAutofocusVelocity(b,enemies,dt,true);
+    b.vx=steer.vx;b.vy=steer.vy;
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -657,7 +799,7 @@ function update(dt) {
   if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
-  updateSpriteAnimations();
+  updateSpriteAnimations(dt);
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   if(!warp){
@@ -715,7 +857,7 @@ function update(dt) {
       const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
       if(bossWave){
         if(spawnEnemy('boss',null,0,profile.bossPhases)){
-          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          bossActive=true;msg('⚠ '+enemies[enemies.length-1]?.morph?.name.toUpperCase()+' ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
@@ -724,8 +866,9 @@ function update(dt) {
         let placed=0;
         for(const rock of rocks){
           if(enemies.length>=profile.maxActive+3)break;
-          const candidate=gravitational?sentinelRock(rock,profile.threat):rock;
-          placed+=Number(spawnRock(candidate,rock.y,W+12+placed*15));
+          const base=gravitational?sentinelRock(rock,profile.threat):rock;
+          const candidate={...base,column:true};
+          placed+=Number(spawnRock(candidate,rock.y,offscreenSpawnX(W,candidate.size,90)+placed*26));
         }
         if(placed){msg(gravitational?'🤖 COLONNE DE SENTINELLES — TROUVE LA BRÈCHE':'☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
         else spawnClock=.48;
@@ -757,7 +900,11 @@ function update(dt) {
     enemy.age+=dt;
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
-      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      if(next>enemy.bossPhase){
+        enemy.bossPhase=next;
+        if(enemy.morph)enemy.species.weapon=bossWeapons(enemy.morph,next);
+        msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
+      }
       enemy.vx=-(28+enemy.bossPhase*6);
     }
     const robot=enemy.robot===true;
@@ -765,8 +912,18 @@ function update(dt) {
     const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
     const motion=rock?moveDebris(enemy,dt,g):null;
     if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const shape=enemy.morph;
+    const worldX=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+    const bounds=shape?.anchor!=='air'&&shape?terrainBounds(universe.seed,Math.max(0,worldX)):null;
+    const upperTarget=shape?.anchor==='ceiling'?Math.max(24,bounds.top+6):null;
+    const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
+    const lowerTarget=shape?.anchor==='ground'?
+      Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
+    const targetY=upperTarget??lowerTarget;
+    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
-      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
+      enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
@@ -774,7 +931,14 @@ function update(dt) {
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      // An embedded worm must bite itself out of rock, not vanish on the first
+      // apparent rectangle contact. All excavation uses the true tile AND mask.
+      if(!warp&&isBitingWorm(shape)&&enemy.biteClock<=0){
+        const bite=gnawTerrainByAnd(enemy,terrain);
+        enemy.biteClock=WORM_BITE_INTERVAL;
+        if(bite){particlesAt(bite.screenX,bite.y,'motor',7);enemy.blockedTime=0;continue;}
+      }
+      enemy.hp=0; // A genuinely unresolvable object is removed, not embedded.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -789,7 +953,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>(isGroundCreature(shape)?3:.65)){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
@@ -797,11 +961,28 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(!warp&&shape&&isGroundCreature(shape)){
+      // Unlike the old terrainBounds approximation, the final Y is resolved by
+      // translated, ROTATED sprite alpha AND actual cratered tile pixels.
+      if(shape.shape!=='worm'||jumpHeight<11)
+        alignByTerrainAnd(terrain,enemy,shape.anchor,46);
+      if(isBitingWorm(shape)){
+        enemy.biteClock=(enemy.biteClock??0)-dt;
+        if(enemy.biteClock<=0){
+          const bite=gnawTerrainByAnd(enemy,terrain);
+          if(bite){
+            particlesAt(bite.screenX,bite.y,'motor',7);
+            shockwaves.push({x:bite.screenX,y:bite.y,life:.22,age:0,size:11,color:'#b9ffaf'});
+          }
+          enemy.biteClock=WORM_BITE_INTERVAL;
+        }
+      }
+    }
     if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
     if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
-      else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
+      else if(enemy.species?.weapon!=='none'||isBallisticTurret(enemy.morph))fireEnemy(enemy);
       enemy.fire=(robot?rand(1.1,1.85):enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
@@ -866,7 +1047,8 @@ function drawBackground() {
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
-  if(o.hue)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
+  // Curated morphology palettes must not be destroyed by a second full-hull hue rotation.
+  if(o.hue&&!o.morph)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
   ctx.drawImage(o.sprite.image,x,y);
 
   ctx.restore();
@@ -874,15 +1056,19 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
-  if(!warp)terrain.draw(ctx, W);
-  const portal=nearbyPortal();
-  if(portal)drawHiddenPortal(portal);
+  if(!warp){
+    // Hidden portals and moving columns belong BEHIND the true rock/soil alpha tiles.
+    const portal=nearbyPortal();
+    if(portal)drawHiddenPortal(portal);
+    for(const enemy of enemies)if(enemy.column)drawEntity(enemy);
+    terrain.draw(ctx, W);
+  }
   for(const item of powerups){
     // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)drawEntity(enemy);
+  for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
@@ -919,18 +1105,70 @@ function render() {
     ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
   }
   ctx.restore();
+  if(secondFingerAim){
+    const aim=activeSecondFingerAim();
+    if(aim){
+      const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+      const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+      // Visual targeting feedback only; collision remains exact binary alpha AND.
+      ctx.save();ctx.globalAlpha=.67;ctx.strokeStyle=aim.target?'#8efedd':'#9dbaff';
+      ctx.lineWidth=1.3;ctx.setLineDash([5,9]);
+      ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();
+      ctx.setLineDash([]);ctx.lineWidth=1.7;
+      ctx.beginPath();ctx.arc(aim.x,aim.y,11,0,TAU);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(aim.x-17,aim.y);ctx.lineTo(aim.x-8,aim.y);
+      ctx.moveTo(aim.x+8,aim.y);ctx.lineTo(aim.x+17,aim.y);
+      ctx.moveTo(aim.x,aim.y-17);ctx.lineTo(aim.x,aim.y-8);
+      ctx.moveTo(aim.x,aim.y+8);ctx.lineTo(aim.x,aim.y+17);ctx.stroke();ctx.restore();
+    }
+  }
   if(warp){ctx.fillStyle='#110d2cbb';ctx.fillRect(300,12,360,23);ctx.fillStyle='#c4faff';ctx.font='bold 15px sans-serif';ctx.fillText('🌀 WARP BONUS  ·  '+Math.ceil(warp.remaining)+' s  ·  '+warp.broken+' roches',317,29);}
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';
 }
+// A thrown exception inside requestAnimationFrame previously stopped the game
+// forever without leaving any diagnostic on the offline Android installation.
+let fatalFrameError=false;
+function recordRuntimeError(error,origin){
+  const msgText=String(error?.stack||error?.message||error||'Erreur inconnue').slice(0,2400);
+  const diagnostic={at:new Date().toISOString(),origin,detail:msgText,
+    stage:terrain.lastStage?.phase||'unknown',region:terrain.lastStage?.region??-1,
+    enemies:enemies?.length??0,projectiles:(bullets?.length||0)+(enemyShots?.length||0),
+    safeGraphics:SAFE_GRAPHICS};
+  try{storage?.setItem(RUNTIME_ERROR_KEY,JSON.stringify(diagnostic));}catch{}
+  console.error('H-RUSH diagnostic',diagnostic);
+  return diagnostic;
+}
+window.addEventListener('error',event=>recordRuntimeError(event.error||event.message,'window'));
+function stopBrokenFrame(error){
+  if(fatalFrameError)return;
+  fatalFrameError=true;paused=true;
+  const diagnostic=recordRuntimeError(error,'animation');
+  try{terrain.flush();}catch{}
+  const panel=$('#crashPanel');
+  if(panel){
+    $('#crashMessage').textContent='Le jeu a rencontré une erreur, mais ton univers a été conservé.';
+    $('#crashDetails').value=JSON.stringify(diagnostic,null,2);
+    panel.hidden=false;
+  }
+}
 let lastTime=performance.now();
 function frame(now){
+  if(fatalFrameError)return;
   const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
-  if(!paused&&!gameOver) update(dt);
-  music.setPaused(paused);music.tick(dt);
-  render();
-  requestAnimationFrame(frame);
+  try{
+    if(!paused&&!gameOver) update(dt);
+    music.setPaused(paused);music.tick(dt);
+    render();
+    requestAnimationFrame(frame);
+  }catch(error){stopBrokenFrame(error);}
+}
+function updateAutofocusUi(){
+  $('#autofocusToggle').checked=autofocusEnabled;
+  $('#autofocusStatus').textContent=autofocusEnabled
+    ? 'Activé : les ennemis peuvent être accrochés, les missiles corrigent leur trajectoire.'
+    : 'Désactivé (conseillé) : tirs droits, visée libre au deuxième doigt, sans poursuite automatique.';
 }
 function updateTiltUi() {
   const active=tilt.getVector();
@@ -952,6 +1190,14 @@ window.addEventListener('ashrush:gravity',event=>{
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
 $('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
+$('#autofocusToggle').addEventListener('change',e=>{
+  autofocusEnabled=saveAutofocus(storage,e.target.checked);
+  if(secondFingerAim){
+    secondFingerAim.target=autofocusEnabled
+      ? acquireTwoFingerTarget(enemies,secondFingerAim.current,W,H) : null;
+  }
+  updateAutofocusUi();
+});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -965,7 +1211,7 @@ $('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target
 $('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
 $('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
 $('#touchCalibrate').addEventListener('click',()=>{
-  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;touchMissiles.reset();
   $('#omegaPanel').hidden=true;paused=false;
   msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
 });
@@ -984,10 +1230,35 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // The second touch ACQUIRES the target below the ceiling or above the floor.
+    // Extra fingers are ignored: no accidental missile flood.
+    if(!secondFingerAim){
+      const point=pointFromEvent(e);
+      secondFingerAim={id:e.pointerId,start:point,current:point,
+        target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
+      canvas.setPointerCapture(e.pointerId);
+      if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
+    }
+    e.preventDefault();return;
+  }
+  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);
+  touchMissiles.down(e.pointerId,'primary',pointer,e.timeStamp);
+  canvas.setPointerCapture(e.pointerId);e.preventDefault();});
+canvas.addEventListener('pointermove',e=>{
+  const point=pointFromEvent(e);
+  touchMissiles.move(e.pointerId,point);
+  if(dragging&&e.pointerId===mainPointerId)pointer=point;
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
+});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
+  // A short double tap of the steering finger launches without steering loss.
+  // Secondary single touch already launches; its second tap cannot spend ammo twice.
+  const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
+  if(fire)launchMissile();
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
+  if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+});
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -1000,7 +1271,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
@@ -1018,9 +1289,19 @@ $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText()
 $('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
 $('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
 $('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
+$('#omegaDiagnostics').addEventListener('click',()=>{
+  let saved='Aucun incident JavaScript enregistré';
+  try{saved=storage?.getItem(RUNTIME_ERROR_KEY)||saved;}catch{}
+  let native='';
+  try{native=window.AshRushAndroid?.lastRendererIssue?.()||'';}catch{}
+  $('#omegaCopy').value=saved+(native?'\nAndroid : '+native:'');
+  $('#omegaCopy').hidden=false;
+  $('#omegaMessage').textContent='Diagnostic local affiché : tu peux sélectionner et copier ce texte.';
+});
+$('#crashReload').addEventListener('click',()=>window.location.reload());
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
 $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled);sound.setEnabled(!sound.enabled);if(sound.enabled)music.unlock();$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
-reset();updateTiltUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
+reset();updateTiltUi();updateAutofocusUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
