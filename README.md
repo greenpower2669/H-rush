@@ -154,3 +154,13 @@ Les bonus ont cinq fonctions (tir, missile, cœur, bouclier, protection) et **qu
 - **Petits impacts sur ennemis :** les tirs percent de vrais trous d'environ 3 à 6 px de rayon, bordés d'une lèvre orange et jaune. `src/damage.js` clone individuellement les frames touchées et synchronise l'alpha affiché avec `AND NOT` ; les trous survivent aux changements de frame jusqu'à la destruction de l'ennemi. Les vaisseaux du joueur et les bonus partagés sont protégés contre les mutations de leurs atlas.
 - **Audio :** le fichier `kinetic_charge.wav`, jugé inadapté, n'est ni déclenché ni embarqué dans la nouvelle préversion. Musiques CC0 Djipie et deux autres sons SpaceFortress maintenus.
 - Les 64 tests Node et le démarrage du jeu sous Chromium ont été validés en développement. Reste à mesurer les performances sur un vrai Samsung et vérifier le ressenti des nouveaux obstacles en jeu.
+
+## H-RUSH OMEGA 0.4.7 — immersion et lisibilité
+
+- **Région prolongée** : `REGION_SIZE = 16384` au lieu de 5120, environ 2 min 40 s à 102 unités/s. Répartition continue : 0–3000 espace, 3000–5600 atmosphère, 5600–10000 surface, 10000–14300 sous-sol, 14300–15800 sortie, 15800–16384 espace de transition. Les portails/barrières restent répartis dans toute la région et conservent les identifiants de dégâts.
+- **Paysages ancrés** : tours mécaniques, ruines, chaînes montagneuses, cristaux, plantes et formations rocheuses plusieurs fois plus hauts, avec structures déterministes en parallaxe. L'arrière-plan masque le pied des bâtiments derrière trois silhouettes de relief, puis le terrain physique opaque passe au premier plan.
+- **Rentrée et sortie atmosphériques** : voile thermique léger, halo orangé, dégradés atmosphériques et particules autour du vaisseau. Effets **purement visuels**, les collisions `A & B` et les PV restent inchangés.
+- **TEMPS** à la place de RECORD en kilomètres : `mm:ss` ou `hh:mm:ss`, arrêté quand le jeu est en pause ou en Game Over. Le meilleur temps est mémorisé dans la sauvegarde univers JSON (`bestTime` facultatif à l'import pour les anciennes sauvegardes) ; le Hall of Fame présente la durée. Le kilométrage demeure en interne pour les scores monotones, non exploitable par les allers-retours.
+- APK Android **uniquement**. Play Store / AAB reportés. Vérification CI : tests unitaires, synchronisation HTML, musiques Djipie CC0 et signature APK.
+
+**Compatibilité** : l'allongement géométrique déplace les régions et certaines barrières dans les anciennes sauvegardes ; les cicatrices et la graine sont conservées, mais l'alignement exact des anciennes cicatrices de sol et du relief doit être testé sur des sauvegardes historiques. Conserver une copie du JSON 0.4.6 avant transfert.

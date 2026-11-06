@@ -15,7 +15,7 @@
     <header class="header">
       <div class="brand"><img class="brand-mark" src="assets/branding/h-rush-icon-original.png" alt="" width="32" height="32"><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
-        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>RECORD</small><strong id="distance">0.0 km</strong></div>
+        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
         <div><small>CŒURS / PV</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
@@ -25,7 +25,7 @@
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.6</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.7</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -52,7 +52,7 @@
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
         <p>Les meilleures parties de cet univers. Records locaux, exportés avec la sauvegarde OMEGA.</p>
-        <div class="hall-table-wrap"><table class="hall-table"><thead><tr><th>#</th><th>Score</th><th>Distance nouvelle</th><th>Vict.</th><th>Monde</th></tr></thead><tbody id="hallBody"></tbody></table></div>
+        <div class="hall-table-wrap"><table class="hall-table"><thead><tr><th>#</th><th>Score</th><th>Durée</th><th>Vict.</th><th>Monde</th></tr></thead><tbody id="hallBody"></tbody></table></div>
         <p id="hallMessage" role="status"></p>
       </section>
       <section id="omegaPanel" class="omega-panel" hidden aria-label="Univers personnel OMEGA">
@@ -88,7 +88,7 @@
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.6 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.7 — licence MIT · 2026</footer>
   </div>
 </body>
 </html>

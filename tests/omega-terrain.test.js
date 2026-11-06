@@ -46,18 +46,18 @@ function occupiedAlphaEqualsMask(tile){
 test('procedural tiles: actual alpha equals AND mask before and after excavation, including reload',()=>fakeCanvas(()=>{
   const {storage,random}=storageFromSeed();
   const universe=new OmegaUniverse(storage,random),terrain=new OmegaTerrain(universe);
-  const a=terrain.tile(24),b=terrain.tile(25); // Planet surface and atmosphere
+  const a=terrain.tile(46),b=terrain.tile(47); // Atmosphere: bedrock below the visible horizon
   occupiedAlphaEqualsMask(a);
-  const worldX=25*128-2, worldY=30; // Cave ceiling
-  const before=terrain.tile(24).mask.filled+terrain.tile(25).mask.filled;
+  const worldX=47*128-2, worldY=520; // Solid bedrock at the cross-tile boundary
+  const before=terrain.tile(46).mask.filled+terrain.tile(47).mask.filled;
   const hit={kind:'tile'};
   const removed=terrain.carveImpact(hit,{x:worldX,y:worldY},23);
   assert.ok(removed>0);
-  assert.equal(before-removed,terrain.tile(24).mask.filled+terrain.tile(25).mask.filled);
-  occupiedAlphaEqualsMask(terrain.tile(24));occupiedAlphaEqualsMask(terrain.tile(25));
+  assert.equal(before-removed,terrain.tile(46).mask.filled+terrain.tile(47).mask.filled);
+  occupiedAlphaEqualsMask(terrain.tile(46));occupiedAlphaEqualsMask(terrain.tile(47));
   universe.flush();
   const restored=new OmegaTerrain(new OmegaUniverse(storage,random));
-  assert.equal(restored.tile(24).mask.filled+restored.tile(25).mask.filled,before-removed);
+  assert.equal(restored.tile(46).mask.filled+restored.tile(47).mask.filled,before-removed);
 }));
 
 test('moving gate fully blocks the tunnel, a standard shot opens a ship-sized passage that remains after reload',()=>fakeCanvas(()=>{

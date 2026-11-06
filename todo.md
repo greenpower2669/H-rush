@@ -189,3 +189,16 @@
 - [ ] Mesurer FPS/mémoire avec ennemis multi-frames détériorés ; introduire cache borné par budgets mémoire si nécessaire.
 - [ ] Faire évoluer vers un profil Android unique signé durablement au lieu d'installations parallèles de prévisualisation.
 - [ ] Protéger les sauvegardes et enregistrer d'autres éléments destructibles, y compris les débris physiques.
+
+## OMEGA 0.4.7 — immersion planétaire / temps humain (6 novembre 2026)
+- [x] Régions étendues de 5120 à 16384 unités, phases partagées `PHASE_START` géologie/décors.
+- [x] Dessiner des structures bien plus grandes et variées (tours, ruines, pics, végétaux, cristaux) et masquer leurs bases derrière trois plans de collines, sans faux masque de collision.
+- [x] Créer une chauffe légère du vaisseau pour rentrée et sortie atmosphérique, plus voile lumineux progressif, sans toucher à l'algorithme `A & B` ni aux PV.
+- [x] Afficher TEMPS au HUD au format mm:ss / hh:mm:ss, durer uniquement durant le gameplay, conserver et exporter le meilleur temps. Le Hall affiche maintenant la durée.
+- [x] Maintenir la distance interne monotone pour le score et les historiques, sans kilomètres en grand sur le HUD.
+- [x] Couvrir les changements par des tests de phases, géologie, ancres, thermique, chronomètre et sauvegarde d'ancien JSON.
+- [ ] Vérifier en profondeur sur Samsung les silhouettes, la rentrée/sortie, les FPS et la stabilité du temps.
+- [ ] Tester l'alignement des cicatrices d'un ancien univers 0.4.6 : géométrie allongée = nouvelles positions des biomes et des obstacles ; migration exacte à étudier.
+- [ ] Une signature de publication stable et l'option d'actualiser l'appli sans export/import restent à préparer.
+- [ ] Nouveaux biomes artistiques non répétitifs, davantage de factions et variantes de boss pour les prochaines versions.
+- [ ] Play Store/AAB uniquement sur nouvelle demande explicite.

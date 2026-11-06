@@ -67,3 +67,12 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 26. `craterRadius` : laser barre 24px, missile barre 43px, laser sol 9px, missile sol 19px. Les barres restent plus faciles à forer que le sol, mais un tir de base ne doit plus vider une barrière complète. Des coups successifs permettent de sortir d'un obstacle bloquant.
 27. `src/damage.js` : chaque ennemi conserve ses cicatrices propres aux coordonnées du sprite ; les sprites partagés restent intacts ; chaque frame est clonée/percée au besoin, visuel et masque effacés avec la même géométrie disque AND NOT, avec contour chaud uniquement sur les pixels encore opaques.
 28. Les cadres artificiels des barres sont supprimés. Le son `kinetic_charge.wav` est désactivé et exclu de l'APK ; les sons autorisés restants et la musique Djipie restent indépendants.
+
+## H-RUSH OMEGA 0.4.7 — invariants d'immersion
+
+- L'identité de région est déterministe (seed + index) ; les phases utilisent `REGION_SIZE=16384` et `PHASE_START`, partagés entre `src/universe.js`, géologie et décors. Les intervalles de cavernes et d'obstacles doivent rester praticables ; conserver `A & B` pour toute collision.
+- Les monuments visuels sont **dessinés avant la matte des collines** et ancrés sous celle-ci. Aucun objet décoratif ne crée de collision artificielle ; seule la géologie rasterisée fait foi.
+- Les effets de chaleur du vaisseau `src/atmosphere.js` sont purement visuels et indépendants du masque, des cœurs et des PV.
+- L'indicateur principal de voyage est un **chronomètre** qui s'arrête en pause. Le meilleur temps `bestTime` est persistant (facultatif lors de l'import des JSON anciens). Les distances historiques restent calculées en interne pour la notation et la continuité du score.
+- Les anciennes sauvegardes et cicatrices ne sont pas effacées lors du changement de taille de région ; une migration géométrique parfaite des anciennes cicatrices reste un point de QA.
+- Livraison APK autonome uniquement, aucune génération d'AAB avant décision explicite de Fab.

@@ -21,7 +21,7 @@ test('40 seeded world families are grouped into 12 materially different visible 
   assert.equal(found.size,12);
   assert.notDeepEqual(biomeFor(seed,0),biomeFor('ffffffffffffffffffffffffffffffff',0));
   const visuals=source('src/omega-visuals.js');
-  assert.match(visuals,/paintBiomeMotifs/);
+  assert.match(visuals,/paintScenery/);
   for(const motif of ['crystal','machine','organic','volcanic','ocean','ice','storm'])
     assert.ok(visuals.includes(motif));
 });

@@ -37,3 +37,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/damage.js` : cratères incandescents sur ennemis, sprites animés clonés individuellement et masques exacts.
 - `src/omega-terrain.js` : dureté relative barres/sol, passage progressivement creusé, silhouette sans cadre.
 - `src/sound.js` : son de charge coupé, sons de combat restants.
+
+- `src/atmosphere.js` : enveloppe thermique visuelle de rentrée/sortie, aucun dégât de coque.
+- `src/universe.js` (`PHASE_START`, `formatDuration`, `bestTime`) : régions prolongées, chronomètre et record de survie.
+- `src/omega-visuals.js` : silhouettes de monuments ancrées sous la matte paysagère, parallax déterministe.

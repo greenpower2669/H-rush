@@ -2,7 +2,7 @@
  * All gameplay contact tests remain strictly AABB + binary mask AND (Fab).
  */
 import { maskFromImageData, collide, eraseDisc, METHODS } from './collision.js';
-import { stageAt, keyedFloat, REGION_SIZE } from './universe.js';
+import { stageAt, keyedFloat, REGION_SIZE, PHASE_START } from './universe.js';
 import { biomeFor } from './biomes.js';
 
 export const TILE_SIZE = 128;
@@ -20,27 +20,27 @@ export function terrainBounds(seed,worldX){
   const mountain=rough*(28*Math.sin(l/153+wave)+19*Math.sin(l/(71/detail)+wave*.6)+11*Math.sin(l/(31/detail)));
   const elevation=biome.kind==='ocean'?18:biome.kind==='volcanic'?-24:biome.kind==='desert'?12:0;
   let top=-80,bottom=620;
-  if(p>=900 && p<1620){
-    const f=smooth((p-900)/520);
+  if(p>=PHASE_START.atmosphere && p<PHASE_START.surface){
+    const f=smooth((p-PHASE_START.atmosphere)/980);
     bottom=lerp(620,426+elevation+mountain,f);
-  } else if(p>=1620 && p<2680){
+  } else if(p>=PHASE_START.surface && p<PHASE_START.interior){
     bottom=426+elevation+mountain;
-  } else if(p>=2680 && p<4180){
-    const f=smooth((p-2680)/460);
+  } else if(p>=PHASE_START.interior && p<PHASE_START.exit){
+    const f=smooth((p-PHASE_START.interior)/1080);
     const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
     const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     const caveTop=canyonCentre-canyonGap/2;
     const caveBottom=canyonCentre+canyonGap/2;
     top=lerp(-80,caveTop,f);
     bottom=lerp(426+elevation+mountain,caveBottom,f);
-  } else if(p>=4180 && p<4750){
-    const f=smooth((p-4180)/510);
+  } else if(p>=PHASE_START.exit && p<PHASE_START.spaceTail){
+    const f=smooth((p-PHASE_START.exit)/1280);
     const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
     const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     top=lerp(canyonCentre-canyonGap/2,-80,f);
     bottom=lerp(canyonCentre+canyonGap/2,620,f);
   }
-  // The last 370 px of every region are empty space: no impossible jump at boundaries.
+  // The final region segment is open space: no impossible step at region boundaries.
   return {top:Math.floor(top),bottom:Math.ceil(bottom),phase:s.phase};
 }
 export function rockAt(seed,wx,y){const {top,bottom}=terrainBounds(seed,wx);return y<top||y>=bottom;}
@@ -51,11 +51,12 @@ export function rockAt(seed,wx,y){const {top,bottom}=terrainBounds(seed,wx);retu
  */
 export const GATE_TYPES = 11;
 const EXTRA_GATE_OFFSETS = Object.freeze([1190, 1540, 2310, 2640, 2930, 3610, 4040, 4530]);
+const LEGACY_REGION_SIZE = 5120; // gate IDs and existing saved scars remain stable.
 
 export function gateSpec(seed,region,which){
   if(!Number.isInteger(which)||which<0||which>=GATE_TYPES) throw RangeError('gate type');
   const legacy=which<3;
-  const p=legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3];
+  const p=Math.round((legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3])*REGION_SIZE/LEGACY_REGION_SIZE);
   const full=which===1; // Full crossing remains destructible by the basic laser.
   const f=keyedFloat(seed,region,40+which),biome=biomeFor(seed,region);
   const amplitude=full?9+f*12:15+f*19;

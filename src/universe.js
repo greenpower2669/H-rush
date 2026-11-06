@@ -1,7 +1,21 @@
 /** H-RUSH OMEGA: deterministic, per-installation 128-bit universe and durable discoveries. */
 import { normalizeHall, insertHallEntry, validRun } from './hall.js';
 export const OMEGA_KEY = 'ashrush-omega-universe-v1';
-export const REGION_SIZE = 5120;
+// OMEGA 0.4.7 — extended regions (~2m40s at the normal 102u/s scroll speed).
+// These boundaries are shared by world, terrain, atmosphere and tests.
+export const REGION_SIZE = 16384;
+export const PHASE_START = Object.freeze({space:0,atmosphere:3000,surface:5600,interior:10000,exit:14300,spaceTail:15800});
+export function phaseInterval(phase,local){
+  if(phase==='space' && local>=PHASE_START.spaceTail)return [PHASE_START.spaceTail,REGION_SIZE];
+  const starts={space:0,atmosphere:PHASE_START.atmosphere,surface:PHASE_START.surface,interior:PHASE_START.interior,exit:PHASE_START.exit};
+  const ends={space:PHASE_START.atmosphere,atmosphere:PHASE_START.surface,surface:PHASE_START.interior,interior:PHASE_START.exit,exit:PHASE_START.spaceTail};
+  return [starts[phase],ends[phase]];
+}
+export function formatDuration(seconds){
+  const n=Math.max(0,Math.floor(Number.isFinite(seconds)?seconds:0));
+  const two=x=>String(x).padStart(2,'0');
+  return n>=3600?`${Math.floor(n/3600)}:${two(Math.floor(n/60)%60)}:${two(n%60)}`:`${two(Math.floor(n/60))}:${two(n%60)}`;
+}
 const U64 = (1n << 64n) - 1n;
 export const WORLD_FAMILIES = Object.freeze([
   'Nébuleuse de corail', 'Océan céleste', 'Forêt cristalline', 'Désert de verre',
@@ -47,8 +61,9 @@ export function stageAt(distance) {
   if (!Number.isFinite(distance) || distance < 0) throw RangeError('Invalid world distance');
   const region = Math.floor(distance / REGION_SIZE);
   const local = distance - region * REGION_SIZE;
-  const phase = local < 900 ? 'space' : local < 1620 ? 'atmosphere' : local < 2680 ? 'surface' : local < 4180 ? 'interior' : local < 4750 ? 'exit' : 'space';
-  return { region, local, phase };
+  const phase = local < PHASE_START.atmosphere ? 'space' : local < PHASE_START.surface ? 'atmosphere' : local < PHASE_START.interior ? 'surface' : local < PHASE_START.exit ? 'interior' : local < PHASE_START.spaceTail ? 'exit' : 'space';
+  const [from,to]=phaseInterval(phase,local);
+  return { region, local, phase, phaseProgress:(local-from)/(to-from) };
 }
 export function regionIdentity(seed, index) {
   const familyIndex = Number(keyed64(seed,index,1) % BigInt(WORLD_FAMILIES.length));
@@ -60,7 +75,7 @@ export function regionIdentity(seed, index) {
 function positive(n) { return n >= 0 && Number.isSafeInteger(n); }
 export function validateUniverseState(input) {
   if (!input || typeof input !== 'object' || input.format !== 1 || !isSeed128(input.seed)) throw Error('Sauvegarde OMEGA invalide.');
-  if (!positive(input.distance) || !positive(input.maxDistance) || !positive(input.points) || !positive(input.discoveries)) throw Error('Progression OMEGA invalide.');
+  if (!positive(input.distance) || !positive(input.maxDistance) || !positive(input.points) || !positive(input.discoveries) || (input.bestTime!==undefined && !positive(input.bestTime))) throw Error('Progression OMEGA invalide.');
   if (!input.scars || typeof input.scars !== 'object' || Array.isArray(input.scars)) throw Error('Dégâts OMEGA invalides.');
   if (input.hall !== undefined && (!Array.isArray(input.hall) || input.hall.length > 10 || input.hall.some(run => !validRun(run)))) throw Error('Hall of Fame invalide.');
   if (Object.keys(input.scars).length > 3000) throw Error('Sauvegarde trop grande.');
@@ -78,6 +93,7 @@ export class OmegaUniverse {
     let restored = null;
     try { const raw = storage?.getItem(OMEGA_KEY); if (raw) restored = validateUniverseState(JSON.parse(raw)); } catch { /* corrupt external state is ignored; new profile below */ }
     this.state = restored || { format:1, seed:newSeed128(randomSource), distance:0, maxDistance:0, points:0, discoveries:0, scars:{}, visited:[], hall:[] };
+    this.state.bestTime = positive(this.state.bestTime) ? this.state.bestTime : 0;
     this.state.visited = Array.isArray(this.state.visited) ? this.state.visited.filter(positive).slice(0,512) : [];
     this.state.hall = normalizeHall(this.state.hall);
     this.dirty = !restored;
@@ -88,6 +104,8 @@ export class OmegaUniverse {
   }
   get seed() { return this.state.seed; }
   get maxDistance() { return this.state.maxDistance; }
+  get bestTime() { return this.state.bestTime; }
+  recordElapsed(seconds) { const n=Math.max(0,Math.floor(seconds));if(Number.isSafeInteger(n)&&n>this.bestTime){this.state.bestTime=n;this.dirty=true;} }
   get totalScore() { return this.state.points + Math.floor(this.maxDistance / 10) + this.state.discoveries * 400; }
   get scarCount() { return this._scarCount; }
   get hall() { return this.state.hall; }
@@ -126,6 +144,7 @@ export class OmegaUniverse {
   restoreText(text) {
     const state=validateUniverseState(JSON.parse(text));
     this.state=structuredClone(state);
+    this.state.bestTime=positive(this.state.bestTime)?this.state.bestTime:0;
     this.state.visited=Array.isArray(this.state.visited)?this.state.visited.filter(positive).slice(0,512):[];
     this.state.hall=normalizeHall(this.state.hall);
     this._scarCount=Object.values(this.state.scars).reduce((a,v)=>a+v.length,0);

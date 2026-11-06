@@ -7,7 +7,8 @@ import { TouchCalibration } from './input.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
+import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration } from './universe.js';
+import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius } from './omega-terrain.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
@@ -144,6 +145,7 @@ const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
+let lastHudSecond = -1;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
@@ -162,7 +164,7 @@ function reset(fromCheckpoint = false) {
   dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
-  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
+  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
@@ -180,7 +182,7 @@ function updateHud() {
   const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
   $('#terrainStatus').hidden = false;
   $('#terrainStatus').textContent = ({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family;
-  $('#distance').textContent = (universe.maxDistance/1000).toFixed(1)+' km';
+  $('#distance').textContent = formatDuration(elapsed);
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
 function showHall() {
@@ -192,7 +194,7 @@ function showHall() {
   }
   records.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    for(const value of [String(i+1),r.score.toLocaleString('fr-FR'),(r.newDistance/1000).toFixed(2)+' km',String(r.kills),r.world]) {
+    for(const value of [String(i+1),r.score.toLocaleString('fr-FR'),formatDuration(r.seconds),String(r.kills),r.world]) {
       const td=document.createElement('td');td.textContent=value;tr.append(td);
     }
     tbody.append(tr);
@@ -216,13 +218,14 @@ function finishRun(cause) {
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
   const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
+  universe.recordElapsed(elapsed);
   const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
     newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
     region:s.region,world:identity.family,cause,time:new Date().toISOString()};
   const rank=universe.recordRun(entry);
   $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
   $('#endScore').textContent=earned.toLocaleString('fr-FR');
-  $('#endDetails').textContent=`${kills} ennemis détruits · ${ (newDistance/1000).toFixed(2)} km nouveaux · ${identity.family}` +
+  $('#endDetails').textContent=`${kills} ennemis détruits · ${formatDuration(elapsed)} de survie · ${identity.family}` +
     (rank>=0?` · 🏆 n° ${rank+1}`:'');
   msg('',0);
   $('#gameOverPanel').hidden=false;
@@ -409,6 +412,8 @@ function advanceMissile(b,dt) {
 }
 function update(dt) {
   elapsed+=dt;
+  universe.recordElapsed(elapsed);
+  $('#distance').textContent=formatDuration(elapsed);
   terrain.update(dt);
   const stage=terrain.lastStage;
   music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
@@ -568,6 +573,7 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
+  drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
     ctx.fillStyle='#142242dd';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50,5);
     ctx.fillStyle=player.pv===1?'#ff6c7c':'#6dffbf';ctx.fillRect(player.x+10,player.y+player.sprite.height+3,50*player.pv/PV_PER_HEART,5);
@@ -684,7 +690,7 @@ $('#endReplay').addEventListener('click',()=>{sound.unlock();music.unlock();rese
 $('#endHall').addEventListener('click',showHall);
 $('#hallButton').addEventListener('click',showHall);
 $('#hallClose').addEventListener('click',closeHall);
-$('#omegaMenu').addEventListener('click',()=>{const panel=$('#omegaPanel');panel.hidden=!panel.hidden;paused=!panel.hidden||paused;$('#seedLabel').textContent=universe.seed;$('#omegaMessage').textContent=universe.persistenceWarning||'';$('#worldLabel').textContent=universe.region(terrain.lastStage.region).family;$('#recordLabel').textContent=(universe.maxDistance/1000).toFixed(2)+' km';if(!panel.hidden)terrain.flush();});
+$('#omegaMenu').addEventListener('click',()=>{const panel=$('#omegaPanel');panel.hidden=!panel.hidden;paused=!panel.hidden||paused;$('#seedLabel').textContent=universe.seed;$('#omegaMessage').textContent=universe.persistenceWarning||'';$('#worldLabel').textContent=universe.region(terrain.lastStage.region).family;$('#recordLabel').textContent=formatDuration(universe.bestTime);if(!panel.hidden)terrain.flush();});
 $('#omegaClose').addEventListener('click',()=>{$('#omegaPanel').hidden=true;paused=false;$('#pause').textContent='⏸ Pause';});
 $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText();$('#omegaCopy').value=json;$('#omegaCopy').hidden=false;
   if(window.AshRushAndroid?.saveUniverse){window.AshRushAndroid.saveUniverse(json);return;}

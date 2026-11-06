@@ -49,3 +49,11 @@ Retour utilisateur : préférer le tactile au lancement, commandes apparemment i
 
 ## OMEGA 0.4.6 — mission retour terrain (6 novembre 2026)
 L'utilisateur rapporte une impression de gravité dans le vide, un manque de diversité de niveaux, des barres oscillantes trop fragiles avec cadre rectangulaire peu esthétique, un sol également trop fragile, un son de charge inadapté et des ennemis sans petits impacts visibles. Exigences : aucune gravité passive en espace ; enrichir graphismes et géologie ; faire passer la barre à une dureté intermédiaire (ancienne dureté du sol) et renforcer encore le sol ; retirer tous les cadres ; retirer le son de charge ; de petits trous incandescents persistants doivent changer le vrai masque des vaisseaux ennemis. Conserver collisions gameplay `A & B`, sauvegarde du terrain et commandes, musiques Djipie, Hall of Fame, APK direct uniquement sans AAB.
+
+## OMEGA 0.4.7 — immersion et temps (mission autorisée « Ok code ça »)
+1. Corriger les fonds planétaires : bâtiments/montagnes plus grands et variés, bases réellement noyées dans les reliefs et brumes, parallaxe crédible.
+2. Allonger significativement espace, atmosphère, survol de surface, intérieur et sortie d'atmosphère, avec limites géologiques cohérentes.
+3. Créer une animation de chauffe progressive et légère sur le vaisseau pendant la rentrée et la sortie, sans dégâts ni masque fictif.
+4. Remplacer la mesure principale de kilomètres par un temps de survie `mm:ss` / `hh:mm:ss`, sauvegarder le record, présenter la durée dans le Hall of Fame. Conserver la progression distance pour l'anti-exploit du score.
+5. Préserver le profil personnel, les cœurs, le tactile/inclinaison, les 24 apparences de bonus, le moteur AND, le branding et les musiques Djipie.
+6. Tests supplémentaires et QA navigateur ; publier une seule APK depuis GitHub Actions, **aucun AAB**.

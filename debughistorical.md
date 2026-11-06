@@ -105,3 +105,12 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Chromium via `page.set_content` de l'HTML autonome : écran JOUER, démarrage du jeu et simulation après une seconde sans erreur JavaScript. Les URL `file://` et `127.0.0.1` sont bloquées dans ce conteneur ; seule l'injection directe du HTML a été testée.
 - Test sur Samsung réel et mesure FPS non effectués. Ne pas confondre tests techniques et validation artistique/ergonomique.
 - Vérification supplémentaire dans Chromium avec un vrai Canvas : après forage ennemi, pixel alpha=0 et bit AND=0 sur deux images animées distinctes ; sprite atlas partagé intact. Comparaison de 16 régions : fonds/palettes visuellement distincts, sans erreur JS. Test de ressenti Samsung toujours à effectuer.
+
+## OMEGA 0.4.7 — validation locale (6 novembre 2026)
+- Code vérifié sur les sources reconstruites de la Release 0.4.6, avec 69 tests Node réussis localement (64 anciens + 5 nouveaux tests d'immersion), `npm run build:standalone` sans erreur.
+- Tests déterministes de 6 segments pour une région à 16384 unités : transition géologique, largeur de passage et répartition des 11 barrières ; même graine = mêmes repères.
+- Test du temps `mm:ss`, du meilleur temps persistant et de l'import d'ancienne sauvegarde JSON sans `bestTime` ; temps gelé en pause car `elapsed` n'avance que dans `update()`.
+- Visuels chargés dans Chromium en mode `page.set_content()` sur HTML autonome ; commandes JOUER, surface, atmosphère et sortie rendues sans erreur JavaScript. Le système bloque `file://`, donc aucun accès local direct ni vérification de l'écran Android physique.
+- Vérification du halo sur le vaisseau et de la matte de relief couvrant les pieds des silhouettes ; variations de maisons, tours et montagnes selon le monde/colonne.
+- Limite connue : le changement de `REGION_SIZE` conserve les cicatrices/identifiants, mais peut déplacer des monuments et des barrières par rapport aux anciennes sauvegardes. Tests d'appareil et migration géométrique à approfondir.
+- Statut CI GitHub : à consigner uniquement après exécution réelle du workflow.

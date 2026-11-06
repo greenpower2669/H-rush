@@ -23,12 +23,12 @@ test('128-bit cryptographic seed; deterministic keyed values and unique generati
 
 test('space -> atmosphere -> surface -> interior -> exit -> space in each region',()=>{
   assert.equal(stageAt(0).phase,'space');
-  assert.equal(stageAt(1300).phase,'atmosphere');
-  assert.equal(stageAt(1900).phase,'surface');
-  assert.equal(stageAt(3330).phase,'interior');
-  assert.equal(stageAt(4500).phase,'exit');
-  assert.equal(stageAt(REGION_SIZE+1300).phase,'atmosphere');
-  assert.equal(stageAt(REGION_SIZE+1300).region,1);
+  assert.equal(stageAt(3800).phase,'atmosphere');
+  assert.equal(stageAt(7300).phase,'surface');
+  assert.equal(stageAt(11400).phase,'interior');
+  assert.equal(stageAt(14700).phase,'exit');
+  assert.equal(stageAt(REGION_SIZE+3800).phase,'atmosphere');
+  assert.equal(stageAt(REGION_SIZE+3800).region,1);
   assert.equal(stageAt(1e9).region,Math.floor(1e9/REGION_SIZE));
   assert.deepEqual(terrainBounds(seed1,3222),terrainBounds(seed1,3222));
   // Terrain boundaries remain continuous when a tile boundary is crossed.

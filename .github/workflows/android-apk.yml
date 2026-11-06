@@ -74,9 +74,12 @@ jobs:
           assert 'id="controlMode"' in html and 'id="touchCalibrate"' in html
           assert 'function safeEnemySpawn' in html
           assert 'function insertHallEntry' in html
-          assert 'function biomeFor' in html and 'function paintBiomeMotifs' in html
+          assert 'function biomeFor' in html and 'function paintScenery' in html
           assert 'function addEnemyBurn' in html and 'function burnHole' in html
           assert 'function craterRadius' in html
+          assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
+          assert 'function formatDuration' in html and 'function landmarkGeometry' in html
+          assert 'id="distance">00:00' in html
           assert 'id="endReplay"' in html
           assert '<script>' in html
           assert 'import {' not in html.split('<script>')[-1]
@@ -118,11 +121,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.6-biomes-damage-debug.apk
+          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegabiomes' versionCode='46' versionName='0.4.6'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='47' versionName='0.4.7'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -135,7 +138,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.6-biomes-damage-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.7-immersion-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -150,9 +153,12 @@ jobs:
             assert len(apk.read('assets/assets/branding/h-rush-icon-1024.png')) > 1000000
             assert b'function applyHealthDamage' in html and b'PV_PER_HEART = 4' in html
             assert b'function safeEnemySpawn' in html and b'function advanceEnemyOnTerrain' in html
-            assert b'function biomeFor' in html and b'function paintBiomeMotifs' in html
+            assert b'function biomeFor' in html and b'function paintScenery' in html
             assert b'function addEnemyBurn' in html and b'function burnHole' in html
             assert b'function craterRadius' in html
+            assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
+            assert b'function formatDuration' in html and b'function landmarkGeometry' in html
+            assert b'id="distance">00:00' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
             for filename in ('space_echo.ogg','action_a.mp3','battle.mp3','horror.mp3'):
               assert len(apk.read('assets/assets/music/djipie/'+filename)) > 100000
@@ -165,14 +171,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.6-biomes-damage-preview
-          APK=AshRush-Omega-v0.4.6-biomes-damage-debug.apk
+          TAG=v0.4.7-immersion-preview
+          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.4.6 - biomes variés, matériaux et ennemis troués" \
-              --notes "OMEGA 0.4.6 : 12 signatures visuelles de biome pour 40 familles de mondes, variations de relief, motifs espace/planètes, sans gravité passive en espace. Barres oscillantes sans cadre rectangulaire, matériau plus résistant : cratères laser 24px au lieu de 60px, sol plus dur à 9px, missiles 43px / 19px. Ennemis/vaisseaux/boss percés de petits cratères incandescents réellement retirés des sprites/masks AND NOT, conservés sur toutes les frames d'animation. Suppression du son de charge SpaceFortress non adapté, fichier absent de l'APK. Maintien de l'univers et de ses cicatrices, 5 cœurs/4 PV, bonus ♥+, tactile ou inclinaison, Hall of Fame et musiques Djipie CC0. APK de test hors ligne indépendant de 0.4.5, sans AAB. Jouabilité, performances et impressions visuelles à valider sur appareil." \
+              --title "H-RUSH OMEGA 0.4.7 - immersion, atmosphères et temps" \
+              --notes "OMEGA 0.4.7 : chaque région est allongée à 16 384 unités, avec immersion prolongée espace/atmosphère/surface/cavernes/sortie ; paysages à silhouettes agrandies, tours et montagnes multi-formes ancrées derrière le relief via parallaxe ; rentrée et sortie atmosphériques à échauffement visuel progressif du vaisseau, sans modifier la collision ; HUD TEMPS mm:ss ou hh:mm:ss, meilleur temps sauvegardé, Hall of Fame affiche la durée. Distance conservée uniquement dans les calculs de score et statistiques historiques. Les 12 biomes, 40 familles de mondes, collisions exactes A & B, dégâts, cœurs, réglages tactile/inclinaison, 24 bonus, musique CC0 Djipie et branding sont conservés. APK autonome Debug seulement, aucun AAB. Source historique des cicatrices conservée, mais migration d'anciennes parties après allongement des régions à confirmer sur téléphone." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
