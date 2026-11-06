@@ -6,6 +6,7 @@
  * collide via the unchanged binary A & B sprite mask.
  */
 import { aimFromNose } from './hover-flight.js';
+import { hasPixel } from './collision.js';
 
 const aimClamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const ANCHORED_X_TOLERANCE=112;
@@ -19,10 +20,33 @@ export function enemyAimClass(enemy){
   const anchor=enemy?.morph?.anchor;
   return anchor==='ceiling'?'ceiling':anchor==='ground'?'ground':'air';
 }
+const alphaCenterCache=new WeakMap();
+/** Aim at a REAL surviving opaque pixel closest to the sprite's center, instead
+ * of an empty hole between root tentacles or in a scarred boss's armor.
+ * The cache is per-mask and is rechecked after real AND-NOT damage.
+ */
 export function enemyAimCenter(enemy){
   if(!enemy?.sprite)return null;
   const w=Number(enemy.sprite.width)||0,h=Number(enemy.sprite.height)||0;
-  return {x:(Number(enemy.x)||0)+w*.5,y:(Number(enemy.y)||0)+h*.5};
+  const originX=Number(enemy.x)||0,originY=Number(enemy.y)||0;
+  const mask=enemy.sprite.mask;
+  if(mask?.filled>0&&mask.rows){
+    let pixel=alphaCenterCache.get(mask);
+    if(!pixel||!hasPixel(mask,pixel.x,pixel.y)){
+      const midX=Math.floor(w*.5),midY=Math.floor(h*.5);
+      if(hasPixel(mask,midX,midY))pixel={x:midX,y:midY};
+      else {
+        let best=Infinity;
+        for(let y=0;y<mask.height;y++)for(let x=0;x<mask.width;x++){
+          const dist=(x-midX)**2+(y-midY)**2;
+          if(dist<best&&hasPixel(mask,x,y)){pixel={x,y};best=dist;}
+        }
+      }
+      if(pixel)alphaCenterCache.set(mask,pixel);
+    }
+    if(pixel)return {x:originX+pixel.x,y:originY+pixel.y};
+  }
+  return {x:originX+w*.5,y:originY+h*.5};
 }
 /** Acquires the enemy nearest to the supporting touch; never selects offscreen foes.
  * For a ceiling target the fingertip may lie far BELOW the sprite, and vice versa
