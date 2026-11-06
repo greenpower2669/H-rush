@@ -1,0 +1,62 @@
+{
+  "project": "H-Rush OMEGA",
+  "source": "Visuels créés dans la conversation du 6 novembre 2026",
+  "assets": [
+    {
+      "file": "h-rush-icon-1024.png",
+      "purpose": "app-icon",
+      "w": 1024,
+      "h": 1024,
+      "format": "PNG"
+    },
+    {
+      "file": "h-rush-icon-original.png",
+      "purpose": "icon-alternative",
+      "w": 589,
+      "h": 589,
+      "format": "PNG"
+    },
+    {
+      "file": "h-rush-splash-16x9.webp",
+      "purpose": "landscape-splash",
+      "w": 1672,
+      "h": 941,
+      "format": "WebP"
+    },
+    {
+      "file": "h-rush-splash-9x16.webp",
+      "purpose": "portrait-splash",
+      "w": 941,
+      "h": 1672,
+      "format": "WebP"
+    },
+    {
+      "file": "h-rush-accueil-alternative.webp",
+      "purpose": "alternate-splash",
+      "w": 946,
+      "h": 1024,
+      "format": "WebP"
+    },
+    {
+      "file": "h-rush-composition-alternative.webp",
+      "purpose": "alternate-composition",
+      "w": 1536,
+      "h": 1024,
+      "format": "WebP"
+    },
+    {
+      "file": "h-rush-hud-concept.webp",
+      "purpose": "HUD-reference-only",
+      "w": 1672,
+      "h": 941,
+      "format": "WebP"
+    },
+    {
+      "file": "h-rush-embleme-vaisseau.webp",
+      "purpose": "ship-emblem",
+      "w": 1254,
+      "h": 1254,
+      "format": "WebP"
+    }
+  ]
+}
