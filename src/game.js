@@ -890,8 +890,29 @@ function update(dt) {
     const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
     const lowerTarget=shape?.anchor==='ground'?
       Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
-    const targetY=upperTarget??lowerTarget;
-    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
+    if(!warp&&shape?.anchor==='ground'){
+      enemy.groundClock-=dt;
+      if(enemy.groundClock<=0){
+        enemy.groundClock=.18;
+        enemy.terrainAngle=groundOrientation(terrain,enemy.x,enemy.sprite.width,
+          bounds.bottom,enemy.terrainAngle||0);
+        // Real pixel overlap and permanent craters define whether a hull rests
+        // on rock; the analytic bounds only offer a search starting point.
+        enemy.supportY=anchoredAndPose(terrain,enemy.sprite,enemy.x,
+          Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7),'ground');
+      }
+      if(isBallisticTurret(shape)){
+        const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+        const desired=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.48),target).pitch;
+        enemy.gunAngle=clamp((enemy.gunAngle||.40)+(desired-(enemy.gunAngle||.40))*
+          Math.min(1,dt*5),.13,1.19);
+      }
+    }
+    const targetY=shape?.anchor==='ground'?
+      (enemy.supportY===null?null:enemy.supportY-jumpHeight):upperTarget;
+    const anchorMove=targetY===null?
+      (shape?.anchor==='ground'?Math.min(95*dt,H-enemy.sprite.height-14-enemy.y):null):
+      clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
       rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
       enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
@@ -901,8 +922,20 @@ function update(dt) {
     const navigation=warp?{trapped:false,blocked:false}:
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
+    if(!warp&&isDiggingWorm(shape)){
+      const dug=digWormTerrain(terrain,enemy,dt,(px,py,count)=>{
+        particlesAt(px,py,'motor',Math.min(14,4+Math.ceil(count/25)));
+      });
+      if(dug>0){enemy.blockedTime=0;}
+    }
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      if(!warp&&isDiggingWorm(shape)){
+        // A buried worm keeps gnawing its way out instead of dying immediately;
+        // no overlap is ever accepted as a legal rendered pose.
+        enemy.blockedTime+=dt;
+        if(enemy.blockedTime<2.5)continue;
+      }
+      enemy.hp=0;
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -917,7 +950,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&!isDiggingWorm(shape)&&enemy.blockedTime>.65){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
