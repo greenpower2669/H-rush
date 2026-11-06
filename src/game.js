@@ -916,7 +916,14 @@ function update(dt) {
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      // An embedded worm must bite itself out of rock, not vanish on the first
+      // apparent rectangle contact. All excavation uses the true tile AND mask.
+      if(!warp&&isBitingWorm(shape)&&enemy.biteClock<=0){
+        const bite=gnawTerrainByAnd(enemy,terrain);
+        enemy.biteClock=WORM_BITE_INTERVAL;
+        if(bite){particlesAt(bite.screenX,bite.y,'motor',7);enemy.blockedTime=0;continue;}
+      }
+      enemy.hp=0; // A genuinely unresolvable object is removed, not embedded.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -931,7 +938,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>(isGroundCreature(shape)?3:.65)){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
@@ -939,6 +946,23 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(!warp&&shape&&isGroundCreature(shape)){
+      // Unlike the old terrainBounds approximation, the final Y is resolved by
+      // translated, ROTATED sprite alpha AND actual cratered tile pixels.
+      if(shape.shape!=='worm'||jumpHeight<11)
+        alignByTerrainAnd(terrain,enemy,shape.anchor,46);
+      if(isBitingWorm(shape)){
+        enemy.biteClock=(enemy.biteClock??0)-dt;
+        if(enemy.biteClock<=0){
+          const bite=gnawTerrainByAnd(enemy,terrain);
+          if(bite){
+            particlesAt(bite.screenX,bite.y,'motor',7);
+            shockwaves.push({x:bite.screenX,y:bite.y,life:.22,age:0,size:11,color:'#b9ffaf'});
+          }
+          enemy.biteClock=WORM_BITE_INTERVAL;
+        }
+      }
+    }
     if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
     if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
