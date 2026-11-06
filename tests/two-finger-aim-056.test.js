@@ -23,28 +23,28 @@ test('second fingertip ABOVE jumping worms and tanks selects ground targets',()=
 test('ceiling and ground enemies accept bounded horizontal trim and keep following enemies',()=>{
  const root=e('ceiling',250,5),start={x:280,y:165};
  const state={start,current:{x:start.x+900,y:start.y+70},target:root};
- let aim=twoFingerAimPoint(state,[root]);
+ let aim=twoFingerAimPoint(state,[root],960,540,true);
  near(aim.x,root.x+root.sprite.width/2+ANCHORED_X_TRIM);
  near(aim.y,root.y+root.sprite.height/2);
- root.x-=30;aim=twoFingerAimPoint(state,[root]);
+ root.x-=30;aim=twoFingerAimPoint(state,[root],960,540,true);
  near(aim.x,root.x+root.sprite.width/2+ANCHORED_X_TRIM);
- state.current={x:start.x-900,y:start.y-70};aim=twoFingerAimPoint(state,[root]);
+ state.current={x:start.x-900,y:start.y-70};aim=twoFingerAimPoint(state,[root],960,540,true);
  near(aim.x,root.x+root.sprite.width/2-ANCHORED_X_TRIM);
 });
 test('airborne enemy allows up/down trim while following its current X position',()=>{
  const bird=e('air',520,200),start={x:550,y:235};
  const state={start,current:{x:900,y:start.y+150},target:bird};
- let aim=twoFingerAimPoint(state,[bird]);
+ let aim=twoFingerAimPoint(state,[bird],960,540,true);
  near(aim.x,bird.x+bird.sprite.width/2);
  near(aim.y,bird.y+bird.sprite.height/2+AIR_Y_TRIM);
  bird.y-=30;state.current={x:0,y:start.y-150};
- aim=twoFingerAimPoint(state,[bird]);
+ aim=twoFingerAimPoint(state,[bird],960,540,true);
  near(aim.y,bird.y+bird.sprite.height/2-AIR_Y_TRIM);
 });
 test('dead lock returns free aim; fingerless gameplay preserves helicopter pitch',()=>{
  const bird=e('air',400,190),state={start:{x:440,y:224},current:{x:440,y:224},target:bird};
- assert.equal(twoFingerAimPoint(state,[bird]).target,bird);
- bird.hp=0;assert.equal(twoFingerAimPoint(state,[bird]).target,null);
+ assert.equal(twoFingerAimPoint(state,[bird],960,540,true).target,bird);
+ bird.hp=0;assert.equal(twoFingerAimPoint(state,[bird],960,540,true).target,null);
  const free=twoFingerAimPoint({current:{x:4000,y:-10}},[]);
  assert.deepEqual(free,{x:960,y:0,target:null,kind:'free'});
  assert.equal(twoFingerAimPoint(null,[]),null);
@@ -80,24 +80,24 @@ test('aim point chooses the nearest ACTUAL alpha pixel, even on hollow roots',as
  const root=e('ceiling',100,50,30,30);
  root.sprite.mask=createMask(30,30,(x,y)=>y===2&&x>=12&&x<=18);
  const state={start:{x:110,y:100},current:{x:110,y:100},target:root};
- let aim=twoFingerAimPoint(state,[root]);
+ let aim=twoFingerAimPoint(state,[root],960,540,true);
  assert.ok(hasPixel(root.sprite.mask,aim.x-root.x,aim.y-root.y));
  const hitY=aim.y;
  root.sprite.mask.rows.fill(0);
  root.sprite.mask.filled=1;
  root.sprite.mask.rows[28*root.sprite.mask.stride]=1<<25;
- aim=twoFingerAimPoint(state,[root]);
+ aim=twoFingerAimPoint(state,[root],960,540,true);
  assert.ok(aim.y>hitY,'cache invalidation must follow a disappearing alpha pixel');
 });
 test('primary steering and second aiming use distinct pointer IDs and releases',()=>{
  const game=src('src/game.js'),html=src('ash-rush-standalone.html');
  for(const token of ['secondFingerAim={id:e.pointerId','secondFingerAim?.id===e.pointerId',
    'secondFingerAim=null;touchMissiles.reset();terrain.flush()', 'twoFingerNoseShot(', 'guidedMissileVelocity(',
-   'lockTarget:aim?.target||null'])assert.ok(game.includes(token),token);
+   'autoGuide:autofocusEnabled'])assert.ok(game.includes(token),token);
  assert.match(game,/if\(!secondFingerAim\)\{/);
  assert.ok(html.includes('function acquireTwoFingerTarget'));
  assert.ok(html.includes('function twoFingerNoseShot'));
- assert.ok(src('index.html').includes('maintenir puis glisser ce doigt pour guider les lasers'));
+ assert.ok(src('index.html').includes('maintenir puis glisser ce doigt pour viser librement'));
 });
 
 test('invisible and defeated enemies never steal the second-finger target',()=>{
