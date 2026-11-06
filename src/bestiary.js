@@ -389,7 +389,7 @@ function paintSurfaceDetails(g,m,frame,phase){
 /** Deterministic 1px bevel + micrograin; RGB only, alpha NEVER changes.
  * Pixel-edge shading remains consistent with each destructive AND/AND-NOT mask.
  */
-function bevelMorphPixels(data,m){
+export function bevelMorphPixels(data,m){
   const {width:w,height:h,data:d}=data;
   for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
     const k=(y*w+x)*4;
