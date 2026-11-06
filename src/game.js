@@ -7,7 +7,7 @@ import { TouchCalibration } from './input.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration } from './universe.js';
+import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius } from './omega-terrain.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
@@ -16,6 +16,7 @@ import { biomeFor, debrisGravity } from './biomes.js';
 import { burnHole, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta } from './ecology.js';
 import { scoreRun } from './hall.js';
+import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
@@ -164,7 +165,7 @@ function reset(fromCheckpoint = false) {
   dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
-  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
+  score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
@@ -172,7 +173,9 @@ function reset(fromCheckpoint = false) {
   updateHud();
 }
 function updateHud() {
+  score=scoreRun(runBaseScore,universe.totalScore);
   $('#score').textContent=String(score).padStart(6,'0');
+  $('#highScore').textContent=String(personalHighScore(universe.hall)).padStart(6,'0');
   $('#hp').textContent=('♥ '.repeat(Math.max(0,player.hp)).trim()||'0')+' · '+player.pv+'/'+PV_PER_HEART+' PV';
   $('#hp').setAttribute('aria-label',`${player.hp} cœurs, ${player.pv} points de vie sur ${PV_PER_HEART} dans le cœur actif`);
   $('#shield').textContent='◇ '+player.shield;
@@ -217,12 +220,15 @@ function finishRun(cause) {
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
+  const isNewRecord=earned>personalHighScore(universe.hall);
   const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
   universe.recordElapsed(elapsed);
   const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
     newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
     region:s.region,world:identity.family,cause,time:new Date().toISOString()};
   const rank=universe.recordRun(entry);
+  $('#endRecord').hidden=!isNewRecord;
+  $('#endRecord').textContent=isNewRecord?'🏆 NOUVEAU RECORD !':'';
   $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
   $('#endScore').textContent=earned.toLocaleString('fr-FR');
   $('#endDetails').textContent=`${kills} ennemis détruits · ${formatDuration(elapsed)} de survie · ${identity.family}` +
@@ -234,7 +240,7 @@ function finishRun(cause) {
   $('#endReplay').focus();
   updateHud();
 }
-function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
+function reward(points){universe.addPoints(points);updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
@@ -243,18 +249,18 @@ function mutableAsteroid() {
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
   return {...original,image,mask:copy};
 }
-function spawnEnemy(kind='scout',species=null) {
+function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+rand(-80,80),24,H-s.height-16);
+  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
   // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
+  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
   enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -312,7 +318,7 @@ function dropBonus(enemy) {
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
-  const burst=enemy.species?.weapon==='burst'?3:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):enemy.species?.weapon==='burst'?3:1;
   for(let i=0;i<burst;i++)enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
     vx:enemy.kind==='boss'?-270:-210,vy:(i-(burst-1)/2)*95+(enemy.kind==='boss'?rand(-60,60):rand(-25,25))});
 }
@@ -422,7 +428,7 @@ function update(dt) {
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
   }
   stageHudClock-=dt;
-  if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
+  if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
   updateSpriteAnimations();
@@ -446,19 +452,42 @@ function update(dt) {
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
   if(spawnClock<=0&&!bossActive){
-    const bossWave=spawnCount>0&&spawnCount%14===0;
-    if(bossWave){
-      if (spawnEnemy('boss')) {bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-      else spawnClock=.42; // Retry when the incoming lane opens, never embed the boss in rock.
-    } else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
-      const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
-      const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
-      if(spawnEnemy(species.base,species)){spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
-      else spawnClock=.42;
+    const profile=difficultyAt({seconds:elapsed,region:stage.region,kills,hearts:player.hp,phase:stage.phase,seed:universe.seed});
+    const active=enemies.filter(e=>e.hp>0).length;
+    // Bounded director: rest periods and an active-entity cap protect both the player and mobile FPS.
+    if(profile.rest)spawnClock=.65;
+    else if(active>=profile.maxActive)spawnClock=.35;
+    else {
+      const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
+      if(bossWave){
+        if(spawnEnemy('boss',null,0,profile.bossPhases)){
+          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          spawnCount++;spawnClock=4.5;
+        }else spawnClock=.42;
+      }else{
+        const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+        const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
+        const adapted=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
+        const species={...adapted,speed:Math.round(adapted.speed*profile.speedFactor),
+          hp:Math.max(1,Math.round(adapted.hp*profile.healthFactor)),
+          fireRate:(adapted.fireRate??1)*profile.fireFactor};
+        // Wing, pincer and echelon groups appear in deterministic slots, all checked by A & B.
+        const offset=formationOffset(profile.formation,spawnCount);
+        if(spawnEnemy(species.base,species,offset)){
+          spawnCount++;
+          const variation=.88+.25*keyedFloat(universe.seed,stage.region*100000+spawnCount,750);
+          spawnClock=profile.spawnInterval*variation;
+        }else spawnClock=.42; // Retry only when there is a traversable entrance.
+      }
     }
   }
   for(const enemy of enemies){
     enemy.age+=dt;
+    if(enemy.kind==='boss'){
+      const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
+      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      enemy.vx=-(28+enemy.bossPhase*6);
+    }
     const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
@@ -492,7 +521,7 @@ function update(dt) {
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
       else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
-      enemy.fire=(enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
+      enemy.fire=(enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
