@@ -600,6 +600,15 @@ function dropBonus(enemy) {
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&gravityFlight(terrain.lastStage.phase)){
+    const path=ballisticSolution(enemy,player);
+    const shell=pitchSprite(ships.hostileLaser,path.angle);
+    enemyShots.push({kind:'shell',baseSprite:ships.hostileLaser,
+      sprite:shell,x:path.x-shell.width*.5,y:path.y-shell.height*.5,
+      vx:path.vx,vy:path.vy,gravity:path.gravity});
+    particlesAt(path.x,path.y,'motor',3);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
   const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
     weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
@@ -641,7 +650,24 @@ function hitEnemy(enemy,r) {
       // Small transparent impact holes, with incandescent lips; every atlas frame
       // receives the same intrinsic cuts, unlike the old transient-only decal.
       const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
-      addEnemyBurn(enemy,px,py,radius);
+      const angle=Math.round((enemy.hullPitch||0)/.05)*.05;
+      const base=enemy.sourceSprite||enemy.sprite;
+      const renderWidth=enemy.sprite.width,renderHeight=enemy.sprite.height;
+      // Inverse of the EXACT quantized raster rotation: physical impact pixels
+      // are mapped back onto the unrotated mutable atlas frame before AND NOT.
+      const dx=px-renderWidth*.5,dy=py-renderHeight*.5;
+      const localX=Math.cos(angle)*dx+Math.sin(angle)*dy+base.width*.5;
+      const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
+      const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
+      addEnemyBurn(enemy,localX,localY,radius);
+      // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
+      if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
+        pitchSpriteCache.delete(damaged);
+      if(Math.abs(angle)>.026){
+        enemy.sprite=pitchSprite(enemy.sprite,angle);
+        enemy.x=centerX-enemy.sprite.width*.5;
+        enemy.y=centerY-enemy.sprite.height*.5;
+      }
       particlesAt(point.x,point.y,'motor',7);
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
@@ -676,7 +702,15 @@ function hitEnemy(enemy,r) {
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
-  const dx=b.vx*dt,dy=b.vy*dt;
+  const dx=b.vx*dt,dy=(b.vy+(b.gravity||0)*dt*.5)*dt;
+  if(b.gravity){
+    b.vy+=b.gravity*dt;
+    // The spinning shell's alpha AND mask must follow the physical arc.
+    const rotated=pitchSprite(b.baseSprite||ships.hostileLaser,Math.atan2(b.vy,b.vx));
+    b.x+=(b.sprite.width-rotated.width)*.5;
+    b.y+=(b.sprite.height-rotated.height)*.5;
+    b.sprite=rotated;
+  }
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
     Math.min(b.x,b.x+dx)-5,Math.min(b.y,b.y+dy)-5,
