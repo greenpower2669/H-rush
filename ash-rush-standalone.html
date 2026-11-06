@@ -152,6 +152,14 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #highScore{color:#ffe29c}.end-record{font-weight:900;letter-spacing:.1em;color:#fff0ab;text-shadow:0 0 15px #ffb74a;font-size:clamp(14px,2vw,22px)}
 @media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px}.hud small{font-size:7.5px}.hud strong{font-size:10px}}
 
+/* Crash recovery is native/JS offline: diagnostics remain selectable in landscape. */
+#crashPanel .end-content{width:min(94%,640px);padding:14px 10px;box-sizing:border-box;}
+#crashPanel h2{font-size:clamp(22px,4.5vw,40px);}
+#crashPanel p{font-size:clamp(11px,1.6vw,16px);text-align:center;}
+#crashDetails{display:block;box-sizing:border-box;width:100%;max-height:110px;min-height:50px;
+  background:#061626;color:#bbdfff;border:1px solid #507a9a;border-radius:8px;
+  padding:6px;font-family:monospace;font-size:10px;resize:none;}
+
 </style>
   
 </head>
@@ -170,13 +178,21 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.9</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
             <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE TACTILE</div>
             <button id="welcomeStart" class="action-primary">🚀 JOUER</button>
             <p>Pilotage tactile au départ. Choisis Inclinaison ou inverse X / Y dans 🌌 Univers pour adapter les commandes.</p>
+          </div>
+        </section>
+        <section id="crashPanel" class="end-screen" role="alertdialog" aria-modal="true" aria-label="Erreur du jeu" hidden>
+          <div class="end-content">
+            <h2>⚠ H-RUSH</h2>
+            <p id="crashMessage">Le moteur du jeu a rencontré un problème.</p>
+            <textarea id="crashDetails" readonly aria-label="Diagnostic technique à copier" spellcheck="false"></textarea>
+            <button id="crashReload" class="action-primary">↻ Redémarrer le jeu</button>
           </div>
         </section>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
@@ -223,7 +239,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
             <div id="tiltStatus" role="status">En attente du capteur</div>
           </div>
         </fieldset>
-        <div class="omega-buttons"><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
+        <div class="omega-buttons"><button id="omegaDiagnostics">🩺 Diagnostic</button><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
         <input id="omegaImportFile" type="file" accept="application/json,.json" hidden aria-label="Importer une sauvegarde OMEGA">
         <textarea id="omegaCopy" hidden aria-label="Texte de sauvegarde à copier ou coller" spellcheck="false"></textarea>
         <div id="omegaMessage" role="status"></div>
@@ -234,7 +250,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.8 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.9 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -2464,7 +2480,7 @@ function copyDamageSprite(source){
   const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
   image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
   const m=source.mask;
-  return {...source,image,initialFilled:source.initialFilled??m.filled,
+  return {...source,image,volatileDamage:true,initialFilled:source.initialFilled??m.filled,
     mask:{...m,rows:new Uint32Array(m.rows),
       xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
 }
@@ -3037,6 +3053,8 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
+const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
 const touchMissiles = new TouchMissileGestures();
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
@@ -3053,7 +3071,7 @@ const $ = selector => document.querySelector(selector);
 let scale = 1;
 function resize() {
   // Conservative DPR limits fill-rate and heat on high-density phones.
-  const dpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, SAFE_GRAPHICS ? 1 : matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   scale = dpr;
@@ -3152,7 +3170,10 @@ function pitchSprite(base,angle){
   g.drawImage(base.image,-base.width/2,-base.height/2);
   g.setTransform(1,0,0,1,0,0);
   const result={image:c,mask:maskFromImageData(g.getImageData(0,0,size,size)),width:size,height:size};
-  if(cache.size>32)cache.delete(cache.keys().next().value);
+  // Damage canvases are cloned per hit/enemy; 32 rotated canvases per clone
+  // multiplied by 12 damaged frames and many enemies can exhaust WebView RAM.
+  const cap=base.volatileDamage?4:20;
+  while(cache.size>=cap)cache.delete(cache.keys().next().value);
   cache.set(bucket,result);
   return result;
 }
@@ -3186,6 +3207,9 @@ function updateSpriteAnimations(dt=.016) {
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
       const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
+      if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
+        continue; // Avoid per-frame raster mask and damage-cache churn.
       const centerX=enemy.x+enemy.sprite.width*.5;
       const centerY=enemy.y+enemy.sprite.height*.5;
       switchDamagedFrame(enemy,base);
@@ -3194,6 +3218,9 @@ function updateSpriteAnimations(dt=.016) {
       // The bitmap may become a square when tilted. Preserve world-space center.
       enemy.x=centerX-enemy.sprite.width*.5;
       enemy.y=centerY-enemy.sprite.height*.5;
+      enemy.lastVisualSource=base;
+      enemy.lastVisualPitch=pitchBucket;
+      enemy.visualDirty=false;
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
       if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
@@ -3667,6 +3694,7 @@ function hitEnemy(enemy,r) {
       const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
       const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
       addEnemyBurn(enemy,localX,localY,radius);
+      enemy.visualDirty=true;
       // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
       if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
         pitchSpriteCache.delete(damaged);
@@ -4119,13 +4147,42 @@ function render() {
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';
 }
+// A thrown exception inside requestAnimationFrame previously stopped the game
+// forever without leaving any diagnostic on the offline Android installation.
+let fatalFrameError=false;
+function recordRuntimeError(error,origin){
+  const msgText=String(error?.stack||error?.message||error||'Erreur inconnue').slice(0,2400);
+  const diagnostic={at:new Date().toISOString(),origin,detail:msgText,
+    stage:terrain.lastStage?.phase||'unknown',region:terrain.lastStage?.region??-1,
+    enemies:enemies?.length??0,projectiles:(bullets?.length||0)+(enemyShots?.length||0),
+    safeGraphics:SAFE_GRAPHICS};
+  try{storage?.setItem(RUNTIME_ERROR_KEY,JSON.stringify(diagnostic));}catch{}
+  console.error('H-RUSH diagnostic',diagnostic);
+  return diagnostic;
+}
+window.addEventListener('error',event=>recordRuntimeError(event.error||event.message,'window'));
+function stopBrokenFrame(error){
+  if(fatalFrameError)return;
+  fatalFrameError=true;paused=true;
+  const diagnostic=recordRuntimeError(error,'animation');
+  try{terrain.flush();}catch{}
+  const panel=$('#crashPanel');
+  if(panel){
+    $('#crashMessage').textContent='Le jeu a rencontré une erreur, mais ton univers a été conservé.';
+    $('#crashDetails').value=JSON.stringify(diagnostic,null,2);
+    panel.hidden=false;
+  }
+}
 let lastTime=performance.now();
 function frame(now){
+  if(fatalFrameError)return;
   const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
-  if(!paused&&!gameOver) update(dt);
-  music.setPaused(paused);music.tick(dt);
-  render();
-  requestAnimationFrame(frame);
+  try{
+    if(!paused&&!gameOver) update(dt);
+    music.setPaused(paused);music.tick(dt);
+    render();
+    requestAnimationFrame(frame);
+  }catch(error){stopBrokenFrame(error);}
 }
 function updateTiltUi() {
   const active=tilt.getVector();
@@ -4238,6 +4295,16 @@ $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText()
 $('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
 $('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
 $('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
+$('#omegaDiagnostics').addEventListener('click',()=>{
+  let saved='Aucun incident JavaScript enregistré';
+  try{saved=storage?.getItem(RUNTIME_ERROR_KEY)||saved;}catch{}
+  let native='';
+  try{native=window.AshRushAndroid?.lastRendererIssue?.()||'';}catch{}
+  $('#omegaCopy').value=saved+(native?'\nAndroid : '+native:'');
+  $('#omegaCopy').hidden=false;
+  $('#omegaMessage').textContent='Diagnostic local affiché : tu peux sélectionner et copier ce texte.';
+});
+$('#crashReload').addEventListener('click',()=>window.location.reload());
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
 $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled);sound.setEnabled(!sound.enabled);if(sound.enabled)music.unlock();$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
