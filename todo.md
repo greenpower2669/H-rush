@@ -216,3 +216,13 @@
 - [ ] Contrôler FPS/RAM et anciennes sauvegardes sur un Samsung physique ; la validation locale seule ne suffit pas.
 - [ ] Contrôler compilation APK v0.4.8 code 48, `apksigner`, SHA-256, ressources et asset direct de Release ; aucun AAB.
 - [ ] Conserver anciennes Releases et ne pas fusionner la branche dans `main` sans autorisation distincte.
+
+### Vérifications réalisées après l'implémentation 0.4.8
+- [x] `npm test` : 82 tests réussis via GitHub Actions (run `42212267579`).
+- [x] HTML autonome régénéré par les sources et comparé byte-à-byte (workflow réussi).
+- [x] Gradle assembleDebug Android version 0.4.8 code 48 ; aucune compilation AAB.
+- [x] Signature Android v2 (clé Debug), package et ressources du ZIP APK vérifiés en CI ; SHA-256 calculé et attaché en complément de la Release.
+- [x] Nouvel APK direct publié dans `v0.4.8-progression-parallaxe-preview`, anciennes Releases conservées.
+- [ ] **QA manuelle restante :** captures comparatives dans vrai navigateur, FPS/RAM Android Samsung, entrée-sortie atmosphérique et équilibrage en partie longue.
+- [ ] **Compatibilité d'installation :** la clé de signature Debug n'est pas encore stable ; vérifier un processus de mise à jour sur place, en conservant les univers par export JSON, avant de garantir l'absence de perte de données.
+- [ ] **Visuels :** revoir les silhouettes à très haute altitude et les couches parallax sur Samsung ; ajuster la richesse artistique selon observations, ne pas présenter les tests de logique comme une validation graphique.
