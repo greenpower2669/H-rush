@@ -138,3 +138,19 @@ test('cannon, shell, rotated enemy wounds and gnawing are wired to actual game p
  assert.ok(html.includes('function ballisticSolution'));
  assert.ok(html.includes('function alignByTerrainAnd'));
 });
+
+test('ballistic solution follows the target when its relative height or distance changes',()=>{
+ const cannon={x:500,y:350,sprite:{width:86,height:62},morph:{shape:'turret'},hullPitch:-.12};
+ const nearTarget={x:250,y:250,sprite:{width:74,height:46}};
+ const farTarget={x:80,y:170,sprite:{width:74,height:46}};
+ const nearShot=ballisticSolution(cannon,nearTarget);
+ const farShot=ballisticSolution(cannon,farTarget);
+ assert.ok(farShot.flight>nearShot.flight);
+ assert.ok(nearShot.angle!==farShot.angle);
+ for(const s of [nearShot,farShot]){
+   assert.ok(Number.isFinite(s.angle));
+   assert.ok(s.vx<0);
+   assert.ok(s.gravity>0);
+   assert.ok(Math.abs(s.x+s.vx*s.flight-s.target.x)<.001);
+ }
+});
