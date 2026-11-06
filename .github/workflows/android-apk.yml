@@ -14,6 +14,8 @@ on:
       - 'index.html'
       - 'style.css'
       - 'ash-rush-standalone.html'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -173,6 +175,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           TAG=v0.4.8-progression-parallaxe-preview
@@ -183,6 +186,6 @@ jobs:
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
               --title "H-RUSH OMEGA 0.4.8 - progression, record et parallaxe" \
               --notes "OMEGA 0.4.8 : difficulté progressive et bornée, formations déterministes, périodes de récupération et boss évolutifs ; SCORE de partie et HIGH SCORE persistant, NOUVEAU RECORD en fin de partie ; apparition planétaire graduelle, parallax lié à l’altitude, monuments absents de l’espace profond et bases masquées derrière le relief. Graine 128 bits, collision A & B, cœurs, commandes, cratères, sauvegarde JSON compatible, musiques Djipie CC0 et identité graphique conservés. APK Debug autonome uniquement, aucun AAB. Vérifications FPS/ergonomie sur Samsung réel et captures comparatives navigateur encore requises." \
-              --prerelease --target "$GITHUB_SHA"
+              --prerelease --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
