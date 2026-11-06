@@ -289,3 +289,15 @@
 - [x] GitHub Actions `42249472579` sur branche 0.5.4 : **116/116 tests**, HTML autonome identique, Gradle APK Debug, versionName 0.5.4/code 54, vérification signature v2, média CC0, publication de la préversion `v0.5.4-pacing-atmosphere-warp-preview`. Asset APK direct vérifié, **13 981 163 octets**, SHA-256 `4af9673ad70ba2fd97d7d6cbdb06046c6dc551496ff3d4630f9d30d160ed8bbd`.
 - [ ] QA Samsung : mesurer fluidité et apparition réelle des portails/obstacles, voir l'atmosphère après le sol, fréquence des bonus, sortie warp sur plusieurs régions, compatibilité de l'installation.
 - [ ] Validation explicite de Fab requise avant fusion `main`. Aucune génération AAB avant commande spécifique.
+
+## OMEGA 0.5.5 — cadres d'atlas, faune, véhicules, racines et boss (6 novembre 2026)
+- [x] Conserver les atlas réels, supprimer les rectangles de fond résiduel par `cleanFrameMatte` et fabriquer le masque AND depuis la même ImageData RGBA.
+- [x] Enrichir les ennemis à 52 rôles, 49 morphologies et 16 profils de boss avec deux états d'animation Canvas et les attaques changeantes selon la phase.
+- [x] Ajouter organismes de plafond (racines/tentacules/lianes), worms avec saut, tourelles/forteresses, blindés et véhicules terrestres, aéronefs et vaisseaux spatiaux.
+- [x] Sélection déterministe par graine/région/biome/phase et cache borné (140), sans toucher aux sauvegardes ni à la difficulté progressive.
+- [x] Tests dédiés aux mats alpha, 52 espèces, couverture des morphologies, variété des boss, animation/AND source ; 124/124 tests réussis sur GitHub Actions `42254515405`.
+- [x] Construire APK direct **OMEGA 0.5.5/code 55** signé Debug et prérelease GitHub ; **13 989 503 octets**, SHA-256 `1cded1715110967f6965eaceaa9b2069440b113a97281b56d0a057a96efc19b9`.
+- [ ] **QA Samsung matérielle indispensable :** confirmer disparition effective du cadre sur la frame de la capture, vérifier 49 silhouettes et 16 boss réellement reconnaissables, animations/root/warp, fluidité et RAM lors de longues sessions. Ajouter une capture comparative du sprite fautif si des fuites restent.
+- [ ] Mesurer les pics de cache Canvas et de copies de cicatrices en sessions d'endurance ; envisager cache de tailles adaptées et amélioration des modèles vectoriels par sprites HD une fois le gameplay validé.
+- [ ] Tester la signature Debug sur mise à jour ; sauvegarder l'univers JSON avant désinstallation.
+- [ ] Faire approuver explicitement une fusion de la PR #8 avant de changer `main` ; protéger la 0.5.3 stable et les Releases 0.5.4/0.5.5.
