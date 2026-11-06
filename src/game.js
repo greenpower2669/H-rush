@@ -18,6 +18,7 @@ import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
+import { acquireTwoFingerTarget, twoFingerAimPoint, twoFingerNoseShot, guidedMissileVelocity } from './two-finger-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -130,7 +131,9 @@ const ships = {
  */
 const pitchSpriteCache=new WeakMap();
 function pitchSprite(base,angle){
-  const bucket=Math.round(Math.max(-1.25,Math.min(1.25,angle))/.05);
+  // Lasers and missiles can now rotate toward a second-finger target above,
+  // below or even behind the muzzle; player's own pitch stays ±0.31 rad.
+  const bucket=Math.round(Math.max(-Math.PI,Math.min(Math.PI,angle))/.05);
   let cache=pitchSpriteCache.get(base);
   if(!cache){cache=new Map();pitchSpriteCache.set(base,cache);}
   if(cache.has(bucket))return cache.get(bucket);
@@ -179,6 +182,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let secondFingerAim=null; // {id,start,current,target}; primary pointer ALWAYS steers.
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -202,7 +206,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;secondFingerAim=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -525,11 +529,16 @@ function renderHoverPlume(){
   }
   ctx.restore();
 }
+function activeSecondFingerAim(){
+  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H):null;
+}
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim(); // recompute from the MOVING nose for every shot
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
+    const a=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,780,lane,aim);
     const beam=pitchSprite(ships.laser,a.angle);
     bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
   }
@@ -542,12 +551,14 @@ function launchMissile() {
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim();
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,345,lane,aim);
     const shape=pitchSprite(ships.missile,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,lockTarget:aim?.target||null});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
@@ -684,8 +695,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
+  const locked=b.lockTarget&&b.lockTarget.hp>0&&enemies.includes(b.lockTarget)?b.lockTarget:null;
+  const target=locked||enemies.filter(e=>e.hp>0).sort((a,c)=>
+    (a.x-b.x)**2+(a.y-b.y)**2-((c.x-b.x)**2+(c.y-b.y)**2))[0];
+  if(locked){
+    const steer=guidedMissileVelocity(b,locked,dt);
+    b.vx=steer.vx;b.vy=steer.vy;
+  }else if(target){const dy=target.y+target.sprite.height*.5-b.y;
     b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
@@ -991,6 +1007,23 @@ function render() {
     ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
   }
   ctx.restore();
+  if(secondFingerAim){
+    const aim=activeSecondFingerAim();
+    if(aim){
+      const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+      const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+      // Visual targeting feedback only; collision remains exact binary alpha AND.
+      ctx.save();ctx.globalAlpha=.67;ctx.strokeStyle=aim.target?'#8efedd':'#9dbaff';
+      ctx.lineWidth=1.3;ctx.setLineDash([5,9]);
+      ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();
+      ctx.setLineDash([]);ctx.lineWidth=1.7;
+      ctx.beginPath();ctx.arc(aim.x,aim.y,11,0,TAU);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(aim.x-17,aim.y);ctx.lineTo(aim.x-8,aim.y);
+      ctx.moveTo(aim.x+8,aim.y);ctx.lineTo(aim.x+17,aim.y);
+      ctx.moveTo(aim.x,aim.y-17);ctx.lineTo(aim.x,aim.y-8);
+      ctx.moveTo(aim.x,aim.y+8);ctx.lineTo(aim.x,aim.y+17);ctx.stroke();ctx.restore();
+    }
+  }
   if(warp){ctx.fillStyle='#110d2cbb';ctx.fillRect(300,12,360,23);ctx.fillStyle='#c4faff';ctx.font='bold 15px sans-serif';ctx.fillText('🌀 WARP BONUS  ·  '+Math.ceil(warp.remaining)+' s  ·  '+warp.broken+' roches',317,29);}
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
@@ -1056,10 +1089,27 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // The second touch ACQUIRES the target below the ceiling or above the floor.
+    // Extra fingers are ignored: no accidental missile flood.
+    if(!secondFingerAim){
+      const point=pointFromEvent(e);
+      secondFingerAim={id:e.pointerId,start:point,current:point,
+        target:acquireTwoFingerTarget(enemies,point,W,H)};
+      canvas.setPointerCapture(e.pointerId);
+      launchMissile(); // retain the existing second-finger missile gesture
+    }
+    e.preventDefault();return;
+  }
   mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+canvas.addEventListener('pointermove',e=>{
+  if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=pointFromEvent(e);
+});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
+  if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+});
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -1072,7 +1122,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
