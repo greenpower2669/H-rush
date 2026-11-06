@@ -18,7 +18,7 @@ import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
-import { resolveSecondFingerAim, vectorShotFromNose, steerSecondFingerShot } from './dual-aim.js';
+import { resolveSecondFingerAim, noseWorldPoint, projectileOriginAtNose, vectorShotFromNose, steerSecondFingerShot } from './dual-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -529,18 +529,19 @@ function renderHoverPlume(){
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
-  const width=(player.baseSprite||ships.player).width;
+  // The actual rightmost opaque pixel of the hull (not its rectangular bounds).
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const shot=vectorShotFromNose(cx,cy,width,player.pitch,780,lane,activeAim,shipMotion);
+    const shot=vectorShotFromNose(nose,player.pitch,780,lane,activeAim,shipMotion);
     const beam=pitchSprite(ships.laser,shot.angle);
+    const origin=projectileOriginAtNose(shot,ships.laser,beam,shot.angle);
     bullets.push({kind:'laser',baseSprite:ships.laser,sprite:beam,
-      x:shot.x-beam.width*.5,y:shot.y-beam.height*.5,
+      x:origin.x,y:origin.y,
       vx:shot.vx,vy:shot.vy,guided:shot.guided,mode:shot.mode,locked:shot.locked,
       heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
       driftX:shot.driftX,driftY:shot.driftY});
   }
-  const nose=aimFromNose(cx,cy,width,player.pitch,780);
   particlesAt(nose.x,nose.y,'shield',2,110);
   sound.play('laser');
 }
@@ -549,13 +550,14 @@ function launchMissile() {
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=vectorShotFromNose(cx,cy,(player.baseSprite||ships.player).width,
-      player.pitch,345,lane,activeAim,shipMotion);
+    const shot=vectorShotFromNose(nose,player.pitch,345,lane,activeAim,shipMotion);
     const shape=pitchSprite(ships.missile,shot.angle);
+    const origin=projectileOriginAtNose(shot,ships.missile,shape,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,
-      x:shot.x-shape.width*.5,y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      x:origin.x,y:origin.y,vx:shot.vx,vy:shot.vy,age:0,
       guided:shot.guided,mode:shot.mode,locked:shot.locked,
       heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
       driftX:shot.driftX,driftY:shot.driftY});
@@ -762,7 +764,7 @@ function update(dt) {
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
   const centerX=player.x+player.sprite.width*.5,centerY=player.y+player.sprite.height*.5;
-  const noseX=aimFromNose(centerX,centerY,(player.baseSprite||ships.player).width,player.pitch).x;
+  const noseX=noseWorldPoint(centerX,centerY,player.baseSprite||ships.player,player.pitch).x;
   activeAim=resolveSecondFingerAim(aimPointer,enemies,noseX);
   fireClock-=dt;
   if((keys.has(' ')||dragging||aimPointer!==null||tiltMove.active) && fireClock<=0){
@@ -967,7 +969,7 @@ function drawSecondFingerReticle(){
   if(!activeAim)return;
   const {x,y,locked,mode}=activeAim;
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
-  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch);
+  const nose=noseWorldPoint(cx,cy,player.baseSprite||ships.player,player.pitch);
   ctx.save();
   ctx.strokeStyle=locked?'#ffeb8f':'#80f1ff';
   ctx.lineWidth=1.5;ctx.globalAlpha=.64;ctx.setLineDash([7,8]);
