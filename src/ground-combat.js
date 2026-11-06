@@ -52,28 +52,24 @@ export function anchoredAndPose(terrain,sprite,x,desiredY,anchor='ground',maxSca
   const h=540,maxY=h-sprite.height-14;
   const origin=groundClamp(Math.round(desiredY),24,Math.max(24,maxY));
   const collides=y=>Boolean(terrain.collideEntity({sprite,x,y}));
-  let best=null,dist=Infinity;
-  for(let step=0;step<=maxScan;step+=3){
-    for(const sign of step===0?[0]:[-1,1]){
-      const y=groundClamp(origin+sign*step,24,Math.max(24,maxY));
-      if(collides(y))continue;
-      // Ground body must touch rock within two pixels below; ceiling roots above.
-      const touchY=anchor==='ground'?y+2:y-2;
-      if(!collides(touchY))continue;
-      const d=Math.abs(y-origin);
-      if(d<dist){best=y;dist=d;}
-    }
-    if(best!==null)return best;
+  // Pixel-precise resting support: a 3px search would skip a one-pixel
+  // contact band and return a floating hull. Start clear, then descend/ascend
+  // one pixel at a time until the NEXT 2px move intersects an opaque rock bit.
+  const away=anchor==='ground'?-1:1,into=-away;
+  let y=origin;
+  for(let i=0;i<=maxScan&&collides(y);i++){
+    const next=y+away;
+    if(next<24||next>maxY)return null;
+    y=next;
   }
-  // Returning the safe old y is preferable to embedding a rotated hitbox in rock.
-  if(!collides(origin))return origin;
-  for(let n=1;n<=maxScan;n+=2){
-    for(const delta of [-n,n]){
-      const y=groundClamp(origin+delta,24,Math.max(24,maxY));
-      if(!collides(y))return y;
-    }
+  if(collides(y))return null;
+  for(let i=0;i<=maxScan;i++){
+    if(collides(y+into*2))return y;
+    const next=y+into;
+    if(next<24||next>maxY)return null;
+    y=next;
   }
-  return null; // signal "blocked", never phase through the real AND mask
+  return null; // no actual supporting rock; allow a physical fall instead
 }
 /** Ballistic velocity aimed to intersect a player on a predictable arc.
  * For fixed vx, t=dx/vx; vy=(dy-.5*g*t²)/t.
