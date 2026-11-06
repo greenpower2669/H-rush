@@ -19,8 +19,7 @@ import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './e
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
 import { resolveSecondFingerAim, noseWorldPoint, projectileOriginAtNose, vectorShotFromNose, steerSecondFingerShot } from './dual-aim.js';
-import { groundOrientation, anchoredAndPose, ballisticArc, groundTurretMuzzle,
-  isBallisticTurret, isDiggingWorm, digWormTerrain } from './ground-combat.js';
+import { groundOrientation, anchoredAndPose, ballisticArc, groundTurretMuzzle, isBallisticTurret, isDiggingWorm, digWormTerrain } from './ground-combat.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
