@@ -122,3 +122,10 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Problème d'équilibrage : cadence spawn liée principalement à `wave` et hasard ; désormais directeur borné et formations ancrées dans la graine, restauration des HP et colis inchangée.
 - Vérification de syntaxe de l'HTML autonome après concaténation : `new Function` a accepté le script complet ; collision de symbole `clamp` entre modules détectée puis évitée par renommage en `boundChallenge`.
 - Tests Node, APK, mesures Samsung, captures navigateur de toutes les phases et signature : résultats à consigner après essais ; ne pas les déclarer réussis d'avance.
+
+### Validation GitHub Actions 0.4.8 — 6 novembre 2026
+- Run de référence : https://github.com/greenpower2669/H-rush/actions/runs/42212267579 — **succès complet** : 82/82 tests Node, contrôle de reconstruction exacte du HTML autonome, téléchargement/validation des 4 pistes CC0, compilation Gradle Debug, identification des ressources, `apksigner verify` v2 et publication dans la Release.
+- APK : `HRush-Omega-v0.4.8-progression-parallaxe-debug.apk`, package `fr.fab.ashrush.omegaimmersion`, versionName `0.4.8`, versionCode `48`, SDK 26-35 déclaré ; environ 13,97 Mo ; signature Debug non assimilable à une clé de mise à jour pérenne.
+- Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.4.8-progression-parallaxe-preview — APK autonome et fichier SHA256SUMS.txt présents, anciennes Releases conservées.
+- Limites : aucune validation visuelle avec captures comparatives dans un navigateur réel sur les cinq phases ni mesure FPS/RAM sur le Samsung physique au stade de cette compilation. La migration complète de cicatrices très anciennes doit aussi être éprouvée sur appareil.
+- Plusieurs essais concurrents PR/push ont produit un échec trompeur de l'étape « publier » malgré une Release présente. Le workflow a été renforcé : publication uniquement sur push, PR réservée à la CI, exécutions concurrentes d'un même type annulées.
