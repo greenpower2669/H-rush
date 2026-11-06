@@ -1967,8 +1967,8 @@ const WARP_DURATION=16;
 function portalPosition(seed,region){
   if(!Number.isInteger(region)||region<0)return null;
   if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
-  const wx=region*16384+6750+Math.floor(keyedFloat(seed,region,810)*435);
-  const y=154+Math.floor(keyedFloat(seed,region,811)*131);
+  const wx=region*REGION_SIZE+6750+Math.floor(keyedFloat(seed,region,810)*435);
+  const y=136+Math.floor(keyedFloat(seed,region,811)*92);
   return {worldX:wx,y,region};
 }
 /** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */
@@ -2308,7 +2308,7 @@ function nearbyPortal(){
 function enterWarp(portal){
   portalSeen.add(portal.region);
   warp={remaining:WARP_DURATION,clock:0,broken:0,region:portal.region};
-  terrain.active=false;warpClock=0;
+  terrain.active=false;warpClock=0;bossActive=false; // A portal must not leave a cleared boss lock on the main route.
   enemies=[];bullets=[];enemyShots=[];missiles=[];powerups=[];
   invulnerable=Math.max(invulnerable,1.1);
   music.scene('battle');msg('🌀 PORTAIL SECRET — PLUIE D’ASTÉROÏDES !',3.5);
@@ -2318,7 +2318,7 @@ function enterWarp(portal){
 function leaveWarp(){
   if(!warp)return;
   const broken=warp.broken;
-  warp=null;terrain.active=true;
+  warp=null;terrain.active=true;bossActive=false;
   enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
   spawnClock=2;invulnerable=1.2;
   reward(350+broken*45);

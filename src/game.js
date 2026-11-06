@@ -305,7 +305,7 @@ function nearbyPortal(){
 function enterWarp(portal){
   portalSeen.add(portal.region);
   warp={remaining:WARP_DURATION,clock:0,broken:0,region:portal.region};
-  terrain.active=false;warpClock=0;
+  terrain.active=false;warpClock=0;bossActive=false; // A portal must not leave a cleared boss lock on the main route.
   enemies=[];bullets=[];enemyShots=[];missiles=[];powerups=[];
   invulnerable=Math.max(invulnerable,1.1);
   music.scene('battle');msg('🌀 PORTAIL SECRET — PLUIE D’ASTÉROÏDES !',3.5);
@@ -315,7 +315,7 @@ function enterWarp(portal){
 function leaveWarp(){
   if(!warp)return;
   const broken=warp.broken;
-  warp=null;terrain.active=true;
+  warp=null;terrain.active=true;bossActive=false;
   enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
   spawnClock=2;invulnerable=1.2;
   reward(350+broken*45);

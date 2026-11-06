@@ -140,3 +140,5 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Traitement sur branche dédiée dérivée de 0.4.9 ; nouvelle famille de tests déterministes ; reproduction de la même collision `A & B` à partir des alpha du sprite. Portail temporaire sans avance du monde principal, aucune nouvelle propriété dans les JSON persistants.
 - Physique fondée sur inertie en vide et pesanteur commune sous traînée fonction de masse ; formule ludique et non simulation orbitale (NASA Newton/drag : https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/newtons-laws-of-motion/ et https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/falling-object-with-air-resistance/).
 - Statut compilation/tests/Release : **à vérifier** après exécution GitHub Actions ; ne pas déclarer achevé avant un CI vert et asset APK contrôlé.
+
+- Renforcement prépublication : abaisser les portails au-dessus de la limite géologique basse calculée à partir des familles, prévenir le verrou permanent du directeur de boss après un détour warp, et tester l'accessibilité géologique du portail sur 24 régions.

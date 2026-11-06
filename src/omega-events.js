@@ -1,13 +1,13 @@
 /** OMEGA 0.5.0: deterministic meteor weather, optional warp detours and inertial debris. */
-import { keyedFloat } from './universe.js';
+import { keyedFloat, REGION_SIZE } from './universe.js';
 const eventClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const WARP_DURATION=16;
 /** A faint, collectible portal inside the surface skyline; no alteration of the saved universe. */
 export function portalPosition(seed,region){
   if(!Number.isInteger(region)||region<0)return null;
   if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
-  const wx=region*16384+6750+Math.floor(keyedFloat(seed,region,810)*435);
-  const y=154+Math.floor(keyedFloat(seed,region,811)*131);
+  const wx=region*REGION_SIZE+6750+Math.floor(keyedFloat(seed,region,810)*435);
+  const y=136+Math.floor(keyedFloat(seed,region,811)*92);
   return {worldX:wx,y,region};
 }
 /** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */

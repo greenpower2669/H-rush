@@ -2,12 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { portalPosition, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, WARP_DURATION } from '../src/omega-events.js';
 import { difficultyAt } from '../src/difficulty.js';
+import { terrainBounds } from '../src/omega-terrain.js';
 const SEED='0123456789abcdeffedcba9876543210';
 test('portal positions are deterministic and on the accessible surface span',()=>{
   assert.deepEqual(portalPosition(SEED,0),portalPosition(SEED,0));
   const portal=portalPosition(SEED,0);
   assert.ok(portal.worldX>5600&&portal.worldX<10000);
-  assert.ok(portal.y>=154&&portal.y<286);
+  assert.ok(portal.y>=136&&portal.y<228);
+  for(let region=0;region<24;region++){
+    const p=portalPosition(SEED,region);
+    if(!p)continue;
+    const bounds=terrainBounds(SEED,p.worldX);
+    assert.ok(p.y+58<bounds.bottom,`portal ${region} must stay above the actual soil`);
+  }
   assert.equal(portalPosition(SEED,-1),null);
   assert.equal(WARP_DURATION,16);
 });
