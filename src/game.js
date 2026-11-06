@@ -593,6 +593,20 @@ function dropBonus(enemy) {
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&(enemy.kind!=='boss'||enemy.bossPhase%2===0)){
+    // Real turret barrel AND mask faces where the shell physically flies.
+    const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+    const rough=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.50),target);
+    enemy.gunAngle=rough.pitch;
+    const muzzle=groundTurretMuzzle(enemy,enemy.gunAngle);
+    const arc=ballisticArc(muzzle,target);
+    enemy.gunAngle=arc.pitch;
+    enemyShots.push({kind:'ballistic',ballistic:true,gravity:arc.gravity,age:0,
+      sprite:ships.ballisticShell,x:muzzle.x-ships.ballisticShell.width*.5,
+      y:muzzle.y-ships.ballisticShell.height*.5,vx:arc.vx,vy:arc.vy});
+    particlesAt(muzzle.x,muzzle.y,'motor',5);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
   const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
     weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
@@ -669,6 +683,12 @@ function hitEnemy(enemy,r) {
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
+  if(b.ballistic){
+    // Screen y points DOWN: y(t)=y0+vy0*t+0.5*g*t*t.
+    b.vy+=b.gravity*dt;
+    b.age=(b.age||0)+dt;
+    if(b.age>3.8)return true;
+  }
   const dx=b.vx*dt,dy=b.vy*dt;
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
