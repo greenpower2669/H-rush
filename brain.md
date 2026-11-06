@@ -76,3 +76,9 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 - L'indicateur principal de voyage est un **chronomètre** qui s'arrête en pause. Le meilleur temps `bestTime` est persistant (facultatif lors de l'import des JSON anciens). Les distances historiques restent calculées en interne pour la notation et la continuité du score.
 - Les anciennes sauvegardes et cicatrices ne sont pas effacées lors du changement de taille de région ; une migration géométrique parfaite des anciennes cicatrices reste un point de QA.
 - Livraison APK autonome uniquement, aucune génération d'AAB avant décision explicite de Fab.
+
+## H-RUSH OMEGA 0.4.8 — invariants de progression et de parallaxe
+- `src/difficulty.js` dirige des rencontres à pression plafonnée selon survie, régions, victimes et santé ; la graine personnelle fixe les formations. Les périodes de récupération suspendent les nouveaux spawns et le plafond d'ennemis simultanés protège la jouabilité et la fluidité. Les collisions, spawns géologiquement sûrs et les impacts conservent uniquement `A & B`.
+- Les phases de boss dépendant des PV sont bornées (1 à 4), sans changement d'algorithme d'intersection. Le score affiché est le score **de la partie**, dérivé du total monotone moins le total initial. Le HIGH SCORE provient du Hall local, importable/exportable. Un nouveau record exige un score de partie strictement supérieur à l'ancien.
+- `visualEnvelope` utilise les seuils `PHASE_START` pour interpoler continûment les présences planète/atmosphère/surface, sans architecture terrestre en espace profond. Les bases des monuments restent derrière trois mattes géologiques de parallaxe. La sortie masque complètement le sol AVANT `spaceTail`.
+- Garder l'identifiant Android `fr.fab.ashrush.omegaimmersion` et le format de sauvegarde 1 inchangés ; livrer un APK autonome signé, sans AAB ni altération de `main` avant validation.
