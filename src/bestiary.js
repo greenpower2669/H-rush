@@ -319,7 +319,13 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
+  // Ground worms advance head-first to the LEFT. Their flipped pixels and AND
+  // mask come from the same canvas, unlike an image-only CSS flip.
+  if(morph.shape==='worm'||morph.shape==='crawler'){
+    g.translate(w,0);g.scale(-1,1);
+  }
   paintMorph(g,morph,frame,phase,resolvedAngle);
+  g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
