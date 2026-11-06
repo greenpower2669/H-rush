@@ -301,3 +301,15 @@
 - [ ] Mesurer les pics de cache Canvas et de copies de cicatrices en sessions d'endurance ; envisager cache de tailles adaptées et amélioration des modèles vectoriels par sprites HD une fois le gameplay validé.
 - [ ] Tester la signature Debug sur mise à jour ; sauvegarder l'univers JSON avant désinstallation.
 - [ ] Faire approuver explicitement une fusion de la PR #8 avant de changer `main` ; protéger la 0.5.3 stable et les Releases 0.5.4/0.5.5.
+
+## H-RUSH OMEGA 0.5.6 — deuxième doigt, tirs nez-vecteur et ajustement tactile (6 novembre 2026)
+- [x] Confirmer les ennemis suspendus et worms de 0.5.5 ; conserver leurs profils et modes d'apparition.
+- [x] Donner au deuxième doigt un verrou indépendant du premier avec missiles à la pose et guidage des lasers/missiles tant que le doigt reste appuyé ; retour au tir normal en relâchant.
+- [x] Permettre une pose **sous** racines/tentacules du plafond, **au-dessus** des worms/tourelles/sol ; correction ±54 px gauche/droite, ennemis volants ±64 px haut/bas.
+- [x] Recalculer la direction depuis le vrai nez incliné après chaque avance/recul ; suivre une cible mouvante, ne pas verrouiller les ennemis morts/hors champ, viser un pixel alpha encore opaque.
+- [x] Rotation sprite + masque AND des projectiles jusqu'à ±π, guidage progressif missile verrouillé, guide visuel non-collisionnel, captures tactiles propres (troisième doigt ignoré, blur/cancel).
+- [x] Guide tactile mis à jour, bundle standalone reconstruit identique aux sources.
+- [x] GitHub Actions `42265215991` **134/134 tests**, APK Debug autonome `0.5.6` / versionCode `56`, package/signature validés, Release préversion publiée et asset direct vérifié : **13 992 583 octets**, SHA-256 `909ff6c14f0815d5ef7435e66ae86b277711fef9e492fa2ab28abef2a238c048`.
+- [ ] QA Samsung : véritable multitouch en paysage, cas premier doigt pilotant + second doigt glissant, verrou sous racine/tentacule, au-dessus du worm sauteur, tir en arrière/avant, guidage missiles, troisième doigt et relâchements rapides, FPS.
+- [ ] Vérifier si changement de certificat Debug impose une réinstallation ; **exporter l'univers JSON avant désinstallation**, ne jamais le faire perdre.
+- [ ] Valider la 0.5.5 et 0.5.6 avant éventuelle fusion des PR #8/#9 vers `main`. Aucune fusion sans autorisation explicite ; aucun AAB.
