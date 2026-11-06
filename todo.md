@@ -202,3 +202,17 @@
 - [ ] Une signature de publication stable et l'option d'actualiser l'appli sans export/import restent à préparer.
 - [ ] Nouveaux biomes artistiques non répétitifs, davantage de factions et variantes de boss pour les prochaines versions.
 - [ ] Play Store/AAB uniquement sur nouvelle demande explicite.
+
+## H-RUSH OMEGA 0.4.8 — progression et parallaxe (mission 06/11/2026)
+- [x] Lire Djipie et les cinq mémoires, identifier le HEAD `9bf5c0f` et préserver la Release 0.4.7.
+- [x] Créer `feature/omega-048-progression-parallaxe-20261106` sans toucher à `main`.
+- [x] Ajouter directeur de difficulté deterministe avec plafonds, repos, formations et boss à phases bornées.
+- [x] Afficher SCORE de partie, HIGH SCORE local, TEMPS et NOUVEAU RECORD en fin de partie.
+- [x] Supprimer les monuments de l'espace profond, interpoler atmosphère/surface et sortie, conserver leurs bases masquées.
+- [x] Garder le noyau `A & B`, les cicatrices, la sauvegarde JSON format 1, l'ID Android et le build APK uniquement.
+- [x] Écrire tests de progression et de parallaxe et synchroniser le HTML autonome.
+- [ ] Vérifier `npm test` et la reconstruction exacte `npm run build:standalone` dans GitHub Actions.
+- [ ] Obtenir captures d'un véritable navigateur aux cinq phases et évaluer artistiquement leur continuité.
+- [ ] Contrôler FPS/RAM et anciennes sauvegardes sur un Samsung physique ; la validation locale seule ne suffit pas.
+- [ ] Contrôler compilation APK v0.4.8 code 48, `apksigner`, SHA-256, ressources et asset direct de Release ; aucun AAB.
+- [ ] Conserver anciennes Releases et ne pas fusionner la branche dans `main` sans autorisation distincte.
