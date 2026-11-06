@@ -169,14 +169,14 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     </header>
     <main>
       <div class="stage" id="stage">
-        <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : premier doigt déplace le vaisseau, deuxième doigt vise les ennemis"></canvas>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.6</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
             <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE TACTILE</div>
             <button id="welcomeStart" class="action-primary">🚀 JOUER</button>
-            <p>Pilotage tactile au départ. Choisis Inclinaison ou inverse X / Y dans 🌌 Univers pour adapter les commandes.</p>
+            <p>Premier doigt : déplacement. Deuxième doigt : visée, même sous un ennemi au plafond. Inclinaison et inversion X / Y dans 🌌 Univers.</p>
           </div>
         </section>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
@@ -193,7 +193,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : bouton ou touche M (le deuxième doigt sert à viser)">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
@@ -230,11 +230,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; le deuxième doigt maintenu désigne une cible, même juste en dessous d’une racine ou d’un tentacule suspendu, ou près d’un ver sauteur au sol. Les lasers partent du nez et corrigent légèrement leur trajectoire : marge gauche/droite pour le sol et le plafond, haut/bas pour les ennemis en vol. Le recul et l’avance affectent aussi les tirs. Pour lancer un missile : bouton 🚀, touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.6 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
