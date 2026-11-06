@@ -195,3 +195,14 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Validation finale : https://github.com/greenpower2669/H-rush/actions/runs/42272382589 ; 152 tests réussis, Android Debug 0.5.8/code58, signature et bundle vérifiés.
 - APK direct : https://github.com/greenpower2669/H-rush/releases/download/v0.5.8-double-tap-bestiary-preview/HRush-Omega-v0.5.8-double-tap-bestiary-debug.apk ; 14 000 499 octets ; SHA256 2d01be8dc4f8042272ad2f1ba25b2d07b4af81c81cc1505db09c152ab9f21fd2.
 - QA encore ouverte : vrais gestes Samsung, résultat esthétique, FPS/RAM, mises à jour de signature et conservation des sauvegardes.
+
+
+## 2026-11-06 — H-RUSH OMEGA 0.5.9 : crash Android intermittent
+- Retour joueur : « Le jeu crash parfois » ; sans logs Samsung, la cause précise n'est pas confirmée.
+- Cause évitable identifiée dans le code Android 0.5.8 : aucune implémentation `WebViewClient.onRenderProcessGone` (Android 26+), ce qui permet à un renderer WebView tué ou planté d'entraîner l'application entière. Source technique officielle : https://developer.android.com/develop/ui/views/layout/webapps/handle-termination.
+- Correctif : retirer/détruire l'ancienne WebView après arrêt du renderer, relancer une instance une fois, puis écran natif « Réessayer » si deux incidents en 90 s ; logcat natif et préférences pour le motif, mode RAM réduit après incident. Aucune permission INTERNET.
+- Boucle JS `requestAnimationFrame` protégée : erreurs enregistrées localement (`ashrush-runtime-error-v1`), arrêt de la boucle fautive et diagnostic copiable via l'écran d'erreur ou menu Univers ; collecte des erreurs console Android sans envoi distant.
+- Économie des Canvas : copies d'ennemis blessés marquées `volatileDamage` pour plafonner à 4 rotations par source, 20 pour les sources immuables ; réutiliser image/masque lors d'une orientation et frame inchangées. L'alpha des masques ET/AND et les cicatrices persistent.
+- Validation contrôlée GitHub Actions : [run 42275912875](https://github.com/greenpower2669/H-rush/actions/runs/42275912875) pour tests, HTML et compilation (publication ignorée en PR), puis [run final 42276249897](https://github.com/greenpower2669/H-rush/actions/runs/42276249897) succès avec publication. 155/155 tests, Android APK Debug 0.5.9/code 59, signature/package et ressources vérifiées.
+- [Prérelease](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.9-crash-recovery-preview) ; [APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.9-crash-recovery-preview/HRush-Omega-v0.5.9-crash-recovery-debug.apk), 14 004 531 octets, SHA-256 7d1c4bbe2f4bacf9f64117f0b55ab28fafdc79acba53a71d73597154a174df31 selon le digest de l'asset GitHub.
+- Tests de longue durée sur Samsung et repro du crash encore ouverts ; si persistance, demander un export du diagnostic et le moment (combat, démarrage, retour d'arrière-plan). APK autonome sans AAB, branche corrective non fusionnée dans main.
