@@ -1635,7 +1635,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
-function paintMorph(g,m,frame,phase){
+function paintMorph(g,m,frame,phase,turretAngle=null){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -1693,7 +1693,7 @@ function paintMorph(g,m,frame,phase){
       strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
       strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
       for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
-      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
+      if(shape==='tank'){if(turretAngle===null){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);}oval(g,.18,-.58,.19,.15,hull);}
       else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
       break;
     case 'walker':
@@ -1704,7 +1704,7 @@ function paintMorph(g,m,frame,phase){
     case 'tower':
       strokeShape(g,[[-.78,.86],[-.67,-.1],[-.4,-.38],[.48,-.38],[.77,-.05],[.78,.86]],hull);
       oval(g,0,-.2,.42,.25,metal);
-      g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);
+      if(turretAngle===null){g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);}
       if(shape==='tower'){g.fillStyle=dark;g.fillRect(-.45,-.84,.13,.68);g.fillRect(.24,-.84,.13,.68);}
       else {for(let i=0;i<3;i++)oval(g,-.46+i*.45,.35,.06,.14,lit);}
       break;
@@ -1785,19 +1785,41 @@ function paintMorph(g,m,frame,phase){
       g.beginPath();g.ellipse(0,0,.65+damagePhase*.07,.7,0,.2,Math.PI*1.4);g.stroke();}
   }
   g.restore();
+  // A mechanical turret pivots independently of the body. Its actual opaque
+  // barrel is in the source RGBA before extracting the collision AND mask.
+  if(turretAngle!==null&&['tank','turret','tower','fortress','rover'].includes(shape)){
+    const px=w*.5,py=h*.47-5;
+    g.save();g.translate(px,py);g.rotate(turretAngle);
+    g.lineCap='round';g.strokeStyle=dark;g.lineWidth=m.boss?10:9;
+    g.beginPath();g.moveTo(0,0);g.lineTo(25,0);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=m.boss?6:5;
+    g.beginPath();g.moveTo(3,0);g.lineTo(25,0);g.stroke();
+    oval(g,25,0,3.8,3.5,lit);
+    g.restore();
+    oval(g,px,py,m.boss?10:8,m.boss?10:8,hull);
+    oval(g,px,py,3,3,lit);
+  }
 }
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-function spriteForMorph(morph,frame=0,phase=0){
+function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
+  const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
+  const resolvedAngle=turretBucket===null?null:turretBucket*.16;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  paintMorph(g,morph,frame,phase);
+  // Ground worms advance head-first to the LEFT. Their flipped pixels and AND
+  // mask come from the same canvas, unlike an image-only CSS flip.
+  if(morph.shape==='worm'||morph.shape==='crawler'){
+    g.translate(w,0);g.scale(-1,1);
+  }
+  paintMorph(g,morph,frame,phase,resolvedAngle);
+  g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
@@ -2378,6 +2400,16 @@ function burnHoleLimited(sprite,localX,localY,radius,healthLoss=0){
   paintHeat(sprite,cx,cy,chosen||Math.max(2,Math.round(radius)),heat);
   return {removed,radius:chosen,fraction,heat};
 }
+/** Dynamic turret angles create many possible source frames, so bound EACH
+ * enemy's private cutout cache. Reconstruct evicted frames from historical scars.
+ */
+const MAX_ENEMY_DAMAGE_FRAMES=12;
+function rememberDamageFrame(enemy,source,edited){
+  if(enemy.damageFrames.has(source))enemy.damageFrames.delete(source);
+  enemy.damageFrames.set(source,edited);
+  while(enemy.damageFrames.size>MAX_ENEMY_DAMAGE_FRAMES)
+    enemy.damageFrames.delete(enemy.damageFrames.keys().next().value);
+}
 /** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
@@ -2387,8 +2419,8 @@ function switchDamagedFrame(enemy,source){
   if(!edited){
     edited=copyDamageSprite(source);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(source,edited);
   }
+  rememberDamageFrame(enemy,source,edited);
   enemy.sprite=edited;
   return edited;
 }
@@ -2407,7 +2439,7 @@ function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(enemy.sourceSprite,edited);
+    rememberDamageFrame(enemy,enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;
@@ -2708,6 +2740,150 @@ function guidedMissileVelocity(missile,target,dt,speed=345){
   return {vx:Math.cos(next)*speed,vy:Math.sin(next)*speed};
 }
 
+/** OMEGA 0.5.7 — terrain-bound enemies.
+ * Ground contact, surface pitch, worm excavation and ballistic turret fire all
+ * share the SAME opaque-pixel AND terrain oracle used by combat. Never use
+ * a bounding rectangle or a synthetic physics ground for damage/collision.
+ */
+const groundClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const GROUND_MAX_PITCH=.30;
+const WORM_BITE_RADIUS=8;
+const WORM_BITE_INTERVAL=.43;
+const BALLISTIC_GRAVITY=315;
+const SHELL_SPEED_X=225;
+const turretShapes=new Set(['tank','turret','tower','fortress','rover']);
+function isBallisticTurret(morph){
+  return !!morph&&turretShapes.has(morph.shape);
+}
+function isGroundCreature(morph){
+  return morph?.anchor==='ground'||morph?.anchor==='ceiling';
+}
+function isBitingWorm(morph){
+  return morph?.shape==='worm';
+}
+/** Exact first opaque terrain pixel in this screen column, honoring persisted
+ * AND-NOT crater masks. Geometry-only terrainBounds may NOT be substituted.
+ */
+function solidBelow(terrain,screenX,startY,range=155){
+  if(!terrain?.tile||!Number.isFinite(screenX))return null;
+  const worldX=Math.floor(terrain.scroll+screenX);
+  if(worldX<0)return null;
+  const index=Math.floor(worldX/TILE_SIZE),tile=terrain.tile(index);
+  if(!tile?.mask)return null;
+  const px=worldX-index*TILE_SIZE;
+  const from=groundClamp(Math.floor(startY),0,539);
+  const end=groundClamp(Math.ceil(startY+range),0,539);
+  for(let y=from;y<=end;y++)if(hasPixel(tile.mask,px,y))return y;
+  return null;
+}
+/** Chassis inclination is derived from actual uncut rock left/right of the
+ * moving wheels; the rendered, rotated alpha is itself used by the AND engine.
+ */
+function groundPitchByAnd(terrain,enemy,previous=0,dt=.033){
+  const width=enemy.sprite.width;
+  const cx=enemy.x+width*.5;
+  const foot=enemy.y+enemy.sprite.height*.77;
+  const dx=Math.min(25,width*.28);
+  const left=solidBelow(terrain,cx-dx,foot-22);
+  const right=solidBelow(terrain,cx+dx,foot-22);
+  if(left===null||right===null)return previous*(1-Math.min(1,dt*2));
+  const slope=groundClamp(Math.atan2(right-left,dx*2),-GROUND_MAX_PITCH,GROUND_MAX_PITCH);
+  const alpha=1-Math.exp(-groundClamp(dt,0,.05)*6.5);
+  return previous+(slope-previous)*alpha;
+}
+/** Find the LAST non-overlapping Y before the rotated entity's actual opaque
+ * pixels touch opaque terrain pixels. Movement/animations may change its
+ * dimensions and orientation; no bounding-box approximation is allowed.
+ */
+function alignByTerrainAnd(terrain,entity,anchor='ground',maxTravel=95){
+  if(!terrain?.collideEntity||!entity?.sprite?.mask)return {supported:false,moved:0};
+  const original=entity.y;
+  const sign=anchor==='ceiling'?-1:1;
+  const minY=12,maxY=Math.max(minY,540-entity.sprite.height-12);
+  const test=y=>terrain.collideEntity({sprite:entity.sprite,x:entity.x,y})!==null;
+  if(test(original))return {supported:false,moved:0,embedded:true};
+  let best=original,supported=false;
+  for(let traveled=3;traveled<=Math.min(maxTravel,160);traveled+=3){
+    const y=groundClamp(original+sign*traveled,minY,maxY);
+    if(Math.abs(y-best)<.01)break;
+    if(test(y)){
+      supported=true;
+      // Refine at integer-pixel resolution with the actual AND mask.
+      let lo=best,hi=y;
+      for(let j=0;j<4;j++){
+        const next=lo+sign;
+        if(Math.abs(next-hi)<.01||test(next))break;
+        lo=next;
+      }
+      best=lo;
+      break;
+    }
+    best=y;
+  }
+  // In a crater the ground may be farther away than this frame's search
+  // distance. Drop toward it rather than leaving the unit floating.
+  entity.y=best;
+  if(test(entity.y)){entity.y=original;return {supported:false,moved:0,embedded:true};}
+  return {supported,moved:entity.y-original};
+}
+/** Separate visible turret barrel and ballistic projectile must share the same
+ * angle. Shell position integrates y + vy*t + g*t²/2 in downward screen Y.
+ */
+function ballisticSolution(enemy,player,gravity=BALLISTIC_GRAVITY){
+  const w=enemy.sprite.width,h=enemy.sprite.height;
+  const pitch=Number.isFinite(enemy.hullPitch)?enemy.hullPitch:0;
+  const baseH=enemy.morph?.boss?112:62;
+  const pivotOffset=baseH*.47-5-baseH*.5;
+  const origin={x:enemy.x+w*.5-Math.sin(pitch)*pivotOffset,
+    y:enemy.y+h*.5+Math.cos(pitch)*pivotOffset};
+  const end={x:player.x+player.sprite.width*.5,
+    y:player.y+player.sprite.height*.5};
+  const dx=end.x-origin.x,dy=end.y-origin.y;
+  const flight=groundClamp(Math.abs(dx)/SHELL_SPEED_X,.35,2.65);
+  const baseVx=dx/flight,baseVy=(dy-.5*gravity*flight*flight)/flight;
+  let angle=Math.atan2(baseVy,baseVx),muzzle=null;
+  // Two short corrections compensate for a barrel starting ahead of its pivot.
+  for(let i=0;i<2;i++){
+    muzzle={x:origin.x+Math.cos(angle)*24,y:origin.y+Math.sin(angle)*24};
+    angle=Math.atan2((end.y-muzzle.y-.5*gravity*flight*flight)/flight,
+      (end.x-muzzle.x)/flight);
+  }
+  muzzle={x:origin.x+Math.cos(angle)*24,y:origin.y+Math.sin(angle)*24};
+  const vx=(end.x-muzzle.x)/flight,vy=(end.y-muzzle.y-.5*gravity*flight*flight)/flight;
+  return {x:muzzle.x,y:muzzle.y,vx,vy,
+    gravity,angle:Math.atan2(vy,vx),flight,origin,target:end};
+}
+const biteMask=createMask(9,9,(x,y)=>(x-4)**2+(y-4)**2<=16);
+const biteSprite={mask:biteMask,width:9,height:9};
+/** A worm actually GNAWS surviving rock, not a visual dust puff.
+ * The same tile/gate hit is carved with AND NOT and recorded in universe scars.
+ */
+function gnawTerrainByAnd(enemy,terrain){
+  if(!enemy?.sprite||!terrain?.collideEntity||!terrain?.carveImpact)return null;
+  const mask=enemy.sprite.mask;
+  const headX=Math.round(enemy.vx<0?mask.width*.17:mask.width*.83);
+  let foot=-1;
+  // Approximate the visible head's lowest surviving alpha, not the square
+  // bounding box of a tilted sprite with transparent corners.
+  for(let y=mask.height-1;y>=0&&foot<0;y--)
+    for(let x=Math.max(0,headX-8);x<=Math.min(mask.width-1,headX+8);x++)
+      if(hasPixel(mask,x,y)){foot=y;break;}
+  if(foot<0)return null;
+  const mouthX=enemy.x+headX+(enemy.vx<0?-11:2);
+  const mouthY=enemy.y+foot-3;
+  const probe={sprite:biteSprite,x:mouthX,y:mouthY};
+  let hit=terrain.collideEntity(probe);
+  if(!hit||hit.kind!=='tile'){
+    probe.y+=12;
+    hit=terrain.collideEntity(probe);
+  }
+  if(!hit||hit.kind!=='tile')return null;
+  const point=terrain.firstWorldImpact(hit);
+  if(!point)return null;
+  const removed=terrain.carveImpact(hit,point,WORM_BITE_RADIUS);
+  return removed>0?{...point,removed,radius:WORM_BITE_RADIUS}:null;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -2844,15 +3020,34 @@ function useArt(frames) {
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
   for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
-function updateSpriteAnimations() {
+function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
   if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
     if(enemy.morph){
+      const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
+        isGroundCreature(enemy.morph);
+      if(grounded){
+        enemy.hullPitch=enemy.morph.anchor==='ground'?
+          groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
+          Math.sin(enemy.age*1.5+enemy.phase)*.085;
+      }else enemy.hullPitch=0;
+      // Articulate the REAL barrel and build its AND mask before hull rotation.
+      const cannon=grounded&&isBallisticTurret(enemy.morph)?
+        ballisticSolution(enemy,player):null;
+      enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
-      switchDamagedFrame(enemy,animated);
+      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const centerX=enemy.x+enemy.sprite.width*.5;
+      const centerY=enemy.y+enemy.sprite.height*.5;
+      switchDamagedFrame(enemy,base);
+      if(grounded&&Math.abs(enemy.hullPitch)>.026)
+        enemy.sprite=pitchSprite(enemy.sprite,enemy.hullPitch);
+      // The bitmap may become a square when tilted. Preserve world-space center.
+      enemy.x=centerX-enemy.sprite.width*.5;
+      enemy.y=centerY-enemy.sprite.height*.5;
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
       if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
@@ -3142,7 +3337,11 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
+    hullPitch:0,cannonAngle:null,biteClock:0,
+    sourceSprite:s,scars:[],damageFrames:new Map()});
+  const spawned=enemies[enemies.length-1];
+  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -3262,6 +3461,15 @@ function dropBonus(enemy) {
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&gravityFlight(terrain.lastStage.phase)){
+    const path=ballisticSolution(enemy,player);
+    const shell=pitchSprite(ships.hostileLaser,path.angle);
+    enemyShots.push({kind:'shell',baseSprite:ships.hostileLaser,
+      sprite:shell,x:path.x-shell.width*.5,y:path.y-shell.height*.5,
+      vx:path.vx,vy:path.vy,gravity:path.gravity});
+    particlesAt(path.x,path.y,'motor',3);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
   const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
     weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
@@ -3303,7 +3511,24 @@ function hitEnemy(enemy,r) {
       // Small transparent impact holes, with incandescent lips; every atlas frame
       // receives the same intrinsic cuts, unlike the old transient-only decal.
       const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
-      addEnemyBurn(enemy,px,py,radius);
+      const angle=Math.round((enemy.hullPitch||0)/.05)*.05;
+      const base=enemy.sourceSprite||enemy.sprite;
+      const renderWidth=enemy.sprite.width,renderHeight=enemy.sprite.height;
+      // Inverse of the EXACT quantized raster rotation: physical impact pixels
+      // are mapped back onto the unrotated mutable atlas frame before AND NOT.
+      const dx=px-renderWidth*.5,dy=py-renderHeight*.5;
+      const localX=Math.cos(angle)*dx+Math.sin(angle)*dy+base.width*.5;
+      const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
+      const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
+      addEnemyBurn(enemy,localX,localY,radius);
+      // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
+      if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
+        pitchSpriteCache.delete(damaged);
+      if(Math.abs(angle)>.026){
+        enemy.sprite=pitchSprite(enemy.sprite,angle);
+        enemy.x=centerX-enemy.sprite.width*.5;
+        enemy.y=centerY-enemy.sprite.height*.5;
+      }
       particlesAt(point.x,point.y,'motor',7);
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
@@ -3338,7 +3563,15 @@ function hitEnemy(enemy,r) {
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
-  const dx=b.vx*dt,dy=b.vy*dt;
+  const dx=b.vx*dt,dy=(b.vy+(b.gravity||0)*dt*.5)*dt;
+  if(b.gravity){
+    b.vy+=b.gravity*dt;
+    // The spinning shell's alpha AND mask must follow the physical arc.
+    const rotated=pitchSprite(b.baseSprite||ships.hostileLaser,Math.atan2(b.vy,b.vx));
+    b.x+=(b.sprite.width-rotated.width)*.5;
+    b.y+=(b.sprite.height-rotated.height)*.5;
+    b.sprite=rotated;
+  }
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
     Math.min(b.x,b.x+dx)-5,Math.min(b.y,b.y+dy)-5,
@@ -3412,7 +3645,7 @@ function update(dt) {
   if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
-  updateSpriteAnimations();
+  updateSpriteAnimations(dt);
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   if(!warp){
@@ -3544,7 +3777,14 @@ function update(dt) {
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      // An embedded worm must bite itself out of rock, not vanish on the first
+      // apparent rectangle contact. All excavation uses the true tile AND mask.
+      if(!warp&&isBitingWorm(shape)&&enemy.biteClock<=0){
+        const bite=gnawTerrainByAnd(enemy,terrain);
+        enemy.biteClock=WORM_BITE_INTERVAL;
+        if(bite){particlesAt(bite.screenX,bite.y,'motor',7);enemy.blockedTime=0;continue;}
+      }
+      enemy.hp=0; // A genuinely unresolvable object is removed, not embedded.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -3559,7 +3799,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>(isGroundCreature(shape)?3:.65)){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
@@ -3567,6 +3807,23 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(!warp&&shape&&isGroundCreature(shape)){
+      // Unlike the old terrainBounds approximation, the final Y is resolved by
+      // translated, ROTATED sprite alpha AND actual cratered tile pixels.
+      if(shape.shape!=='worm'||jumpHeight<11)
+        alignByTerrainAnd(terrain,enemy,shape.anchor,46);
+      if(isBitingWorm(shape)){
+        enemy.biteClock=(enemy.biteClock??0)-dt;
+        if(enemy.biteClock<=0){
+          const bite=gnawTerrainByAnd(enemy,terrain);
+          if(bite){
+            particlesAt(bite.screenX,bite.y,'motor',7);
+            shockwaves.push({x:bite.screenX,y:bite.y,life:.22,age:0,size:11,color:'#b9ffaf'});
+          }
+          enemy.biteClock=WORM_BITE_INTERVAL;
+        }
+      }
+    }
     if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
     if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
