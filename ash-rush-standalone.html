@@ -1299,14 +1299,46 @@ const SPECIES = Object.freeze([
   ['Forteresse nomade','manta','slow','burst',9,39,160],
   ['Géant segmenté','asteroid','wave','none',8,61,48],
   ['Spectre énergétique','scout','serpent','rapid',2,124,255],
+
+  ['Rampant du magma','manta','ground','burst',5,42,20],
+  ['Drone de mitraille','scout','weave','rapid',3,130,90],
+  ['Canon enraciné','manta','ceiling','aimed',8,35,180],
+  ['Ver à crête','manta','jump','rapid',6,63,220],
+  ['Rover lanceur','manta','ground','burst',7,46,245],
+  ['Tourelle infrarouge','scout','ground','aimed',7,36,40],
+  ['Garde six-pattes','manta','ground','cross',6,52,310],
+  ['Batterie d’assaut','manta','ground','rapid',9,34,105],
+  ['Vaisseau poissonnier','scout','swoop','single',3,118,145],
+  ['Forteresse corail','manta','ground','burst',10,37,185],
+  ['Spore électrique','scout','swarm','spiral',2,95,310],
+  ['Méduse nacrée','scout','weave','spiral',4,83,155],
+  ['Drone impulsionnel','scout','dart','rapid',3,151,205],
+  ['Ornithoptère à lames','manta','swoop','aimed',4,102,260],
+  ['Citadelle de quartz','manta','ground','cross',11,32,55],
+  ['Araignée balistique','manta','ground','burst',7,58,285],
+  ['Racine de garde','manta','ceiling','cross',8,33,100],
+  ['Liane coupeuse','scout','ceiling','single',5,41,325],
+  ['Golem de spores','manta','ground','aimed',9,46,200],
+  ['Moto antigravité','scout','dart','rapid',3,132,165],
+  ['Chasseur furtif','scout','feint','single',3,161,15],
+  ['Bombardier amphibie','manta','patrol','burst',8,62,65],
+  ['Marcheur de glace','manta','ground','cross',8,53,125],
+  ['Carapace de fer','manta','ground','single',10,39,315],
+  ['Frégate de chasse','manta','weave','rapid',8,77,245],
+  ['Porte-essaim vivant','manta','swarm','rapid',11,58,175],
+  ['Canon de plasma','scout','ground','aimed',6,39,55],
+  ['Intercepteur solaire','scout','dart','rapid',3,170,5],
+  ['Tisseuse cavernicole','manta','ceiling','burst',8,49,285],
+  ['Mante d’obsidienne','manta','jump','aimed',7,62,35],
+  ['Croiseur sentinelle','manta','weave','cross',10,61,80],
+  ['Guêpe bio-mécanique','scout','swarm','rapid',4,142,235],
   ['Boss composite','boss','zigzag','burst',35,30,0]
 ].map(([name,base,movement,weapon,hp,speed,hue],index)=>Object.freeze({name,base,movement,weapon,hp,speed,hue,index})));
 
 function speciesFor(seed,region,encounter) {
-  const offset=Math.floor(keyedFloat(seed,region,95)*SPECIES.length);
-  const idx=(offset+encounter)%SPECIES.length;
-  // Reserve the composite boss for its scheduled wave, not random enemy spawns.
-  return SPECIES[idx===19?18:idx];
+  const normal=SPECIES.length-1; // The last catalog entry is the boss placeholder.
+  const offset=Math.floor(keyedFloat(seed,region,95)*normal);
+  return SPECIES[(offset+encounter)%normal];
 }
 function movementDelta(spec,age,phase,enemyY,playerY,dt) {
   switch(spec.movement){
@@ -1320,6 +1352,11 @@ function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
     case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
     case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
+    case 'dart':return Math.sin(age*8+phase)*99*dt;
+    case 'swarm':return (Math.cos(age*12+phase)*39+Math.sin(age*5+phase)*43)*dt;
+    case 'jump':return -Math.sin(age*6+phase)*67*dt;
+    case 'ceiling':return Math.sin(age*2.4+phase)*19*dt;
+    case 'ground':return Math.cos(age*2.1+phase)*13*dt;
     default:return 0;
   }
 }
@@ -1331,13 +1368,18 @@ function movementSpeedScale(spec,age,phase){
     case 'feint':return .95+.43*Math.cos(age*2.8+phase);
     case 'orbit':return .87+.21*Math.sin(age*2+phase);
     case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    case 'dart':return 1.05+.36*Math.cos(age*4+phase);
+    case 'swarm':return 1+.24*Math.sin(age*5.3+phase);
+    case 'jump':return .78+Math.max(0,Math.sin(age*5+phase))*.48;
+    case 'ceiling':return .73;
+    case 'ground':return .87;
     default:return 1;
   }
 }
 
 /** Contextual variants are stable for a given seed, region, encounter and situation.
- * Reuse the same 20 logical archetypes, but mutate combat traits by location.
- * Enemy morphologies are still shared pending dedicated artist sprite sheets.
+ * Expand 20 original logical roles with 32 additional combat roles, adapted to phase.
+ * Independent silhouettes come from the morphology library, not hue substitutions.
  */
 function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal') {
   const identity = regionIdentity(seed,region);
@@ -1352,7 +1394,7 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush','dart','swarm','jump','ceiling','ground'];
   const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
   const armory=['aimed','cross','spiral',m.weapon];
   const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
@@ -1364,7 +1406,7 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
 }
 
 /** Ash Rush — actual extracted frames from Fab's original illustrated boards.
- * Every Canvas frame is rasterized ONCE; the exact alpha supplies the collision mask.
+ * Every frame uses the SAME corrected RGBA pixels for the visual and the AND mask.
  */
 const ART_FRAMES = Object.freeze({
   player: [[0,0,90,62],[256,0,90,62],[512,0,90,62],[768,0,90,62]],
@@ -1377,33 +1419,390 @@ const ART_FRAMES = Object.freeze({
   shield: [[512,700,46,46]],
 });
 
-function framesFromAtlas(atlas) {
-  const result = {};
-  for (const [family, frames] of Object.entries(ART_FRAMES)) {
-    result[family] = frames.map(([sx,sy,w,h]) => {
-      const image = document.createElement('canvas');image.width=w;image.height=h;
-      const g = image.getContext('2d', {willReadFrequently:true});
+/** Strip a residual background FRAME from a crop, not the creature.
+ * Detect an opaque connected border similar to the four corner/matte colors.
+ * Pixel flood-fill follows only smooth matte colors; it cannot jump an opaque
+ * high-contrast silhouette edge. Fully transparent crops remain unchanged.
+ * Used on Canvas ImageData BEFORE making the collision mask, never after.
+ */
+function cleanFrameMatte(imageData){
+  const {width:w,height:h,data:d}=imageData;
+  const alphaAt=(x,y)=>d[(y*w+x)*4+3];
+  const samples=[[0,0],[w-1,0],[0,h-1],[w-1,h-1]].filter(([x,y])=>alphaAt(x,y)>40);
+  if(samples.length<3)return 0;
+  const matte=samples.map(([x,y])=>{const k=(y*w+x)*4;return [d[k],d[k+1],d[k+2]];});
+  const distance=(k,color)=>Math.abs(d[k]-color[0])+Math.abs(d[k+1]-color[1])+Math.abs(d[k+2]-color[2]);
+  // A rectangular fringe is indicated only when corners AND most edges are opaque.
+  let visibleEdge=0;
+  for(let x=0;x<w;x++){if(alphaAt(x,0)>40)visibleEdge++;if(alphaAt(x,h-1)>40)visibleEdge++;}
+  for(let y=0;y<h;y++){if(alphaAt(0,y)>40)visibleEdge++;if(alphaAt(w-1,y)>40)visibleEdge++;}
+  if(visibleEdge/(2*(w+h))<.64)return 0;
+  const n=w*h,seen=new Uint8Array(n),queue=new Int32Array(n);let write=0,read=0,removed=0;
+  function tryEdge(x,y){
+    const at=y*w+x,k=at*4;
+    if(seen[at]||d[k+3]<=40)return;
+    if(!matte.some(c=>distance(k,c)<=65))return;
+    seen[at]=1;queue[write++]=at;
+  }
+  for(let x=0;x<w;x++){tryEdge(x,0);tryEdge(x,h-1);}
+  for(let y=0;y<h;y++){tryEdge(0,y);tryEdge(w-1,y);}
+  while(read<write){
+    const at=queue[read++],x=at%w,y=(at/w)|0,k=at*4;
+    const original=[d[k],d[k+1],d[k+2]];
+    d[k]=0;d[k+1]=0;d[k+2]=0;d[k+3]=0;removed++;
+    // Refuse to cross a hard contrast edge into a ship or character body.
+    for(const other of [x>0?at-1:-1,x<w-1?at+1:-1,y>0?at-w:-1,y<h-1?at+w:-1]){
+      if(other<0||seen[other])continue;
+      const b=other*4;
+      if(d[b+3]<=40){seen[other]=1;continue;}
+      const delta=Math.abs(d[b]-original[0])+Math.abs(d[b+1]-original[1])+Math.abs(d[b+2]-original[2]);
+      if(delta>43||!matte.some(c=>distance(b,c)<125))continue;
+      seen[other]=1;queue[write++]=other;
+    }
+  }
+  return removed;
+}
+
+function framesFromAtlas(atlas){
+  const result={};
+  for(const [family,frames] of Object.entries(ART_FRAMES)){
+    result[family]=frames.map(([sx,sy,w,h])=>{
+      const image=document.createElement('canvas');image.width=w;image.height=h;
+      const g=image.getContext('2d',{willReadFrequently:true});
+      g.imageSmoothingEnabled=false; // No sampling from adjacent tiles.
       g.drawImage(atlas,sx,sy,w,h,0,0,w,h);
-      const mask = maskFromImageData(g.getImageData(0,0,w,h),42);
-      return { image,mask,width:w,height:h };
+      const pixels=g.getImageData(0,0,w,h);
+      if(cleanFrameMatte(pixels)>0)g.putImageData(pixels,0,0);
+      const mask=maskFromImageData(pixels,42);
+      return {image,mask,width:w,height:h};
     });
   }
   return result;
 }
 
-async function loadGameArt() {
-  if (typeof Image === 'undefined') return null;
-  const image = new Image();
-  image.decoding = 'async';
-  image.src = typeof window !== 'undefined' && window.__ASH_RUSH_ATLAS__ || 'assets/sprites/atlas.png';
-  try {
+async function loadGameArt(){
+  if(typeof Image==='undefined')return null;
+  const image=new Image();
+  image.decoding='async';
+  image.src=typeof window!=='undefined'&&window.__ASH_RUSH_ATLAS__||'assets/sprites/atlas.png';
+  try{
     await image.decode();
-    if (image.naturalWidth !== 1024 || image.naturalHeight !== 1120) throw new Error('Unexpected atlas geometry');
+    if(image.naturalWidth!==1024||image.naturalHeight!==1120)throw Error('Unexpected atlas geometry');
     return framesFromAtlas(image);
-  } catch {
-    // Offline standalone HTML opened without an atlas retains reliable vector fallback.
+  }catch{
+    // Offline HTML without atlas uses vector fallback; collision remains exact.
     return null;
   }
+}
+
+/** H-RUSH OMEGA 0.5.5 — coherent procedural 2D silhouettes, not hue-shifted atlas copies.
+ * Seed, region and encounter determine identity; per-frame RGBA gives the exact
+ * collision AND mask. No assets downloaded; all models work offline on Android.
+ */
+const NORMAL_DEFS=[
+  ['Éclaireur stellaire','fighter','space exit','space'],
+  ['Chasseur à impulsions','interceptor','space exit','space'],
+  ['Corvette lunaire','frigate','space exit','space'],
+  ['Frégate des anneaux','frigate','space exit','space'],
+  ['Porte-nefs orbital','carrier','space exit','space'],
+  ['Satellite prédateur','satellite','space exit','mechanical'],
+  ['Croiseur spectral','eye','space exit','organic'],
+  ['Disque gravitationnel','disc','space exit','mechanical'],
+  ['Drone météore','drone','space atmosphere exit','mechanical'],
+  ['Piqueur ionique','interceptor','space atmosphere exit','space'],
+  ['Raie des nuages','manta','atmosphere surface','aerial'],
+  ['Bombardier corail','bomber','atmosphere surface','aerial'],
+  ['Glisseur aérodynamique','glider','atmosphere surface','aerial'],
+  ['Ornithoptère mécanoïde','ornithopter','atmosphere surface','hybrid'],
+  ['Chasseur cyclone','fighter','atmosphere surface','aerial'],
+  ['Aérocrabe','crab','atmosphere surface','organic'],
+  ['Libellule de plasma','ornithopter','atmosphere surface','organic'],
+  ['Sonde lévitante','eye','atmosphere surface','mechanical'],
+  ['Rotor de défense','drone','atmosphere surface','mechanical'],
+  ['Bombardier cuirassé','bomber','atmosphere surface','mechanical'],
+  ['Racines fouetteuses','root','surface interior','organic'],
+  ['Liane vivante','vine','surface interior','organic'],
+  ['Tentacule cavernicole','tentacle','surface interior','organic'],
+  ['Tentacule phosphore','tentacle','surface interior','organic'],
+  ['Ver bondissant','worm','surface interior','organic'],
+  ['Ver à épines','worm','surface interior','organic'],
+  ['Chasseur rampante','crawler','surface interior','organic'],
+  ['Mante de terre','beetle','surface interior','organic'],
+  ['Scarabée cuirassé','beetle','surface interior','organic'],
+  ['Méduse du gouffre','jelly','interior surface','organic'],
+  ['Spore explosive','spore','interior surface','organic'],
+  ['Golem biomech','biomech','interior surface','hybrid'],
+  ['Tourelle rocheuse','turret','surface interior','defense'],
+  ['Tourelle à faisceau','turret','surface interior','defense'],
+  ['Tour de canon','tower','surface interior','defense'],
+  ['Rempart autonome','fortress','surface interior','defense'],
+  ['Bastion mobile','fortress','surface interior','mechanical'],
+  ['Char à chenilles','tank','surface interior','ground'],
+  ['Char insectoïde','crab','surface interior','hybrid'],
+  ['Rover d’assaut','rover','surface interior','ground'],
+  ['Véhicule perceur','crawler','surface interior','ground'],
+  ['Marcheur à six pattes','walker','surface interior','ground'],
+  ['Marcheur à canons','walker','surface interior','mechanical'],
+  ['Araignée mécanique','spider','surface interior','mechanical'],
+  ['Araignée organique','spider','surface interior','organic'],
+  ['Drone d’extraction','rover','surface interior','mechanical'],
+  ['Fleur carnivore','flower','surface interior','organic'],
+  ['Batterie mycélienne','flower','surface interior','organic'],
+  ['Canon racinaire','root','surface interior','organic']
+];
+const BOSS_DEFS=[
+  ['Titan des racines','root','surface interior','organic'],
+  ['Hydre à tentacules','tentacle','surface interior','organic'],
+  ['Ver-monde bondissant','worm','surface interior','organic'],
+  ['Arbre guerrier','flower','surface interior','organic'],
+  ['Bastion d’obsidienne','fortress','surface interior','defense'],
+  ['Forteresse quadrupède','walker','surface interior','mechanical'],
+  ['Train blindé vivant','tank','surface interior','hybrid'],
+  ['Reine arachnide','spider','surface interior','organic'],
+  ['Cuirassé du vide','frigate','space exit','space'],
+  ['Porte-essaim orbital','carrier','space exit','space'],
+  ['Dragon du plasma','manta','atmosphere space','organic'],
+  ['Fléau aérien','bomber','atmosphere surface','aerial'],
+  ['Œil cosmique','eye','space atmosphere interior','organic'],
+  ['Station exterminatrice','satellite','space exit','mechanical'],
+  ['Crabe colossal','crab','surface interior','hybrid'],
+  ['Colosse biomécanique','biomech','interior surface','hybrid']
+];
+const ceilingShapes=new Set(['root','vine','tentacle']);
+const groundShapes=new Set(['worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
+function compile(def,index,boss){
+  const [name,shape,phases,family]=def;
+  return Object.freeze({id:(boss?'b':'e')+index,index,name,shape,family,boss,
+    phases:Object.freeze(phases.split(' ')),
+    anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
+    hue:(index*47+(boss?14:177))%360});
+}
+const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
+const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
+const affinity=Object.freeze({
+  organic:['organic','garden','ocean','volcanic'],
+  hybrid:['organic','crystal','machine','ruins'],
+  mechanical:['machine','ruins','ice','storm'],
+  ground:['desert','volcanic','ice','ruins'],
+  defense:['machine','ruins','volcanic','crystal'],
+  aerial:['ocean','storm','nebula','garden'],
+  space:['nebula','storm','asteroid','crystal']
+});
+function deterministicPick(seed,region,phase,encounter,biome,source,salt){
+  const candidates=source.filter(x=>x.phases.includes(phase));
+  const liked=candidates.filter(x=>affinity[x.family]?.includes(biome));
+  const favor=keyedFloat(seed,region*101+encounter,1301+salt)<.67&&liked.length>=2;
+  const pool=favor?liked:candidates;
+  if(!pool.length)throw Error('No enemy morphology for phase '+phase);
+  const roll=keyedFloat(seed,region*100000+encounter,1399+salt);
+  return pool[Math.min(pool.length-1,Math.floor(roll*pool.length))];
+}
+function morphFor(seed,region,phase,encounter,biome='machine'){
+  return deterministicPick(seed,region,phase,encounter,biome,ENEMY_MORPHS,0);
+}
+function bossMorphFor(seed,region,phase,encounter,biome='machine'){
+  return deterministicPick(seed,region,phase,encounter,biome,BOSS_MORPHS,41);
+}
+function morphMovement(profile){
+  if(profile.anchor==='ceiling')return 'ceiling';
+  if(profile.shape==='worm')return 'jump';
+  if(profile.anchor==='ground')return profile.shape==='rover'||profile.shape==='tank'?'patrol':'ground';
+  if(['fighter','interceptor','glider','ornithopter','manta'].includes(profile.shape))return 'swoop';
+  return 'weave';
+}
+function bossWeapons(profile,phase){
+  const sequences={
+    organic:['aimed','spiral','cross','rapid'],
+    mechanical:['burst','cross','aimed','rapid'],
+    ground:['burst','aimed','cross','spiral'],
+    defense:['cross','burst','rapid','aimed'],
+    aerial:['rapid','spiral','aimed','cross'],
+    space:['rapid','aimed','burst','spiral'],
+    hybrid:['aimed','cross','spiral','rapid']
+  };
+  return sequences[profile.family][Math.max(0,Math.floor(phase))%4];
+}
+const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
+const spriteCache=new Map();
+const MAX_BESTIARY_CACHE=140;
+function strokeShape(g,points,color,fill=true){
+  g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
+  if(fill){g.fillStyle=color;g.fill();}else{g.strokeStyle=color;g.stroke();}
+}
+function oval(g,x,y,rx,ry,color,angle=0){
+  g.fillStyle=color;g.beginPath();g.ellipse(x,y,rx,ry,angle,0,Math.PI*2);g.fill();
+}
+/** 20 structural families; each has a distinct outline and two animated states.
+ * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
+ */
+function paintMorph(g,m,frame,phase){
+  const w=m.boss?176:86,h=m.boss?112:62;
+  const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
+  const damagePhase=m.boss?clamp(Math.floor(phase),0,3):0;
+  const hue=(m.hue+damagePhase*14)%360;
+  const hull=`hsl(${hue} 55% ${m.boss?32:38}%)`;
+  const lit=`hsl(${(hue+85)%360} 92% 68%)`;
+  const dark=`hsl(${(hue+260)%360} 58% 17%)`;
+  const metal=`hsl(${(hue+18)%360} 30% 72%)`;
+  g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
+  g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
+  const shape=m.shape;
+  switch(shape){
+    case 'fighter':
+    case 'interceptor':
+      strokeShape(g,[[-.93,-.07],[-.26,-.19],[.27,-.85],[.72,-.72],[.66,-.12],[.95,0],[.64,.20],[.72,.7],[.26,.83],[-.26,.18]],hull);
+      strokeShape(g,[[-.35,0],[.22,-.32],[.68,0],[.22,.32]],lit);
+      if(shape==='interceptor')strokeShape(g,[[-.9,-.1],[-.47,-.42],[-.14,-.74],[-.28,0],[-.14,.74],[-.47,.42]],metal);
+      oval(g,.26,0,.18,.11,dark);
+      break;
+    case 'frigate':
+    case 'carrier':
+      strokeShape(g,[[-.95,-.25],[-.48,-.52],[.36,-.53],[.97,-.1],[.97,.11],[.36,.53],[-.48,.52],[-.95,.24]],hull);
+      strokeShape(g,[[-.7,-.17],[.24,-.25],[.6,0],[.24,.24],[-.7,.18]],metal);
+      for(let i=-1;i<=1;i++)oval(g,i*.35,-.47,.12,.065,lit);
+      if(shape==='carrier'){for(let i=0;i<3;i++){oval(g,-.55+i*.47,.48,.11,.13,dark);oval(g,-.55+i*.47,.48,.05,.07,lit);}}
+      else {strokeShape(g,[[-.5,-.52],[.1,-.88],[.45,-.51],[.2,.0],[-.5,.52],[.1,.88],[.45,.51]],dark);}
+      break;
+    case 'satellite':
+    case 'disc':
+      oval(g,0,0,.65,.67,hull);
+      oval(g,0,0,.42,.32,dark);
+      for(let i=0;i<4;i++){const a=i*Math.PI/2;oval(g,Math.cos(a)*.81,Math.sin(a)*.82,.17,.12,metal,a);}
+      oval(g,0,0,.22,.23,lit);
+      if(shape==='satellite'){strokeShape(g,[[-.75,-.25],[-1,-.5],[-1,.42],[-.7,.20]],metal);strokeShape(g,[[.75,-.25],[1,-.5],[1,.42],[.7,.20]],metal);}
+      else {oval(g,0,0,.94,.12,lit);}
+      break;
+    case 'drone':
+      oval(g,0,0,.51,.38,hull);
+      for(let t of [-.75,.75]){oval(g,t,-.33,.22,.1,metal);oval(g,t,.33,.22,.1,metal);oval(g,t,-.33,.10,.035,lit);}
+      oval(g,.2,0,.21,.16,lit);break;
+    case 'bomber':
+      strokeShape(g,[[-.95,-.13],[-.4,-.35],[.1,-.48],[.89,-.14],[.97,.08],[.09,.42],[-.4,.35],[-.95,.16]],hull);
+      strokeShape(g,[[-.24,-.2],[-.66,-.93],[.07,-.74],[.28,-.23],[.28,.23],[.07,.74],[-.66,.93]],metal);
+      for(let k of [-.4,.4])oval(g,.04,k,.19,.10,dark);break;
+    case 'glider':
+    case 'manta':
+    case 'ornithopter':
+      strokeShape(g,[[-.96,-.08],[-.6,-.45-sway],[.01,-.16],[.62,-.85-sway],[.94,-.8],[.49,0],[.94,.8],[.62,.85+sway],[.01,.16],[-.6,.45+sway]],hull);
+      strokeShape(g,[[-.57,-.17],[.28,-.18],[.7,-.55],[.4,0],[.7,.55],[.28,.18],[-.57,.17]],lit);
+      if(shape==='ornithopter'){for(let k of [-1,1]){g.strokeStyle=metal;g.lineWidth=.08;g.beginPath();g.moveTo(-.3,0);g.lineTo(.18,k*.8);g.lineTo(.75,k*.92);g.stroke();}}
+      if(shape==='manta'){oval(g,.32,0,.18,.23,lit);oval(g,.42,-.13,.07,.04,dark);oval(g,.42,.13,.07,.04,dark);}
+      break;
+    case 'rover':
+    case 'tank':
+      strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
+      strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
+      for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
+      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
+      else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
+      break;
+    case 'walker':
+      strokeShape(g,[[-.72,-.42],[-.2,-.72],[.58,-.55],[.88,-.2],[.62,.17],[-.67,.19]],hull);
+      for(const k of [-.53,0,.55]){g.strokeStyle=metal;g.lineWidth=.11;g.beginPath();g.moveTo(k,.05);g.lineTo(k+.15,.48+sway);g.lineTo(k-.1,.88);g.stroke();}
+      oval(g,.28,-.32,.22,.12,lit);break;
+    case 'turret':
+    case 'tower':
+      strokeShape(g,[[-.78,.86],[-.67,-.1],[-.4,-.38],[.48,-.38],[.77,-.05],[.78,.86]],hull);
+      oval(g,0,-.2,.42,.25,metal);
+      g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);
+      if(shape==='tower'){g.fillStyle=dark;g.fillRect(-.45,-.84,.13,.68);g.fillRect(.24,-.84,.13,.68);}
+      else {for(let i=0;i<3;i++)oval(g,-.46+i*.45,.35,.06,.14,lit);}
+      break;
+    case 'fortress':
+      strokeShape(g,[[-.98,.65],[-.85,-.4],[-.4,-.7],[.42,-.7],[.87,-.36],[.98,.65]],hull);
+      for(let k of [-.62,0,.62]){oval(g,k,-.49,.14,.17,metal);oval(g,k,-.51,.07,.07,lit);}
+      strokeShape(g,[[-.9,.47],[-.45,.30],[.54,.30],[.93,.47],[.78,.82],[-.73,.82]],dark);
+      break;
+    case 'root':
+    case 'vine':
+    case 'tentacle':
+      oval(g,-.2,-.76,.47,.22,hull);
+      for(let i=0;i<5;i++){
+        const x=-.75+i*.32;
+        g.beginPath();g.moveTo(x,-.87);
+        g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.15,x+.20,.84);
+        g.lineWidth=.20-(i%2)*.035;g.strokeStyle=hull;g.stroke();
+        g.beginPath();g.moveTo(x,-.84);g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.14,x+.20,.84);
+        g.lineWidth=.045;g.strokeStyle=lit;g.stroke();
+      }
+      if(shape==='tentacle')for(let i=0;i<4;i++)oval(g,-.5+i*.25,.15+.15*(i%2),.065,.048,metal);
+      if(shape==='vine')for(let i=0;i<4;i++)oval(g,-.6+i*.37,.17,.18,.09,lit,.65+i*.3);
+      break;
+    case 'worm':
+    case 'crawler':
+      for(let i=0;i<6;i++){
+        const cx=.70-i*.29,cy=.25+Math.sin(i*.9+frame*1.6)*.15;
+        oval(g,cx,cy,.29-i*.02,.33-i*.02,i%2?hull:metal,-.15);
+        oval(g,cx,cy-.2,.06,.06,lit);
+      }
+      oval(g,.78,.19,.16,.16,dark);
+      oval(g,.82,.14,.075,.05,lit);
+      if(shape==='crawler'){for(let i=0;i<5;i++){g.strokeStyle=dark;g.lineWidth=.09;g.beginPath();g.moveTo(.5-i*.3,.5);g.lineTo(.4-i*.3,.8);g.stroke();}}
+      else {strokeShape(g,[[.55,-.12],[.76,-.34],[.92,-.12]],lit);}
+      break;
+    case 'spider':
+    case 'crab':
+      oval(g,0,0,.46,.34,hull);
+      oval(g,.34,-.06,.25,.23,metal);
+      for(let i=0;i<4;i++){const ky=-.66+i*.44;g.strokeStyle=hull;g.lineWidth=.10;
+        for(let sign of [-1,1]){g.beginPath();g.moveTo(sign*.22,ky*.4);g.lineTo(sign*(.7+sway),ky*.92);g.lineTo(sign*.98,ky);g.stroke();}}
+      if(shape==='crab'){for(let sign of [-1,1]){oval(g,sign*.9,-.38,.17,.18,lit);}}
+      else {oval(g,.4,-.09,.08,.07,lit);oval(g,.4,.12,.08,.07,lit);}
+      break;
+    case 'beetle':
+      oval(g,0,0,.75,.61,hull);oval(g,-.1,0,.56,.48,metal);
+      g.strokeStyle=dark;g.lineWidth=.06;g.beginPath();g.moveTo(-.02,-.47);g.lineTo(-.02,.48);g.stroke();
+      for(let i of [-.52,.52])oval(g,i,.5,.18,.09,dark);oval(g,.53,-.03,.2,.15,lit);
+      break;
+    case 'jelly':
+    case 'spore':
+      oval(g,0,-.26,.72,.6,hull);
+      oval(g,.17,-.38,.4,.32,lit);
+      if(shape==='jelly')for(let i=0;i<6;i++){g.strokeStyle=i%2?metal:lit;g.lineWidth=.07;
+        g.beginPath();g.moveTo(-.55+i*.22,.0);g.bezierCurveTo(-.35+i*.2,.25,-.7+i*.25,.6+sway,-.50+i*.26,.85);g.stroke();}
+      else for(let i=0;i<8;i++){const a=i*Math.PI/4;oval(g,Math.cos(a)*.77,Math.sin(a)*.57,.12,.11,metal,a);}
+      break;
+    case 'flower':
+      for(let i=0;i<8;i++){const a=i*Math.PI/4;oval(g,Math.cos(a)*.48,Math.sin(a)*.5,.35,.18,hull,a);}
+      oval(g,0,0,.46,.47,metal);oval(g,.12,0,.26,.29,dark);oval(g,.24,0,.10,.14,lit);
+      break;
+    case 'eye':
+    case 'biomech':
+      if(shape==='biomech'){strokeShape(g,[[-.92,-.58],[-.34,-.18],[.3,-.79],[.89,-.27],[.68,.4],[.03,.83],[-.57,.43]],hull);
+        strokeShape(g,[[-.38,-.03],[.28,-.52],[.7,.03],[.28,.58]],metal);
+      }else {oval(g,0,0,.83,.65,hull);oval(g,.08,0,.59,.43,metal);}
+      oval(g,.26,0,.29,.3,dark);oval(g,.34,0,.11,.16,lit);
+      break;
+  }
+  if(m.boss){
+    // Boss anatomy carries extra armored gun pods; the central silhouette remains
+    // the profile's own shape, not an interchangeable old scout/manta template.
+    for(let k of [-1,1]){
+      oval(g,-.46,k*.52,.19,.17,dark);
+      oval(g,-.43,k*.53,.09,.09,damagePhase>1?'#fff4b6':lit);
+    }
+    if(damagePhase>0){g.strokeStyle=lit;g.lineWidth=.025+damagePhase*.02;
+      g.beginPath();g.ellipse(0,0,.65+damagePhase*.07,.7,0,.2,Math.PI*1.4);g.stroke();}
+  }
+  g.restore();
+}
+/** Sprite cache is bounded; frame and phase are part of the immutable source key.
+ * Each wounded enemy clones its own edited pixels via damage.js.
+ */
+function spriteForMorph(morph,frame=0,phase=0){
+  if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
+  const key=morph.id+':'+(frame&1)+':'+clamp(Math.floor(phase),0,3);
+  if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
+  if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
+  const w=morph.boss?176:86,h=morph.boss?112:62;
+  const image=document.createElement('canvas');image.width=w;image.height=h;
+  const g=image.getContext('2d',{willReadFrequently:true});
+  paintMorph(g,morph,frame,phase);
+  const data=g.getImageData(0,0,w,h);
+  const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
+  spriteCache.set(key,s);
+  while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
+  return s;
 }
 
 /**
@@ -2328,18 +2727,24 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
-  if (!artFrames) return;
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.baseSprite = artFrames.player[frame % artFrames.player.length];
+  if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
-    const frames = artFrames[enemy.kind];
-    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
+    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if(enemy.morph){
+      const phase=enemy.kind==='boss'?enemy.bossPhase:0;
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      switchDamagedFrame(enemy,animated);
+    }else if(artFrames){
+      const frames=artFrames[enemy.kind];
+      if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
+    }
   }
-  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  if(artFrames)for(const rocket of missiles)
+    rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -2600,16 +3005,27 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
-  const s=kind==='asteroid'?mutableAsteroid():ships[kind];
+  const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
+  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+    (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=offscreenSpawnX(W,s.width,70);
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
-  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
+  const anchor=morph?.anchor;
+  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+    anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
+  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
-  if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
-    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
+  if(!position)return false;
+  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
+    movement:morphMovement(morph),fireRate:1}:species?{...species,
+      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+  enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
     blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
@@ -2724,12 +3140,18 @@ function dropBonus(enemy) {
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
   const weapon=enemy.species?.weapon||'single';
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
+    weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
   const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
   const aimed=clamp(dy/dx*225,-190,190);
   for(let i=0;i<burst&&enemyShots.length<140;i++){
     const spread=i-(burst-1)/2;
-    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+    const vy=enemy.kind==='boss'?
+      weapon==='aimed'?aimed+spread*39:
+      weapon==='spiral'?Math.sin(enemy.age*5.8+enemy.phase+i*1.18)*155:
+      weapon==='cross'?spread*130:weapon==='rapid'?aimed*.64+spread*70:
+      spread*94+rand(-40,40):
+      weapon==='aimed'?aimed:
       weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
       spread*95+rand(-25,25);
     enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
@@ -2920,7 +3342,7 @@ function update(dt) {
       const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
       if(bossWave){
         if(spawnEnemy('boss',null,0,profile.bossPhases)){
-          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          bossActive=true;msg('⚠ '+enemies[enemies.length-1]?.morph?.name.toUpperCase()+' ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
@@ -2963,7 +3385,11 @@ function update(dt) {
     enemy.age+=dt;
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
-      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      if(next>enemy.bossPhase){
+        enemy.bossPhase=next;
+        if(enemy.morph)enemy.species.weapon=bossWeapons(enemy.morph,next);
+        msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
+      }
       enemy.vx=-(28+enemy.bossPhase*6);
     }
     const robot=enemy.robot===true;
@@ -2971,8 +3397,18 @@ function update(dt) {
     const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
     const motion=rock?moveDebris(enemy,dt,g):null;
     if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const shape=enemy.morph;
+    const worldX=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+    const bounds=shape?.anchor!=='air'&&shape?terrainBounds(universe.seed,Math.max(0,worldX)):null;
+    const upperTarget=shape?.anchor==='ceiling'?Math.max(24,bounds.top+6):null;
+    const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
+    const lowerTarget=shape?.anchor==='ground'?
+      Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
+    const targetY=upperTarget??lowerTarget;
+    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
-      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
+      enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
