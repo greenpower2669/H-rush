@@ -263,3 +263,11 @@
 - [x] GitHub Actions `42228246873` : **104/104 tests**, standalone HTML régénéré identique, Gradle APK Debug, package/version code 52, contrôle signature v2, ressources CC0, Release `v0.5.2-incandescence-15pct-preview` et lien APK direct vérifiés ; **13 979 311 octets**, SHA-256 `9cb2d417103666c274379c0eff6645075d210bd0793c69fe09a615032b8ba89c`.
 - [ ] Réglage visuel Samsung : équilibre entre petit trou et halo lumineux après ~10–30 tirs, FPS et atlas animé ; possibilité future de tester plafonds 5%, 10%, 15%.
 - [ ] Vérifier signature Debug d'installation et sauvegarde de l'univers avant désinstallation.
+
+## H-RUSH OMEGA 0.5.3 — bulle atmosphérique préformée et translative (6 novembre 2026)
+- [x] Retirer le rayon animé du globe (ancien 105→1345 px) ; calculer une sphère et halo déjà grands avant leur première apparition.
+- [x] Laisser seulement un déplacement déterministe et continu du centre droite→gauche pour l'entrée et sortie, hors champ complet aux deux bornes.
+- [x] Conserver effets de chaleur, brumes, parallaxe, relief ET moteur A & B sans changement de sauvegarde ni d'anciens APK.
+- [x] Tests de géométrie de rendu et non-régression des transitions et d'absence de saut visible.
+- [ ] Validation CI complète, signature, APK direct 0.5.3, SHA-256, HTML autonome identique et ressources musicales.
+- [ ] QA manuelle Samsung : comparer approche, entrée, surface, intérieur, sortie, début de région suivante, halos réellement sans artefact visuel ni baisse FPS.

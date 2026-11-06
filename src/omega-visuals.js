@@ -98,6 +98,32 @@ export function visualEnvelope(stage) {
   return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
 }
 
+/** OMEGA 0.5.3: a large globe is already built at its final apparent diameter.
+ * It enters from the right, remains full-size, then exits to the left.
+ * Translating its pre-existing center, never changing its scale, prevents the
+ * conspicuous swelling/shrinking atmospheric bubble.
+ * Out-of-frame rest positions include the entire radial halo (1.27x radius).
+ */
+export function atmosphereGlobePosition(local,W=960,H=540){
+  const p=Math.max(0,Number(local)||0);
+  const radius=Math.max(W,H)*1.28;
+  const outerRadius=radius*1.27;
+  const settledX=W*.63;
+  const y=H*.72;
+  const offRight=W+outerRadius+24;
+  const offLeft=-outerRadius-24;
+  const enterStart=PHASE_START.atmosphere-1500;
+  const enterEnd=PHASE_START.surface-450;
+  const leaveStart=PHASE_START.exit-900;
+  const leaveEnd=PHASE_START.spaceTail-140;
+  let x=offRight;
+  if(p>=leaveEnd)x=offLeft;
+  else if(p>leaveStart)x=settledX+(offLeft-settledX)*scenicSmooth((p-leaveStart)/(leaveEnd-leaveStart));
+  else if(p>=enterEnd)x=settledX;
+  else if(p>enterStart)x=offRight+(settledX-offRight)*scenicSmooth((p-enterStart)/(enterEnd-enterStart));
+  return {x,y,radius,outerRadius,visible:x+outerRadius>0&&x-outerRadius<W};
+}
+
 function paintScenery(g,biome,worldX,time,W,H,visibility) {
   if(visibility<=.001)return; // Never paint terrestrial objects in the space field.
   const kind=biome.kind, depth=.60+.40*visibility;
@@ -144,17 +170,17 @@ export function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
   const env=visualEnvelope(stage);
   // Start from genuinely dark interplanetary space, not a permanent terrestrial horizon.
   ctx.fillStyle='#020715';ctx.fillRect(0,0,W,H);
-  if(env.planet>.001){
-    // The planet grows under a continuous optical envelope; no hard phase switch.
-    const close=scenicSmooth((env.planet-.02)/.98);
-    const radius=105+close*1240;
-    const cx=W*.82-(close*.22*W),cy=H*.62+close*H*.10;
-    ctx.save();ctx.globalAlpha=env.planet;
+  const globe=atmosphereGlobePosition(stage.local,W,H);
+  if(globe.visible){
+    // The full-sized sphere and its atmospheric halo cross the viewport intact.
+    // Neither apparent radius nor brightness is animated: geometry alone reveals it.
+    const {x:cx,y:cy,radius}=globe;
+    ctx.save();
     const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.27);
     glow.addColorStop(0,biome.sky);glow.addColorStop(.55,biome.far);
     glow.addColorStop(.78,biome.rock);glow.addColorStop(.92,biome.glow+'95');
     glow.addColorStop(1,biome.sky+'00');
-    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.27,0,PI2);ctx.fill();
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,globe.outerRadius,0,PI2);ctx.fill();
     ctx.restore();
   }
   // Starfield remains a cosmic reference; atmospheric scattering gradually veils it.

@@ -63,3 +63,6 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 
 ## OMEGA 0.5.2 — budget de trous et lumière
 - `src/damage.js` : `burnHoleLimited`, limite cumulée 15% de pixels initiaux, rayon décroissant sur repère de 20% et chaleur croissante ; copies d'atlases et masques A & B strictement cohérents. `src/game.js` : impacts météores et robots limités, robots durables par PV. `tests/omega-052-thermal-budget.test.js` : séries d'impacts et rechargement de frames.
+
+## OMEGA 0.5.3 — atmosphère en translation seule
+- `src/omega-visuals.js` : `atmosphereGlobePosition(local,W,H)` calcule un globe de rayon fixe, déjà formé hors écran, translate droite→gauche de l'approche à la sortie, puis disparaît seulement quand son halo est totalement hors champ. `tests/omega-053-atmosphere-globe.test.js` : diamètre invariant, centres monotones, continuité aux seuils, absence de rendu hors champ et HTML autonome synchronisé.
