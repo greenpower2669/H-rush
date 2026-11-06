@@ -8,6 +8,7 @@ import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
 import { morphFor, bossMorphFor, spriteForMorph, morphMovement, bossWeapons } from './bestiary.js';
+import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
@@ -158,15 +159,34 @@ function useArt(frames) {
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
   for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
-function updateSpriteAnimations() {
+function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
   if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
     if(enemy.morph){
+      const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
+        isGroundCreature(enemy.morph);
+      if(grounded){
+        enemy.hullPitch=enemy.morph.anchor==='ground'?
+          groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
+          Math.sin(enemy.age*1.5+enemy.phase)*.085;
+      }else enemy.hullPitch=0;
+      // Articulate the REAL barrel and build its AND mask before hull rotation.
+      const cannon=grounded&&isBallisticTurret(enemy.morph)?
+        ballisticSolution(enemy,player):null;
+      enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
-      switchDamagedFrame(enemy,animated);
+      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const centerX=enemy.x+enemy.sprite.width*.5;
+      const centerY=enemy.y+enemy.sprite.height*.5;
+      switchDamagedFrame(enemy,base);
+      if(grounded&&Math.abs(enemy.hullPitch)>.026)
+        enemy.sprite=pitchSprite(enemy.sprite,enemy.hullPitch);
+      // The bitmap may become a square when tilted. Preserve world-space center.
+      enemy.x=centerX-enemy.sprite.width*.5;
+      enemy.y=centerY-enemy.sprite.height*.5;
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
       if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
@@ -456,7 +476,11 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
+    hullPitch:0,cannonAngle:null,biteClock:0,
+    sourceSprite:s,scars:[],damageFrames:new Map()});
+  const spawned=enemies[enemies.length-1];
+  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -726,7 +750,7 @@ function update(dt) {
   if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
-  updateSpriteAnimations();
+  updateSpriteAnimations(dt);
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   if(!warp){
