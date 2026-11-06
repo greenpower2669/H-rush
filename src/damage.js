@@ -92,6 +92,16 @@ export function burnHoleLimited(sprite,localX,localY,radius,healthLoss=0){
   paintHeat(sprite,cx,cy,chosen||Math.max(2,Math.round(radius)),heat);
   return {removed,radius:chosen,fraction,heat};
 }
+/** Dynamic turret angles create many possible source frames, so bound EACH
+ * enemy's private cutout cache. Reconstruct evicted frames from historical scars.
+ */
+export const MAX_ENEMY_DAMAGE_FRAMES=12;
+function rememberDamageFrame(enemy,source,edited){
+  if(enemy.damageFrames.has(source))enemy.damageFrames.delete(source);
+  enemy.damageFrames.set(source,edited);
+  while(enemy.damageFrames.size>MAX_ENEMY_DAMAGE_FRAMES)
+    enemy.damageFrames.delete(enemy.damageFrames.keys().next().value);
+}
 /** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 export function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
@@ -101,8 +111,8 @@ export function switchDamagedFrame(enemy,source){
   if(!edited){
     edited=copyDamageSprite(source);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(source,edited);
   }
+  rememberDamageFrame(enemy,source,edited);
   enemy.sprite=edited;
   return edited;
 }
@@ -121,7 +131,7 @@ export function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(enemy.sourceSprite,edited);
+    rememberDamageFrame(enemy,enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;
