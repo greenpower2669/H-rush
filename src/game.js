@@ -1034,7 +1034,8 @@ function drawBackground() {
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
-  if(o.hue)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
+  // Curated morphology palettes must not be destroyed by a second full-hull hue rotation.
+  if(o.hue&&!o.morph)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
   ctx.drawImage(o.sprite.image,x,y);
 
   ctx.restore();
