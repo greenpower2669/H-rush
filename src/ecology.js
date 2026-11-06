@@ -24,14 +24,46 @@ export const SPECIES = Object.freeze([
   ['Forteresse nomade','manta','slow','burst',9,39,160],
   ['Géant segmenté','asteroid','wave','none',8,61,48],
   ['Spectre énergétique','scout','serpent','rapid',2,124,255],
+
+  ['Rampant du magma','manta','ground','burst',5,42,20],
+  ['Drone de mitraille','scout','weave','rapid',3,130,90],
+  ['Canon enraciné','manta','ceiling','aimed',8,35,180],
+  ['Ver à crête','manta','jump','rapid',6,63,220],
+  ['Rover lanceur','manta','ground','burst',7,46,245],
+  ['Tourelle infrarouge','scout','ground','aimed',7,36,40],
+  ['Garde six-pattes','manta','ground','cross',6,52,310],
+  ['Batterie d’assaut','manta','ground','rapid',9,34,105],
+  ['Vaisseau poissonnier','scout','swoop','single',3,118,145],
+  ['Forteresse corail','manta','ground','burst',10,37,185],
+  ['Spore électrique','scout','swarm','spiral',2,95,310],
+  ['Méduse nacrée','scout','weave','spiral',4,83,155],
+  ['Drone impulsionnel','scout','dart','rapid',3,151,205],
+  ['Ornithoptère à lames','manta','swoop','aimed',4,102,260],
+  ['Citadelle de quartz','manta','ground','cross',11,32,55],
+  ['Araignée balistique','manta','ground','burst',7,58,285],
+  ['Racine de garde','manta','ceiling','cross',8,33,100],
+  ['Liane coupeuse','scout','ceiling','single',5,41,325],
+  ['Golem de spores','manta','ground','aimed',9,46,200],
+  ['Moto antigravité','scout','dart','rapid',3,132,165],
+  ['Chasseur furtif','scout','feint','single',3,161,15],
+  ['Bombardier amphibie','manta','patrol','burst',8,62,65],
+  ['Marcheur de glace','manta','ground','cross',8,53,125],
+  ['Carapace de fer','manta','ground','single',10,39,315],
+  ['Frégate de chasse','manta','weave','rapid',8,77,245],
+  ['Porte-essaim vivant','manta','swarm','rapid',11,58,175],
+  ['Canon de plasma','scout','ground','aimed',6,39,55],
+  ['Intercepteur solaire','scout','dart','rapid',3,170,5],
+  ['Tisseuse cavernicole','manta','ceiling','burst',8,49,285],
+  ['Mante d’obsidienne','manta','jump','aimed',7,62,35],
+  ['Croiseur sentinelle','manta','weave','cross',10,61,80],
+  ['Guêpe bio-mécanique','scout','swarm','rapid',4,142,235],
   ['Boss composite','boss','zigzag','burst',35,30,0]
 ].map(([name,base,movement,weapon,hp,speed,hue],index)=>Object.freeze({name,base,movement,weapon,hp,speed,hue,index})));
 
 export function speciesFor(seed,region,encounter) {
-  const offset=Math.floor(keyedFloat(seed,region,95)*SPECIES.length);
-  const idx=(offset+encounter)%SPECIES.length;
-  // Reserve the composite boss for its scheduled wave, not random enemy spawns.
-  return SPECIES[idx===19?18:idx];
+  const normal=SPECIES.length-1; // The last catalog entry is the boss placeholder.
+  const offset=Math.floor(keyedFloat(seed,region,95)*normal);
+  return SPECIES[(offset+encounter)%normal];
 }
 export function movementDelta(spec,age,phase,enemyY,playerY,dt) {
   switch(spec.movement){
@@ -45,6 +77,11 @@ export function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
     case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
     case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
+    case 'dart':return Math.sin(age*8+phase)*99*dt;
+    case 'swarm':return (Math.cos(age*12+phase)*39+Math.sin(age*5+phase)*43)*dt;
+    case 'jump':return -Math.sin(age*6+phase)*67*dt;
+    case 'ceiling':return Math.sin(age*2.4+phase)*19*dt;
+    case 'ground':return Math.cos(age*2.1+phase)*13*dt;
     default:return 0;
   }
 }
@@ -56,13 +93,18 @@ export function movementSpeedScale(spec,age,phase){
     case 'feint':return .95+.43*Math.cos(age*2.8+phase);
     case 'orbit':return .87+.21*Math.sin(age*2+phase);
     case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    case 'dart':return 1.05+.36*Math.cos(age*4+phase);
+    case 'swarm':return 1+.24*Math.sin(age*5.3+phase);
+    case 'jump':return .78+Math.max(0,Math.sin(age*5+phase))*.48;
+    case 'ceiling':return .73;
+    case 'ground':return .87;
     default:return 1;
   }
 }
 
 /** Contextual variants are stable for a given seed, region, encounter and situation.
- * Reuse the same 20 logical archetypes, but mutate combat traits by location.
- * Enemy morphologies are still shared pending dedicated artist sprite sheets.
+ * Expand 20 original logical roles with 32 additional combat roles, adapted to phase.
+ * Independent silhouettes come from the morphology library, not hue substitutions.
  */
 export function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal') {
   const identity = regionIdentity(seed,region);
@@ -77,7 +119,7 @@ export function adaptSpecies(spec, seed, region, phase, encounter, condition = '
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush','dart','swarm','jump','ceiling','ground'];
   const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
   const armory=['aimed','cross','spiral',m.weapon];
   const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
