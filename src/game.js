@@ -1238,7 +1238,7 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
       secondFingerAim={id:e.pointerId,start:point,current:point,
         target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
       canvas.setPointerCapture(e.pointerId);
-      if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
+      touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp); // aim only; first tap NEVER launches
     }
     e.preventDefault();return;
   }
@@ -1252,8 +1252,8 @@ canvas.addEventListener('pointermove',e=>{
   if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
-  // A short double tap of the steering finger launches without steering loss.
-  // Secondary single touch already launches; its second tap cannot spend ammo twice.
+  // A short double-tap (either finger) fires exactly once on the second release.
+  // A single secondary touch only changes aim, even when repositioned.
   const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
   if(fire)launchMissile();
   if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
