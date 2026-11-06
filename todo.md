@@ -271,3 +271,10 @@
 - [x] Tests de géométrie de rendu et non-régression des transitions et d'absence de saut visible.
 - [x] GitHub Actions `42231334713` : **109/109 tests**, HTML autonome identique, Gradle APK Debug, ressources/musiques CC0, vérification `apksigner` v2, versionCode 53/versionName 0.5.3, publication Release `v0.5.3-atmosphere-translation-preview`. Asset APK direct vérifié, **13 979 807 octets**, SHA-256 `cbfe7f200185d821c153976ee67218260ce2e44d0796df5b8877d48a073272a6`.
 - [ ] QA manuelle Samsung : comparer approche, entrée, surface, intérieur, sortie, début de région suivante, halos réellement sans artefact visuel ni baisse FPS.
+
+## 2026-11-06 — validation explicite de fusion + publication OMEGA 0.5.3
+- [x] Fab a autorisé « Oui release merge là » : PR #6 redirigée sur `main` puis fusionnée ; commit de fusion `c8f1f855a4eb8ff0bdc12e2fa8f65bce4da58dc4`. Toute la chaîne OMEGA 0.4.8 à 0.5.3 est maintenant sur `main` sans écrasement des tags historiques.
+- [x] GitHub Actions `42239384805` sur `main` : 109/109 tests, HTML autonome à jour, Gradle APK Debug, contrôle de signature v2, package et code 53, médias présents, publication réussie.
+- [x] Release GitHub **finale**, non marquée préversion : `v0.5.3` — https://github.com/greenpower2669/H-rush/releases/tag/v0.5.3 ; APK autonome direct https://github.com/greenpower2669/H-rush/releases/download/v0.5.3/HRush-Omega-v0.5.3-atmosphere-translation-debug.apk ; **13 979 807 octets**, SHA-256 `f1065958d3603e637bffa50145ca4f725c25de92acae8023fa0e2d8ad8625825`.
+- [ ] La Release stable de GitHub contient une **APK Debug** et ne possède pas encore de signature de distribution permanente. Exporter l'univers JSON avant une réinstallation si Android refuse une mise à jour en place.
+- [ ] QA sur Samsung : FPS, transitions atmosphériques, animation, rendu des effets, calibration des commandes ; aucun test physique encore confirmé.
