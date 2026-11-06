@@ -9,6 +9,16 @@ import { aimFromNose } from './hover-flight.js';
 import { hasPixel } from './collision.js';
 
 const aimClamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+/** Optional, local-only assistance. Missing and legacy settings always mean OFF. */
+export const AUTOFOCUS_STORAGE_KEY='ashrush-autofocus-v1';
+export function readAutofocus(storage){
+  try{return storage?.getItem(AUTOFOCUS_STORAGE_KEY)==='on';}catch{return false;}
+}
+export function saveAutofocus(storage,enabled){
+  const on=enabled===true;
+  try{storage?.setItem(AUTOFOCUS_STORAGE_KEY,on?'on':'off');}catch{}
+  return on;
+}
 export const ANCHORED_X_TOLERANCE=112;
 export const CEILING_BELOW_TOLERANCE=255;
 export const GROUND_ABOVE_TOLERANCE=255;
@@ -72,12 +82,15 @@ export function acquireTwoFingerTarget(enemies,point,W=960,H=540){
   }
   return chosen;
 }
-/** A locked target's current position is sampled on EVERY shot; moving the ship
+/** When optional autofocus is ON, a locked target is sampled on EVERY shot; moving the ship
  * forward/backward thus changes the angle exactly as the player requested.
  */
-export function twoFingerAimPoint(state,enemies,W=960,H=540){
+export function twoFingerAimPoint(state,enemies,W=960,H=540,autofocus=false){
   if(!state?.current)return null;
   const point=state.current;
+  // Manual aim must never snap to an enemy, even if an old pointer state has
+  // a cached target. The second fingertip is the exact intentional aim point.
+  if(!autofocus)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
   const target=state.target&&state.target.hp>0&&enemies.includes(state.target)?
     state.target:acquireTwoFingerTarget(enemies,point,W,H);
   if(!target)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
@@ -112,4 +125,26 @@ export function guidedMissileVelocity(missile,target,dt,speed=345){
   delta=aimClamp(delta,-2.3*Math.max(0,dt),2.3*Math.max(0,dt));
   const next=old+delta;
   return {vx:Math.cos(next)*speed,vy:Math.sin(next)*speed};
+}
+/** Only opt-in missiles can adjust their heading after launch. Without it,
+ * every frame preserves both velocity components (no implicit nearest-foe
+ * targeting, even after the original lock dies).
+ * Kept as a pure function so manual straight-line behavior is unit-tested.
+ */
+export function missileAutofocusVelocity(missile,enemies,dt,enabled=false){
+  if(!enabled)return {vx:missile.vx,vy:missile.vy};
+  const candidates=Array.isArray(enemies)?enemies:[];
+  const locked=missile.lockTarget&&missile.lockTarget.hp>0&&candidates.includes(missile.lockTarget)
+    ? missile.lockTarget : null;
+  if(locked)return guidedMissileVelocity(missile,locked,dt);
+  let target=null,best=Infinity;
+  for(const enemy of candidates){
+    if(!enemy||enemy.hp<=0||!enemy.sprite)continue;
+    const dist=(enemy.x-missile.x)**2+(enemy.y-missile.y)**2;
+    if(dist<best){best=dist;target=enemy;}
+  }
+  if(!target)return {vx:missile.vx,vy:missile.vy};
+  const dy=target.y+target.sprite.height*.5-missile.y;
+  return {vx:missile.vx,
+    vy:aimClamp(missile.vy+aimClamp(dy*3-missile.vy,-800*Math.max(0,dt),800*Math.max(0,dt)),-235,235)};
 }
