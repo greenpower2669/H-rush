@@ -141,7 +141,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
-function paintMorph(g,m,frame,phase){
+function paintMorph(g,m,frame,phase,turretAngle=null){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -199,7 +199,7 @@ function paintMorph(g,m,frame,phase){
       strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
       strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
       for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
-      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
+      if(shape==='tank'){if(turretAngle===null){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);}oval(g,.18,-.58,.19,.15,hull);}
       else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
       break;
     case 'walker':
@@ -210,7 +210,7 @@ function paintMorph(g,m,frame,phase){
     case 'tower':
       strokeShape(g,[[-.78,.86],[-.67,-.1],[-.4,-.38],[.48,-.38],[.77,-.05],[.78,.86]],hull);
       oval(g,0,-.2,.42,.25,metal);
-      g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);
+      if(turretAngle===null){g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);}
       if(shape==='tower'){g.fillStyle=dark;g.fillRect(-.45,-.84,.13,.68);g.fillRect(.24,-.84,.13,.68);}
       else {for(let i=0;i<3;i++)oval(g,-.46+i*.45,.35,.06,.14,lit);}
       break;
@@ -291,19 +291,35 @@ function paintMorph(g,m,frame,phase){
       g.beginPath();g.ellipse(0,0,.65+damagePhase*.07,.7,0,.2,Math.PI*1.4);g.stroke();}
   }
   g.restore();
+  // A mechanical turret pivots independently of the body. Its actual opaque
+  // barrel is in the source RGBA before extracting the collision AND mask.
+  if(turretAngle!==null&&['tank','turret','tower','fortress','rover'].includes(shape)){
+    const px=w*.5,py=h*.47-5;
+    g.save();g.translate(px,py);g.rotate(turretAngle);
+    g.lineCap='round';g.strokeStyle=dark;g.lineWidth=m.boss?10:9;
+    g.beginPath();g.moveTo(0,0);g.lineTo(25,0);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=m.boss?6:5;
+    g.beginPath();g.moveTo(3,0);g.lineTo(25,0);g.stroke();
+    oval(g,25,0,3.8,3.5,lit);
+    g.restore();
+    oval(g,px,py,m.boss?10:8,m.boss?10:8,hull);
+    oval(g,px,py,3,3,lit);
+  }
 }
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-export function spriteForMorph(morph,frame=0,phase=0){
+export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
+  const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
+  const resolvedAngle=turretBucket===null?null:turretBucket*.16;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  paintMorph(g,morph,frame,phase);
+  paintMorph(g,morph,frame,phase,resolvedAngle);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
