@@ -41,3 +41,10 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/atmosphere.js` : enveloppe thermique visuelle de rentrée/sortie, aucun dégât de coque.
 - `src/universe.js` (`PHASE_START`, `formatDuration`, `bestTime`) : régions prolongées, chronomètre et record de survie.
 - `src/omega-visuals.js` : silhouettes de monuments ancrées sous la matte paysagère, parallax déterministe.
+
+## OMEGA 0.4.8 — progression et perception d'altitude
+- `src/difficulty.js` : directeur déterministe borné, formations, plafonds, récupération, phases de boss et extraction du meilleur score individuel.
+- `src/game.js` : intégration de la pression, des décalages de formation, du boss multi-phases et du nouveau HUD SCORE/HIGH SCORE/TEMPS.
+- `src/omega-visuals.js` : `visualEnvelope(stage)`, interpolation planète → atmosphère → surface → sortie, profondeur de parallaxe, disparition complète des monuments en espace profond.
+- `tests/progression-048.test.js` et `tests/parallax-048.test.js` : seuils, stabilité, limites de densité et continuité des transitions.
+- Ne jamais confondre les décors visuels avec les masques de collision `A & B` du `src/omega-terrain.js`.
