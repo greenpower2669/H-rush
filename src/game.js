@@ -597,10 +597,10 @@ function fireEnemy(enemy) {
     // Real turret barrel AND mask faces where the shell physically flies.
     const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
     const rough=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.50),target);
-    enemy.gunAngle=rough.pitch;
+    enemy.gunAngle=clamp(rough.pitch-(enemy.terrainAngle||0),.13,1.19);
     const muzzle=groundTurretMuzzle(enemy,enemy.gunAngle);
     const arc=ballisticArc(muzzle,target);
-    enemy.gunAngle=arc.pitch;
+    enemy.gunAngle=clamp(arc.pitch-(enemy.terrainAngle||0),.13,1.19);
     enemyShots.push({kind:'ballistic',ballistic:true,gravity:arc.gravity,age:0,
       sprite:ships.ballisticShell,x:muzzle.x-ships.ballisticShell.width*.5,
       y:muzzle.y-ships.ballisticShell.height*.5,vx:arc.vx,vy:arc.vy});
@@ -903,7 +903,8 @@ function update(dt) {
       }
       if(isBallisticTurret(shape)){
         const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
-        const desired=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.48),target).pitch;
+        const desired=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.48),target).pitch-
+          (enemy.terrainAngle||0);
         enemy.gunAngle=clamp((enemy.gunAngle||.40)+(desired-(enemy.gunAngle||.40))*
           Math.min(1,dt*5),.13,1.19);
       }
