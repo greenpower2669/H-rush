@@ -20,6 +20,7 @@ import android.view.ViewGroup;
 import android.util.Log;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -64,6 +65,9 @@ public final class MainActivity extends Activity implements SensorEventListener 
 
     /** Only the bundled file:///android_asset/ app can invoke this interface. */
     public final class UniverseBridge {
+        @JavascriptInterface public String lastRendererIssue() {
+            return getPreferences(MODE_PRIVATE).getString("last_renderer_issue", "");
+        }
         @JavascriptInterface public void saveUniverse(String json) {
             if (json == null || json.length() > 3000000 || !json.contains("\"seed\"")) return;
             runOnUiThread(() -> {
@@ -113,6 +117,10 @@ public final class MainActivity extends Activity implements SensorEventListener 
                         && now - lastRendererExitMs < RENDERER_RETRY_GUARD_MS;
                 lastRendererExitMs = now;
                 rendererExits++;
+                getPreferences(MODE_PRIVATE).edit().putString("last_renderer_issue",
+                        "WebView renderer " + (detail.didCrash() ? "crash" : "memory-kill")
+                        + " · attempts=" + rendererExits
+                        + " · uptime-ms=" + now).apply();
                 Log.e("HRush", "WebView renderer gone; didCrash=" + detail.didCrash()
                         + " priority=" + detail.rendererPriorityAtExit()
                         + " count=" + rendererExits);
@@ -130,6 +138,12 @@ public final class MainActivity extends Activity implements SensorEventListener 
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR)
+                    Log.e("HRush-JS", message.message() + " @ " + message.sourceId()
+                            + ":" + message.lineNumber());
+                return super.onConsoleMessage(message);
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                                         FileChooserParams params) {
                 if (pendingOpen != null) pendingOpen.onReceiveValue(null);
