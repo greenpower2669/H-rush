@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -77,6 +77,8 @@ jobs:
           assert 'function biomeFor' in html and 'function paintScenery' in html
           assert 'function addEnemyBurn' in html and 'function burnHole' in html
           assert 'function craterRadius' in html
+          assert 'function difficultyAt' in html and 'function visualEnvelope' in html
+          assert 'id="highScore"' in html and 'id="endRecord"' in html
           assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
           assert 'function formatDuration' in html and 'function landmarkGeometry' in html
           assert 'id="distance">00:00' in html
@@ -121,11 +123,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
+          APK=HRush-Omega-v0.4.8-progression-parallaxe-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='47' versionName='0.4.7'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='48' versionName='0.4.8'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -138,7 +140,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.7-immersion-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.4.8-progression-parallaxe-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -156,6 +158,8 @@ jobs:
             assert b'function biomeFor' in html and b'function paintScenery' in html
             assert b'function addEnemyBurn' in html and b'function burnHole' in html
             assert b'function craterRadius' in html
+            assert b'function difficultyAt' in html and b'function visualEnvelope' in html
+            assert b'id="highScore"' in html and b'id="endRecord"' in html
             assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
             assert b'function formatDuration' in html and b'function landmarkGeometry' in html
             assert b'id="distance">00:00' in html
@@ -171,14 +175,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.7-immersion-preview
-          APK=AshRush-Omega-v0.4.7-immersion-debug.apk
+          TAG=v0.4.8-progression-parallaxe-preview
+          APK=HRush-Omega-v0.4.8-progression-parallaxe-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.4.7 - immersion, atmosphères et temps" \
-              --notes "OMEGA 0.4.7 : chaque région est allongée à 16 384 unités, avec immersion prolongée espace/atmosphère/surface/cavernes/sortie ; paysages à silhouettes agrandies, tours et montagnes multi-formes ancrées derrière le relief via parallaxe ; rentrée et sortie atmosphériques à échauffement visuel progressif du vaisseau, sans modifier la collision ; HUD TEMPS mm:ss ou hh:mm:ss, meilleur temps sauvegardé, Hall of Fame affiche la durée. Distance conservée uniquement dans les calculs de score et statistiques historiques. Les 12 biomes, 40 familles de mondes, collisions exactes A & B, dégâts, cœurs, réglages tactile/inclinaison, 24 bonus, musique CC0 Djipie et branding sont conservés. APK autonome Debug seulement, aucun AAB. Source historique des cicatrices conservée, mais migration d'anciennes parties après allongement des régions à confirmer sur téléphone." \
+              --title "H-RUSH OMEGA 0.4.8 - progression, record et parallaxe" \
+              --notes "OMEGA 0.4.8 : difficulté progressive et bornée, formations déterministes, périodes de récupération et boss évolutifs ; SCORE de partie et HIGH SCORE persistant, NOUVEAU RECORD en fin de partie ; apparition planétaire graduelle, parallax lié à l’altitude, monuments absents de l’espace profond et bases masquées derrière le relief. Graine 128 bits, collision A & B, cœurs, commandes, cratères, sauvegarde JSON compatible, musiques Djipie CC0 et identité graphique conservés. APK Debug autonome uniquement, aucun AAB. Vérifications FPS/ergonomie sur Samsung réel et captures comparatives navigateur encore requises." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
