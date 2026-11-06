@@ -191,7 +191,14 @@ jobs:
           RELEASE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          TAG=v0.5.3-atmosphere-translation-preview
+          # A final tagged Release on main; keep separate feature previews intact.
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            TAG=v0.5.3
+            RELEASE_FLAGS=()
+          else
+            TAG=v0.5.3-atmosphere-translation-preview
+            RELEASE_FLAGS=(--prerelease)
+          fi
           APK=HRush-Omega-v0.5.3-atmosphere-translation-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
@@ -199,6 +206,6 @@ jobs:
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
               --title "H-RUSH OMEGA 0.5.3 - atmosphère fixe en translation" \
               --notes "H-RUSH OMEGA 0.5.3 : la planète et sa grande bulle atmosphérique restent à diamètre constant avant, pendant et après la traversée ; elles arrivent depuis la droite déjà formées, passent devant la fenêtre par simple translation latérale puis sortent entièrement à gauche. Suppression du zoom qui faisait grossir et diminuer la bulle. Aucun pop à l'entrée/sortie, trajectoire déterministe monotone, globe caché seulement quand son halo entier est hors champ. Tous les progrès 0.5.2 préservés (limite 15% de trous incandescents, robots, pilotage gravitationnel, moteur AND, portails, sauvegarde JSON). APK de test autonome, aucun AAB. Vérifier qualité sur Samsung et signature Debug de mise à jour." \
-              --prerelease --target "$RELEASE_HEAD"
+              "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
