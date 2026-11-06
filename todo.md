@@ -240,7 +240,7 @@
 - [x] Ajouter météo d'astéroïdes de tailles variées, des colonnes avec ouverture, fragmentation bornée, et sprites alpha dérivés du masque AND.
 - [x] Ajouter portails cachés déterministes et séquence bonus warp de 16s, sans avance ni mutation de la progression d'univers pendant le détour.
 - [x] Distinguer débris inertiels du vide et débris sous gravité/traînée des phases planétaires ; tests unitaires.
-- [ ] Vérifier tests, compilation, signature, version, SHA-256 et publication GitHub Release 0.5.0.
+- [x] Validation GitHub Actions `42220971930` : 91 tests OK, HTML autonome identique aux sources, compilation Gradle, signature v2, versionCode 50/versionName 0.5.0, SHA-256, Release GitHub avec APK autonome direct de 13 974 539 octets.
 - [ ] Contrôler sur Samsung : fluidité des pluies et splits, temps de transition portal, impossibilité de collision terrain pendant warp, qualité de l'animation et équilibre réel.
 - [ ] Tester endurance de 10 minutes, densité de projectiles et comportement des portails en présence de grandes barrières.
 - [ ] Valider installation par-dessus l'ancienne APK ; exporter JSON avant désinstallation car clé Debug CI susceptible de varier.
