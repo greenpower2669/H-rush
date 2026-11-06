@@ -145,11 +145,16 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
-  const hue=(m.hue+damagePhase*14)%360;
-  const hull=`hsl(${hue} 55% ${m.boss?32:38}%)`;
-  const lit=`hsl(${(hue+85)%360} 92% 68%)`;
-  const dark=`hsl(${(hue+260)%360} 58% 17%)`;
-  const metal=`hsl(${(hue+18)%360} 30% 72%)`;
+  // Limited palette per material prevents the old rainbow hue-shifted toy look.
+  // Local variations keep species recognisable within a faction.
+  const baseHue={space:213,mechanical:202,aerial:189,organic:320,
+    hybrid:275,ground:35,defense:13}[m.family]??215;
+  const hue=(baseHue+(m.index*13)%31-15+damagePhase*9+360)%360;
+  const accentHue=(hue+([175,44,107,138,91][m.index%5]))%360;
+  const hull=`hsl(${hue} 49% ${m.boss?29:35}%)`;
+  const lit=`hsl(${accentHue} 96% 72%)`;
+  const dark=`hsl(${hue} 68% 12%)`;
+  const metal=`hsl(${hue} 24% 77%)`;
   g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
   g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
   const shape=m.shape;
@@ -306,6 +311,100 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
     oval(g,px,py,3,3,lit);
   }
 }
+/** Shared high-contrast art direction: armor relief, anatomy, cockpit glass,
+ * rivets, engines and luminous veins. SOURCE-ATOP guarantees no painted
+ * embellishment can extend beyond the real collision silhouette.
+ */
+function paintSurfaceDetails(g,m,frame,phase){
+  const w=m.boss?176:86,h=m.boss?112:62;
+  const accent={space:'#70f5ff',mechanical:'#92cfff',aerial:'#ffd88e',
+    organic:'#ff8ba9',hybrid:'#d5afff',ground:'#ffd178',defense:'#ffb68b'}[m.family]||'#a8eeff';
+  g.save();
+  g.globalCompositeOperation='source-atop';
+  const alloy=g.createLinearGradient(0,1,w*.20,h);
+  alloy.addColorStop(0,'rgba(255,255,255,.42)');
+  alloy.addColorStop(.28,'rgba(255,255,255,.05)');
+  alloy.addColorStop(.56,'rgba(8,12,30,.12)');
+  alloy.addColorStop(1,'rgba(2,5,21,.53)');
+  g.fillStyle=alloy;g.fillRect(0,0,w,h);
+  const halo=g.createRadialGradient(w*.38,h*.28,0,w*.38,h*.28,w*.55);
+  halo.addColorStop(0,'rgba(255,255,255,.13)');
+  halo.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=halo;g.fillRect(0,0,w,h);
+  g.translate(w*.5,h*.5);g.scale(w*.43,h*.40);
+  g.lineCap='round';g.lineJoin='round';
+  const organic=m.family==='organic'||m.family==='hybrid';
+  const ground=m.anchor==='ground',ceiling=m.anchor==='ceiling';
+  const flying=m.anchor==='air';
+  const pulse=.76+.24*((frame&1)?1:0);
+  g.strokeStyle=accent;g.fillStyle=accent;
+  g.globalAlpha=.66*pulse;g.lineWidth=.036;
+  if(ceiling){
+    for(let i=-2;i<=2;i++){
+      const x=i*.28;
+      g.beginPath();g.moveTo(x,-.74);g.bezierCurveTo(x+.20,-.33,x-.18,.13,x+.16,.67);g.stroke();
+      oval(g,x-.03,-.55,.048,.06,accent);
+    }
+  }else if(organic){
+    for(let i=0;i<5;i++){
+      const x=-.66+i*.30;
+      g.beginPath();g.moveTo(x,-.37);g.quadraticCurveTo(x+.20,-.05,x+.31,.35);g.stroke();
+      oval(g,x,-.28,.065,.040,accent);
+    }
+  }else if(flying){
+    // Visible wings, engine ports and cockpit ribs—not flat geometric stickers.
+    for(const side of [-1,1]){
+      g.beginPath();g.moveTo(-.63,side*.12);g.lineTo(-.12,side*.22);
+      g.lineTo(.40,side*.51);g.stroke();
+      g.beginPath();g.moveTo(-.44,side*.15);g.lineTo(-.18,side*.31);g.stroke();
+      oval(g,-.63,side*.17,.10,.065,accent);
+    }
+    oval(g,.27,0,.19,.105,'#e4fdff');
+    g.globalAlpha=.27;oval(g,.32,-.038,.10,.042,'#fff');
+  }else if(ground){
+    for(let i=0;i<5;i++){
+      const x=-.72+i*.34;
+      g.fillRect(x,-.14,.045,.32);
+      oval(g,x+.03,.37,.065,.045,accent);
+    }
+    g.beginPath();g.moveTo(-.71,-.31);g.lineTo(.64,-.31);g.stroke();
+  }else {
+    for(let i=-2;i<=2;i++){
+      const x=i*.23;
+      g.beginPath();g.moveTo(x,-.55);g.lineTo(x+.12,-.13);g.stroke();
+      oval(g,x,.37,.06,.06,accent);
+    }
+  }
+  if(m.boss){
+    g.globalAlpha=.88;g.lineWidth=.048;
+    for(let side of [-1,1]){
+      g.beginPath();g.moveTo(-.88,side*.26);g.lineTo(-.30,side*.49);
+      g.lineTo(.43,side*.65);g.stroke();
+    }
+    const step=Math.max(0,Math.min(3,Math.floor(phase)));
+    for(let i=0;i<=step;i++)oval(g,-.2+i*.16,-.01,.045,.05,'#fff4bd');
+  }
+  g.restore();
+}
+/** Deterministic 1px bevel + micrograin; RGB only, alpha NEVER changes.
+ * Pixel-edge shading remains consistent with each destructive AND/AND-NOT mask.
+ */
+function bevelMorphPixels(data,m){
+  const {width:w,height:h,data:d}=data;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const k=(y*w+x)*4;
+    if(d[k+3]<42)continue;
+    const top=d[k-w*4+3],left=d[k-4+3],right=d[k+4+3],bottom=d[k+w*4+3];
+    const light=(top<42?25:0)+(left<42?18:0);
+    const shade=(right<42?20:0)+(bottom<42?25:0);
+    const grain=((x*29+y*41+m.index*71)%11)-5;
+    const v=light-shade+grain;
+    d[k]=Math.max(0,Math.min(255,d[k]+v));
+    d[k+1]=Math.max(0,Math.min(255,d[k+1]+v));
+    d[k+2]=Math.max(0,Math.min(255,d[k+2]+v));
+  }
+}
+
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
@@ -319,14 +418,17 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  // Ground worms advance head-first to the LEFT. Their flipped pixels and AND
-  // mask come from the same canvas, unlike an image-only CSS flip.
-  if(morph.shape==='worm'||morph.shape==='crawler'){
+  // Aerial enemies and ground worms face LEFT, toward the approaching player.
+  // Raster, detailed paint, orientation, and AND mask all share one transform.
+  if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
     g.translate(w,0);g.scale(-1,1);
   }
   paintMorph(g,morph,frame,phase,resolvedAngle);
+  paintSurfaceDetails(g,morph,frame,phase);
   g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
+  bevelMorphPixels(data,morph); // RGB only: preserve exact opaque bits.
+  g.putImageData(data,0,0);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
   while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
