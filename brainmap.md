@@ -60,3 +60,6 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 ## OMEGA 0.5.1 — pilotage hélicoptère et sentinelles
 - `src/hover-flight.js` : loi bornée du tangage, trajectoires laser/missile depuis nez, altitude/effets de poussée, caractéristiques et poursuite des sentinelles ; `tests/hover-flight-051.test.js` vérifie directions, absence de pluie gravitationnelle et masque alpha cohérent.
 - `src/game.js` : cache de sprites réellement pivotés et collision AND synchronisée, direction de tir, panaches/dust capés, ennemis robotiques résistants sans mort au contact. `src/omega-events.js` : météo planète = sentinelles, météo espace = météores.
+
+## OMEGA 0.5.2 — budget de trous et lumière
+- `src/damage.js` : `burnHoleLimited`, limite cumulée 15% de pixels initiaux, rayon décroissant sur repère de 20% et chaleur croissante ; copies d'atlases et masques A & B strictement cohérents. `src/game.js` : impacts météores et robots limités, robots durables par PV. `tests/omega-052-thermal-budget.test.js` : séries d'impacts et rechargement de frames.

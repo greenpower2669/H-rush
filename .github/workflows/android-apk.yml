@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -86,6 +86,7 @@ jobs:
           assert 'function difficultyAt' in html and 'function visualEnvelope' in html
           assert 'function portalPosition' in html and 'function moveDebris' in html
           assert 'function pitchSprite' in html and 'function hoverPlume' in html and 'function sentinelStats' in html
+          assert 'function burnHoleLimited' in html and 'MAX_ENEMY_CUT_FRACTION = .15' in html
           assert 'id="highScore"' in html and 'id="endRecord"' in html
           assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
           assert 'function formatDuration' in html and 'function landmarkGeometry' in html
@@ -131,11 +132,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.1-sentinelles-hover-debug.apk
+          APK=HRush-Omega-v0.5.2-incandescence-15pct-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='51' versionName='0.5.1'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='52' versionName='0.5.2'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -148,7 +149,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.1-sentinelles-hover-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.2-incandescence-15pct-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -169,6 +170,7 @@ jobs:
             assert b'function difficultyAt' in html and b'function visualEnvelope' in html
             assert b'function portalPosition' in html and b'function moveDebris' in html
             assert b'function pitchSprite' in html and b'function hoverPlume' in html and b'function sentinelStats' in html
+            assert b'function burnHoleLimited' in html and b'MAX_ENEMY_CUT_FRACTION = .15' in html
             assert b'id="highScore"' in html and b'id="endRecord"' in html
             assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
             assert b'function formatDuration' in html and b'function landmarkGeometry' in html
@@ -187,14 +189,14 @@ jobs:
           RELEASE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          TAG=v0.5.1-sentinelles-hover-preview
-          APK=HRush-Omega-v0.5.1-sentinelles-hover-debug.apk
+          TAG=v0.5.2-incandescence-15pct-preview
+          APK=HRush-Omega-v0.5.2-incandescence-15pct-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.1 - sentinelles et vol gravitationnel" \
-              --notes "H-RUSH OMEGA 0.5.1 : en gravité, plus de pluie de météores : des sentinelles astéroïdes-robots résistantes, équipées de lasers et sans détonation-mine au contact. Colonnes de sentinelles avec passage ; météores naturels conservés dans le vide et le warp. Pilotage en rase-mottes façon hélicoptère : nez baissé vers l'avant, relevé vers l'arrière ; faisceau laser et missiles orientés selon le nez. Sprite tourné et masque alpha AND rasterisés ensemble ; poussière, panache et propulseurs à proximité du vrai sol ; aucune poussière dans l'espace. Toutes les données 0.5.0, score, portail warp, seed et cicatrices conservés. APK Debug autonome sans AAB. Tests matériels Samsung encore nécessaires. Clé Debug CI susceptible de varier." \
+              --title "H-RUSH OMEGA 0.5.2 - 15% de trous et incandescence progressive" \
+              --notes "H-RUSH OMEGA 0.5.2 : conserver au moins 85% de la silhouette originale de chaque ennemi : budget strict de 15% de pixels opaques supprimables par impact, y compris robots blindés et toutes les trames d'animation. Les cratères rétrécissent en approchant du plafond ; les auréoles incandescentes s'intensifient selon un repère thermique de 20% sans jamais franchir 15% de perte géométrique. Les impacts après saturation enlèvent encore des PV sans trou supplémentaire. Les robots résistants ne sont plus détruits par un seuil arbitraire de masque. Collision directe A & B et alpha raster cohérents, sauvegardes 0.5.1 préservées. APK Debug autonome, aucun AAB. Vérification visuelle Samsung nécessaire. Clé Debug CI susceptible de varier." \
               --prerelease --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

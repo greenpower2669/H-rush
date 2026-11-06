@@ -254,3 +254,12 @@
 - [ ] QA Samsung : assiette et sensations tactiles / capteur, tirs bien dans le prolongement du nez, collisions de la silhouette réellement pivotée, qualité nuages dans les 40 environnements, performances de longue partie et perception des robots.
 - [ ] Vérifier si la taille des robots, leur cadence et absence de mine correspondent à l'intention exacte de Fab ; ajustement sur retour de partie.
 - [ ] Tester installation / sauvegarde JSON lors d'une mise à jour Android signée Debug avec certificat variable.
+
+## OMEGA 0.5.2 — dégâts visibles limités et robots durables (6 novembre 2026)
+- [x] Plafonner l'effacement cumulé des ennemis (dont robots) à 15% des pixels initiaux, sur chaque frame d'animation ; plus aucune disparition excessive du sprite.
+- [x] Réduire les rayons de brûlure à mesure que la proportion effacée approche du repère de 20% ; rendre les bords plus jaunes/blancs et lumineux, uniquement sur alpha existant.
+- [x] Conserver les PV et dégâts de combat au-delà du plafond ; éviter le déclenchement de destruction instantanée des robots à partir de leur masque.
+- [x] Ajouter tests longue durée avec 55+ impacts, contrôle des masques et de toutes les frames animées.
+- [ ] Vérifier CI, tests, reconstruction exacte HTML, APK autonome signé, SHA256 et Release directe 0.5.2.
+- [ ] Réglage visuel Samsung : équilibre entre petit trou et halo lumineux après ~10–30 tirs, FPS et atlas animé ; possibilité future de tester plafonds 5%, 10%, 15%.
+- [ ] Vérifier signature Debug d'installation et sauvegarde de l'univers avant désinstallation.

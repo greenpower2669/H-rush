@@ -13,7 +13,7 @@ import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
-import { burnHole, switchDamagedFrame, addEnemyBurn } from './damage.js';
+import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
@@ -545,7 +545,8 @@ function hitEnemy(enemy,r) {
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
     if(enemy.kind==='asteroid'){
-      burnHole(enemy.sprite,px,py,enemy.robot?3:9);
+      burnHoleLimited(enemy.sprite,px,py,enemy.robot?3:9,
+        Number.isFinite(enemy.maxHp)&&enemy.maxHp>0 ? 1-(enemy.hp-1)/enemy.maxHp : 0);
       particlesAt(point.x,point.y,'motor',12);
     }else{
       // Small transparent impact holes, with incandescent lips; every atlas frame
@@ -557,7 +558,8 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
-  if(enemy.kind==='asteroid'&&enemy.sprite.mask.filled<(enemy.robot?44:120))enemy.hp=0;
+  // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
+  if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
   if(enemy.hp<=0){
     const epicentre=point||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
     particlesAt(epicentre.x,epicentre.y,enemy.robot?'motor':'hull',enemy.robot?32:enemy.kind==='boss'?75:32);
