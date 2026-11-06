@@ -566,12 +566,18 @@ function dropBonus(enemy) {
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
   const weapon=enemy.species?.weapon||'single';
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
+    weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
   const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
   const aimed=clamp(dy/dx*225,-190,190);
   for(let i=0;i<burst&&enemyShots.length<140;i++){
     const spread=i-(burst-1)/2;
-    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+    const vy=enemy.kind==='boss'?
+      weapon==='aimed'?aimed+spread*39:
+      weapon==='spiral'?Math.sin(enemy.age*5.8+enemy.phase+i*1.18)*155:
+      weapon==='cross'?spread*130:weapon==='rapid'?aimed*.64+spread*70:
+      spread*94+rand(-40,40):
+      weapon==='aimed'?aimed:
       weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
       spread*95+rand(-25,25);
     enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
