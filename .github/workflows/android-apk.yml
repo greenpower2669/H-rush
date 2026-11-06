@@ -208,7 +208,9 @@ jobs:
           test "$(stat -c %s "$APK")" -gt 5500000
           sha256sum "$APK" > SHA256SUMS.txt
       - name: Publier uniquement APK direct sur GitHub Releases
-        if: github.event_name == 'push'
+        # Only the named first-party crash-fix PR may publish a preview after all checks.
+        # Untrusted forks and unrelated pull requests retain read-only QA.
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/omega-059-webview-crash-recovery-20261106') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
