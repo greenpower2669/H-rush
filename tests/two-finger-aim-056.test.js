@@ -99,3 +99,11 @@ test('primary steering and second aiming use distinct pointer IDs and releases',
  assert.ok(html.includes('function twoFingerNoseShot'));
  assert.ok(src('index.html').includes('maintenir puis glisser ce doigt pour guider les lasers'));
 });
+
+test('invisible and defeated enemies never steal the second-finger target',()=>{
+ const invisible=e('air',1200,200),dead=e('ground',400,410);
+ dead.hp=0;
+ assert.equal(acquireTwoFingerTarget([invisible,dead],{x:432,y:300}),null);
+ const live=e('air',430,190);
+ assert.equal(acquireTwoFingerTarget([invisible,dead,live],{x:450,y:210}),live);
+});
