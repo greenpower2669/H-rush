@@ -75,3 +75,6 @@ Message : « les ennemis ... des parties d'eux sont retirées ... ça fait bizar
 
 ## H-RUSH OMEGA 0.5.3 — la bulle atmosphérique arrive et repart déjà grande (6 novembre 2026)
 Retour joueur : la bulle atmosphérique gonfle et rétrécit visiblement, ce qui choque l'œil ; la faire préexister à taille définitive, hors de l'écran, et faire apparaître/disparaître la bulle uniquement par **translation** de sa grande sphère. Ni zoom, ni pop, ni rétrécissement de fin. Préserver l'immersion, l'enveloppe de décor, les collisions, les mémoires et l'univers personnel ; tester puis publier nouvel APK autonome dans une branche 0.5.3, sans AAB, sans fusionner `main`.
+
+## 2026-11-06 — ordre de mise en commun et Release 0.5.3
+Fab : « Ouinrelease merge la » — interprété comme autorisation explicite de publier et de fusionner maintenant. Consigne exécutée : PR #6 fusionnant toutes les versions de 0.4.8 à 0.5.3 dans `main` ; Release finale GitHub v0.5.3 distincte des préversions, avec APK direct signé Debug (pas d'AAB), sauvegardes et historique préservés. Validation Android matérielle et certification d'une clé de signature pérenne restent des suites à gérer séparément.
