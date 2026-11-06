@@ -92,7 +92,11 @@ export function alignByTerrainAnd(terrain,entity,anchor='ground',maxTravel=95){
  */
 export function ballisticSolution(enemy,player,gravity=BALLISTIC_GRAVITY){
   const w=enemy.sprite.width,h=enemy.sprite.height;
-  const origin={x:enemy.x+w*.5,y:enemy.y+h*.47-5};
+  const pitch=Number.isFinite(enemy.hullPitch)?enemy.hullPitch:0;
+  const baseH=enemy.morph?.boss?112:62;
+  const pivotOffset=baseH*.47-5-baseH*.5;
+  const origin={x:enemy.x+w*.5-Math.sin(pitch)*pivotOffset,
+    y:enemy.y+h*.5+Math.cos(pitch)*pivotOffset};
   const end={x:player.x+player.sprite.width*.5,
     y:player.y+player.sprite.height*.5};
   const dx=end.x-origin.x,dy=end.y-origin.y;
@@ -112,7 +116,7 @@ export function ballisticSolution(enemy,player,gravity=BALLISTIC_GRAVITY){
 }
 const biteMask=createMask(9,9,(x,y)=>(x-4)**2+(y-4)**2<=16);
 const biteSprite={mask:biteMask,width:9,height:9};
-/** A worm actually GN AWS surviving rock, not a visual dust puff.
+/** A worm actually GNAWS surviving rock, not a visual dust puff.
  * The same tile/gate hit is carved with AND NOT and recorded in universe scars.
  */
 export function gnawTerrainByAnd(enemy,terrain){
