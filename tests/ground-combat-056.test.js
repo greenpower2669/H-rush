@@ -107,3 +107,11 @@ test('ballistic shells use swept physical AND collisions and y-positive gravity'
  assert.match(ground,/terrain\.collideEntity\(\{sprite:probe/);
  assert.match(read('ash-rush-standalone.html'),/function groundOrientation/);
 });
+
+test('GitHub APK release shell description stays single-quoted and printable',()=>{
+ const flow=read('.github/workflows/android-apk.yml');
+ const line=flow.split('\n').find(s=>s.includes('--notes "H-RUSH OMEGA 0.5.6 :'));
+ assert.ok(line);
+ assert.ok(line.endsWith('" '+String.fromCharCode(92)), 'release note must have a single closing double-quote');
+ assert.doesNotMatch(line,/""\s*\\$/,'double quote would break shell and withhold the APK');
+});
