@@ -2595,6 +2595,105 @@ function sentinelSteer(enemyY,targetY,age,phase,dt){
   return hoverClamp(target,-73,73)*hoverClamp(dt,0,.05);
 }
 
+/** H-RUSH OMEGA 0.5.6 — two independent pointers: movement + nose vector guidance.
+ * All coordinates are the native 960x540 playfield; never change collision geometry.
+ */
+const aimClamp=(value,a,b)=>Math.max(a,Math.min(b,value));
+const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
+const SECOND_FINGER_TARGET_LIMIT=230;
+const SECOND_FINGER_TURN_GROUND=.28; // ±16° after the projectile left the nose
+const SECOND_FINGER_TURN_AIR=.36;    // ±21° vertical correction in free flight
+const SECOND_FINGER_MAX_ANGLE=1.22;  // No backward fire through the player's hull
+
+function targetAnchor(enemy){
+  const a=enemy?.morph?.anchor;
+  return a==='ceiling'||a==='ground'?a:'air';
+}
+/** A finger BELOW a hanging enemy is sufficient to lock it. The same generous
+ * vertical allowance works near ground units, where a finger is less precise.
+ * Airborne units use a near-circular proximity window for upper/lower aiming.
+ */
+function selectSecondFingerTarget(finger,enemies,noseX){
+  if(!finger||!Number.isFinite(finger.x)||!Number.isFinite(finger.y))return null;
+  let best=null,score=Infinity;
+  for(const enemy of enemies||[]){
+    if(!(enemy?.hp>0)||!enemy.sprite)continue;
+    const x=enemy.x+enemy.sprite.width*.5,y=enemy.y+enemy.sprite.height*.5;
+    if(!Number.isFinite(x)||!Number.isFinite(y)||x<=noseX+4||x>1020||x<0||y<0||y>540)continue;
+    const mode=targetAnchor(enemy),dx=finger.x-x,dy=finger.y-y;
+    const toleranceX=mode==='air'?Math.max(84,enemy.sprite.width*.53):Math.max(105,enemy.sprite.width*.7);
+    const allowed=mode==='ceiling'?(dy>=-35&&dy<=SECOND_FINGER_TARGET_LIMIT):
+      mode==='ground'?(dy>=-SECOND_FINGER_TARGET_LIMIT&&dy<=150):
+      Math.abs(dy)<=Math.max(94,enemy.sprite.height*.75);
+    if(!allowed||Math.abs(dx)>toleranceX)continue;
+    const normalizedX=dx/toleranceX;
+    const normalizedY=mode==='air'?dy/Math.max(94,enemy.sprite.height*.75):
+      mode==='ceiling'?Math.max(0,dy)/SECOND_FINGER_TARGET_LIMIT:
+      Math.abs(dy)/SECOND_FINGER_TARGET_LIMIT;
+    const candidate=normalizedX**2+normalizedY**2;
+    if(candidate<score){score=candidate;best={enemy,mode,x,y,locked:true};}
+  }
+  return best;
+}
+function resolveSecondFingerAim(finger,enemies,noseX){
+  if(!finger)return null;
+  const found=selectSecondFingerTarget(finger,enemies,noseX);
+  if(found)return found;
+  return {x:aimClamp(finite(finger.x),0,960),y:aimClamp(finite(finger.y),0,540),
+    enemy:null,mode:'air',locked:false};
+}
+function aimPoint(target,flightTime){
+  if(!target)return null;
+  const e=target.enemy;
+  if(e?.hp>0){
+    return {x:e.x+e.sprite.width*.5+aimClamp(finite(e.vx)*flightTime*.42,-43,43),
+      y:e.y+e.sprite.height*.5+aimClamp(finite(e.vy)*flightTime*.5,-30,30)};
+  }
+  return {x:finite(target.x),y:finite(target.y)};
+}
+/** The nose position follows ship pitch. Travel velocity is inherited by the shot,
+ * but compensated in the targeting vector so a moving craft can still hit its mark.
+ */
+function vectorShotFromNose(cx,cy,width,pitch,speed,lane,target,motion={x:0,y:0}){
+  const base=aimFromNose(cx,cy,width,pitch,speed,lane);
+  if(!target)return {...base,guided:false};
+  const driftX=aimClamp(finite(motion.x)*.16,-65,65);
+  const driftY=aimClamp(finite(motion.y)*.10,-35,35);
+  const first=aimPoint(target,0);
+  const travel=Math.min(.9,Math.hypot(first.x-base.x,first.y-base.y)/speed);
+  const point=aimPoint(target,travel);
+  const dx=Math.max(27,point.x-base.x-driftX*travel);
+  const dy=point.y-base.y-driftY*travel;
+  const directed=aimClamp(Math.atan2(dy,dx)+lane*.047,-SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  const vx=Math.cos(directed)*speed+driftX,vy=Math.sin(directed)*speed+driftY;
+  return {...base,vx,vy,angle:Math.atan2(vy,vx),heading:directed,launchHeading:directed,
+    speed,driftX,driftY,guided:true,mode:target.mode,locked:target.locked};
+}
+/** Course correction is restricted after launch: ±16° for ceiling/floor targets
+ * (horizontal arrival margin), ±21° for free-flying targets (vertical adjustment).
+ * The actual sprite is rotated by game.js from this same velocity at each update.
+ */
+function steerSecondFingerShot(shot,target,dt){
+  if(!shot?.guided||!target||!Number.isFinite(dt)||dt<=0)return false;
+  const speed=Math.max(1,finite(shot.speed,Math.hypot(shot.vx,shot.vy)));
+  const cx=shot.x+shot.sprite.width*.5,cy=shot.y+shot.sprite.height*.5;
+  const predicted=aimPoint(target,Math.min(.45,Math.hypot(target.x-cx,target.y-cy)/speed));
+  const dx=Math.max(18,predicted.x-cx),dy=predicted.y-cy;
+  const desired=aimClamp(Math.atan2(dy,dx),-SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  const mode=target.mode??shot.mode;
+  const cone=mode==='air'?SECOND_FINGER_TURN_AIR:SECOND_FINGER_TURN_GROUND;
+  const first=finite(shot.launchHeading);
+  const limited=aimClamp(desired,first-cone,first+cone);
+  const current=finite(shot.heading,first);
+  const maxChange=dt*(shot.kind==='missile'?2.1:1.45);
+  const next=aimClamp(current+aimClamp(limited-current,-maxChange,maxChange),
+    -SECOND_FINGER_MAX_ANGLE,SECOND_FINGER_MAX_ANGLE);
+  shot.heading=next;
+  shot.vx=Math.cos(next)*speed+finite(shot.driftX);
+  shot.vy=Math.sin(next)*speed+finite(shot.driftY);
+  return true;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -2753,6 +2852,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let aimPointerId=null,aimPointer=null,activeAim=null,shipMotion={x:0,y:0};
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -2776,7 +2876,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;shipMotion={x:0,y:0};keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -2830,7 +2930,7 @@ function closeHall() {
 function finishRun(cause) {
   if(gameOver)return;
   gameOver=true;music.scene('space');
-  dragging=false;mainPointerId=null;keys.clear();
+  dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;keys.clear();
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
@@ -3101,13 +3201,18 @@ function renderHoverPlume(){
 }
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const width=(player.baseSprite||ships.player).width;
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
-    const beam=pitchSprite(ships.laser,a.angle);
-    bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
+    const shot=vectorShotFromNose(cx,cy,width,player.pitch,780,lane,activeAim,shipMotion);
+    const beam=pitchSprite(ships.laser,shot.angle);
+    bullets.push({kind:'laser',baseSprite:ships.laser,sprite:beam,
+      x:shot.x-beam.width*.5,y:shot.y-beam.height*.5,
+      vx:shot.vx,vy:shot.vy,guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
-  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+  const nose=aimFromNose(cx,cy,width,player.pitch,780);
   particlesAt(nose.x,nose.y,'shield',2,110);
   sound.play('laser');
 }
@@ -3118,10 +3223,14 @@ function launchMissile() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=vectorShotFromNose(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,345,lane,activeAim,shipMotion);
     const shape=pitchSprite(ships.missile,shot.angle);
-    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+    missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,
+      x:shot.x-shape.width*.5,y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      guided:shot.guided,mode:shot.mode,locked:shot.locked,
+      heading:shot.heading,launchHeading:shot.launchHeading,speed:shot.speed,
+      driftX:shot.driftX,driftY:shot.driftY});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
@@ -3258,9 +3367,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  const corrected=b.guided&&activeAim&&steerSecondFingerShot(b,activeAim,dt);
+  if(!corrected){
+    // Without the second finger, existing homing missiles still function.
+    const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
+    if(target){const dy=target.y+target.sprite.height*.5-b.y;
+      b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -3292,6 +3405,7 @@ function update(dt) {
     if(portal && check(player,portal).hit)enterWarp(portal);
   }
   const beforeCenterX=player.x+player.sprite.width*.5;
+  const beforeCenterY=player.y+player.sprite.height*.5;
   const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
@@ -3307,6 +3421,8 @@ function update(dt) {
     player.y=clamp(player.y+my/diagonal*325*dt,35,H-player.sprite.height-15);
   }
   const moved=(player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt*325,.0001);
+  shipMotion={x:clamp((player.x+player.sprite.width*.5-beforeCenterX)/Math.max(dt,.0001),-325,325),
+    y:clamp((player.y+player.sprite.height*.5-beforeCenterY)/Math.max(dt,.0001),-325,325)};
   const grounded=!warp&&gravityFlight(stage.phase);
   player.pitch=pitchStep(player.pitch,moved,dt,grounded);
   const base=player.baseSprite||ships.player;
@@ -3317,8 +3433,13 @@ function update(dt) {
   player.x=clamp(player.x,10,W-player.sprite.width-15);
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
+  const centerX=player.x+player.sprite.width*.5,centerY=player.y+player.sprite.height*.5;
+  const noseX=aimFromNose(centerX,centerY,(player.baseSprite||ships.player).width,player.pitch).x;
+  activeAim=resolveSecondFingerAim(aimPointer,enemies,noseX);
   fireClock-=dt;
-  if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
+  if((keys.has(' ')||dragging||aimPointer!==null||tiltMove.active) && fireClock<=0){
+    firePlayer();fireClock=.16;
+  }
   spawnClock-=dt;
   if(warp){
     warpClock-=dt;
@@ -3451,7 +3572,16 @@ function update(dt) {
   enemies=enemies.filter(e=>e.hp>0);
   grid.clear();for(const enemy of enemies)grid.insert(enemy);
   for(const rocket of [...missiles])if(advanceMissile(rocket,dt))missiles.splice(missiles.indexOf(rocket),1);
-  for(const bullet of [...bullets]) if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  for(const bullet of [...bullets]){
+    if(bullet.guided&&activeAim){
+      steerSecondFingerShot(bullet,activeAim,dt);
+      const oriented=pitchSprite(bullet.baseSprite||ships.laser,Math.atan2(bullet.vy,bullet.vx));
+      bullet.x+=(bullet.sprite.width-oriented.width)*.5;
+      bullet.y+=(bullet.sprite.height-oriented.height)*.5;
+      bullet.sprite=oriented;
+    }
+    if(advanceProjectile(bullet,dt,enemies,true))bullets.splice(bullets.indexOf(bullet),1);
+  }
   for(const bullet of [...enemyShots])if(advanceProjectile(bullet,dt,[player],false))enemyShots.splice(enemyShots.indexOf(bullet),1);
   // Ship-to-ship and asteroid contact, with a short damage invulnerability period.
   if(invulnerable<=0) for(const enemy of enemies) {
@@ -3505,6 +3635,21 @@ function drawBackground() {
   ctx.globalAlpha=1;
   // Horizon and rocky silhouette are owned by the seeded OMEGA renderer and terrain masks.
 }
+function drawSecondFingerReticle(){
+  if(!activeAim)return;
+  const {x,y,locked,mode}=activeAim;
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch);
+  ctx.save();
+  ctx.strokeStyle=locked?'#ffeb8f':'#80f1ff';
+  ctx.lineWidth=1.5;ctx.globalAlpha=.64;ctx.setLineDash([7,8]);
+  ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(x,y);ctx.stroke();
+  ctx.setLineDash([]);ctx.globalAlpha=.89;
+  const radius=locked?(mode==='air'?20:24):13;
+  ctx.beginPath();ctx.arc(x,y,radius,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.moveTo(x,y-6);ctx.lineTo(x,y+6);ctx.stroke();
+  ctx.restore();
+}
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
@@ -3529,6 +3674,7 @@ function render() {
   }
   for(const rocket of missiles)drawEntity(rocket);
   for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
+  drawSecondFingerReticle();
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
@@ -3630,10 +3776,21 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // Second finger aims the lasers; missiles still use the HUD button or keyboard.
+    if(aimPointerId===null){aimPointerId=e.pointerId;aimPointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}
+    e.preventDefault();return;
+  }
+  if(mainPointerId===null){mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);}e.preventDefault();});
+canvas.addEventListener('pointermove',e=>{
+   if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
+   if(e.pointerId===aimPointerId)aimPointer=pointFromEvent(e);
+ });
+for(const event of ['pointerup','pointercancel','lostpointercapture'])
+   canvas.addEventListener(event,e=>{
+     if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+     if(e.pointerId===aimPointerId){aimPointerId=null;aimPointer=null;activeAim=null;}
+   });
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -3646,7 +3803,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;aimPointerId=null;aimPointer=null;activeAim=null;terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
