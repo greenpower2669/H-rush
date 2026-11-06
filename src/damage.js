@@ -11,7 +11,7 @@ export function copyDamageSprite(source){
   const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
   image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
   const m=source.mask;
-  return {...source,image,initialFilled:source.initialFilled??m.filled,
+  return {...source,image,volatileDamage:true,initialFilled:source.initialFilled??m.filled,
     mask:{...m,rows:new Uint32Array(m.rows),
       xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
 }
