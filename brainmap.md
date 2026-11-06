@@ -48,3 +48,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/omega-visuals.js` : `visualEnvelope(stage)`, interpolation planète → atmosphère → surface → sortie, profondeur de parallaxe, disparition complète des monuments en espace profond.
 - `tests/progression-048.test.js` et `tests/parallax-048.test.js` : seuils, stabilité, limites de densité et continuité des transitions.
 - Ne jamais confondre les décors visuels avec les masques de collision `A & B` du `src/omega-terrain.js`.
+
+## OMEGA 0.4.9 — correction orientation du capteur
+- `src/tilt.js` : signes corrigés pour les rotations 90°/270° ; `tests/tilt.test.js` : déplacements physiques droite/bas sur les quatre orientations, avec calibrage neutre.
+- `ash-rush-standalone.html` : copie autonome synchronisée, utilisée par l'APK ; package Android et sauvegarde compatibles avec 0.4.8.

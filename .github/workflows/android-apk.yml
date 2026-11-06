@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -129,11 +129,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.4.8-progression-parallaxe-debug.apk
+          APK=HRush-Omega-v0.4.9-tilt-fix-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='48' versionName='0.4.8'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='49' versionName='0.4.9'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -146,7 +146,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.4.8-progression-parallaxe-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.4.9-tilt-fix-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -183,14 +183,14 @@ jobs:
           RELEASE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          TAG=v0.4.8-progression-parallaxe-preview
-          APK=HRush-Omega-v0.4.8-progression-parallaxe-debug.apk
+          TAG=v0.4.9-tilt-axes-preview
+          APK=HRush-Omega-v0.4.9-tilt-fix-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.4.8 - progression, record et parallaxe" \
-              --notes "OMEGA 0.4.8 : difficulté progressive et bornée, formations déterministes, périodes de récupération et boss évolutifs ; SCORE de partie et HIGH SCORE persistant, NOUVEAU RECORD en fin de partie ; apparition planétaire graduelle, parallax lié à l’altitude, monuments absents de l’espace profond et bases masquées derrière le relief. Graine 128 bits, collision A & B, cœurs, commandes, cratères, sauvegarde JSON compatible, musiques Djipie CC0 et identité graphique conservés. APK Debug autonome uniquement, aucun AAB. Vérifications FPS/ergonomie sur Samsung réel et captures comparatives navigateur encore requises." \
+              --title "H-RUSH OMEGA 0.4.9 - correction inclinaison paysage" \
+              --notes "OMEGA 0.4.9 : correction des axes du capteur Android en rotations paysage 90° et 270° ; incliner à droite/bas déplace le vaisseau à droite/bas. Tests automatiques des 4 rotations, filtrage et calibrage préservés. Tous les contenus, le score et la parallaxe de 0.4.8 conservés. Les inversions X/Y personnalisées restent mémorisées : les décocher si elles avaient été activées pour compenser le défaut précédent. Package et sauvegardes JSON inchangés. APK Debug autonome, sans AAB. Validation de la prise en main sur Samsung réel à réaliser. Attention à la signature Debug de CI qui peut varier entre APK." \
               --prerelease --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

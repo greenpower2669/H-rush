@@ -82,3 +82,7 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 - Les phases de boss dépendant des PV sont bornées (1 à 4), sans changement d'algorithme d'intersection. Le score affiché est le score **de la partie**, dérivé du total monotone moins le total initial. Le HIGH SCORE provient du Hall local, importable/exportable. Un nouveau record exige un score de partie strictement supérieur à l'ancien.
 - `visualEnvelope` utilise les seuils `PHASE_START` pour interpoler continûment les présences planète/atmosphère/surface, sans architecture terrestre en espace profond. Les bases des monuments restent derrière trois mattes géologiques de parallaxe. La sortie masque complètement le sol AVANT `spaceTail`.
 - Garder l'identifiant Android `fr.fab.ashrush.omegaimmersion` et le format de sauvegarde 1 inchangés ; livrer un APK autonome signé, sans AAB ni altération de `main` avant validation.
+
+## OMEGA 0.4.9 — repère de gravité Android
+- Le capteur Android fournit X/Y dans le repère physique de l'appareil ; le jeu utilise X vers la droite et Y vers le bas. Avec écran en paysage, `screenGravity` transforme ROTATION_90 en `{x:+deviceY,y:+deviceX}` et ROTATION_270 en `{x:-deviceY,y:-deviceX}` ; portrait 0/180 inchangé. Le calibrage neutre et les inversions utilisateur restent indépendants.
+- Ne jamais modifier collision A & B ni la sauvegarde pour corriger un simple repère de commande ; valider les deux paysages sur matériel avant de considérer la prise en main certifiée.

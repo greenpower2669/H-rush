@@ -129,3 +129,8 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.4.8-progression-parallaxe-preview — APK autonome et fichier SHA256SUMS.txt présents, anciennes Releases conservées.
 - Limites : aucune validation visuelle avec captures comparatives dans un navigateur réel sur les cinq phases ni mesure FPS/RAM sur le Samsung physique au stade de cette compilation. La migration complète de cicatrices très anciennes doit aussi être éprouvée sur appareil.
 - Plusieurs essais concurrents PR/push ont produit un échec trompeur de l'étape « publier » malgré une Release présente. Le workflow a été renforcé : publication uniquement sur push, PR réservée à la CI, exécutions concurrentes d'un même type annulées.
+
+## 2026-11-06 — OMEGA 0.4.9, diagnostic et correctif des axes
+- Retour utilisateur : gestes à l'inclinaison inversés en paysage. Constat dans `src/tilt.js` de 0.4.8 : les transformations ROTATION_90 et ROTATION_270 utilisaient les mauvais signes, et les anciens tests validaient cette inversion.
+- Pour une gravité Android (X, Y) en axes physiques, coordonnée écran X droite / Y bas : rotation 90° = (Y, X) ; rotation 270° = (-Y, -X), sans altérer portrait 0/180. Correction écrite dans `src/tilt.js` et l'HTML autonome ; ajout des tests de déplacement physique droite/bas pour les quatre rotations.
+- Build et disponibilité de la Release 0.4.9 : en attente de vérification effective par GitHub Actions. Test de gestuelle sur Samsung physique également en attente. Signature Debug susceptible de varier : attention à l'installation par-dessus une autre APK.
