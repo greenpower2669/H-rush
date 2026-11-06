@@ -234,3 +234,13 @@
 - [x] CI `42215613968` réussie : APK 0.4.9 13 969 487 octets, contrôles version/package/signature `apksigner` et SHA-256 ; Release `v0.4.9-tilt-axes-preview` et asset `.apk` direct présents.
 - [ ] Contrôler physiquement sur Samsung les deux orientations paysage (90° et 270°), les inversions volontairement cochées et le recalibrage du neutre.
 - [ ] Valider la conservation de données après mise à jour depuis la version installée ; signature Debug potentiellement différente, prévoir export JSON avant réinstallation.
+
+## 2026-11-06 — OMEGA 0.5.0, météores et passages bonus
+- [x] Ajouter mouvements et tirs contextuels, enrichir les formations sans dépasser les plafonds de difficulté.
+- [x] Ajouter météo d'astéroïdes de tailles variées, des colonnes avec ouverture, fragmentation bornée, et sprites alpha dérivés du masque AND.
+- [x] Ajouter portails cachés déterministes et séquence bonus warp de 16s, sans avance ni mutation de la progression d'univers pendant le détour.
+- [x] Distinguer débris inertiels du vide et débris sous gravité/traînée des phases planétaires ; tests unitaires.
+- [ ] Vérifier tests, compilation, signature, version, SHA-256 et publication GitHub Release 0.5.0.
+- [ ] Contrôler sur Samsung : fluidité des pluies et splits, temps de transition portal, impossibilité de collision terrain pendant warp, qualité de l'animation et équilibre réel.
+- [ ] Tester endurance de 10 minutes, densité de projectiles et comportement des portails en présence de grandes barrières.
+- [ ] Valider installation par-dessus l'ancienne APK ; exporter JSON avant désinstallation car clé Debug CI susceptible de varier.

@@ -1286,7 +1286,23 @@ function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'zigzag':return Math.cos(age*3.2+phase)*40*dt;
     case 'pursuit':return Math.max(-38*dt,Math.min(38*dt,(playerY-enemyY)*.6*dt));
     case 'patrol':return Math.sin(age*1.8+phase)*24*dt;
+    case 'swoop':return Math.cos(age*5+phase)*94*dt;
+    case 'feint':return Math.sin(age*7+phase)*(age%4<2?78:-55)*dt;
+    case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
+    case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
+    case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
     default:return 0;
+  }
+}
+
+/** Horizontal feints and charges stay bounded and obey terrain collision. */
+function movementSpeedScale(spec,age,phase){
+  switch(spec?.movement){
+    case 'swoop':return 1.15+.29*Math.sin(age*3.8+phase);
+    case 'feint':return .95+.43*Math.cos(age*2.8+phase);
+    case 'orbit':return .87+.21*Math.sin(age*2+phase);
+    case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    default:return 1;
   }
 }
 
@@ -1307,8 +1323,10 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const movement=draw>.68 ? m.moves[(identity.faction+encounter)%m.moves.length] : spec.movement;
-  const weapon=spec.weapon==='none' ? 'none' : draw>.58 ? m.weapon : spec.weapon;
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
+  const armory=['aimed','cross','spiral',m.weapon];
+  const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
   return {...spec, speed:Math.max(25,Math.round(spec.speed*m.speed*variation*aggressive)),
     hp:Math.max(1,Math.round(spec.hp*m.hp*(.92+draw*.26))),
     movement,weapon,hue:(spec.hue+identity.tone*.35+encounter*9)%360,
@@ -1896,7 +1914,10 @@ const FORMATIONS=Object.freeze([
   Object.freeze({name:'duo',offsets:Object.freeze([-84,84])}),
   Object.freeze({name:'chevron',offsets:Object.freeze([-102,-34,34,102])}),
   Object.freeze({name:'tenaille',offsets:Object.freeze([-145,145,-70,70])}),
-  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])})
+  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])}),
+  Object.freeze({name:'éventail',offsets:Object.freeze([-155,-82,0,82,155])}),
+  Object.freeze({name:'escorte',offsets:Object.freeze([0,-110,110,-40,40])}),
+  Object.freeze({name:'attaque croisée',offsets:Object.freeze([-135,115,30,-75])})
 ]);
 /** High score remains a record of one run, not the lifetime progression. */
 function personalHighScore(hall) {
@@ -1937,6 +1958,68 @@ function bossPhaseAt(hp,maxHp,phases=1) {
   if(!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0)return 0;
   const count=boundChallenge(Math.floor(phases),1,4);
   return boundChallenge(Math.floor((1-boundChallenge(hp/maxHp,0,1))*count),0,count-1);
+}
+
+/** OMEGA 0.5.0: deterministic meteor weather, optional warp detours and inertial debris. */
+const eventClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const WARP_DURATION=16;
+/** A faint, collectible portal inside the surface skyline; no alteration of the saved universe. */
+function portalPosition(seed,region){
+  if(!Number.isInteger(region)||region<0)return null;
+  if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
+  const wx=region*16384+6750+Math.floor(keyedFloat(seed,region,810)*435);
+  const y=154+Math.floor(keyedFloat(seed,region,811)*131);
+  return {worldX:wx,y,region};
+}
+/** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */
+function asteroidWeather(seed,region,seconds,phase){
+  const t=Math.max(0,Number(seconds)||0);
+  const cycle=Math.floor(t/28), within=t%28;
+  const roll=keyedFloat(seed,region*65536+cycle,820);
+  const active=t>17&&within>=5&&within<17&&roll>.12;
+  return {active,kind:(phase==='space'||phase==='exit')?'belt':'rain',cycle};
+}
+/** Most asteroids are deliberately small; a few larger boulders add dramatic contrast. */
+function asteroidSpec(seed,region,index,kind='rain'){
+  const n=region*100000+index;
+  const a=keyedFloat(seed,n,830),b=keyedFloat(seed,n,831),c=keyedFloat(seed,n,832);
+  const size=kind==='warp'?14+Math.floor(a*a*68):14+Math.floor(a*a*67);
+  const speed=kind==='warp'?245+Math.floor(b*155):kind==='column'?90+Math.floor(b*85):112+Math.floor(b*105);
+  const vy=kind==='rain'?20+Math.round(c*55):0;
+  const mass=Math.max(.35,size*size*size/30000);
+  return {size,speed,vy,mass,seed:c,kind,depth:0};
+}
+/** A vertical obstruction with a generous reachable clearance around the pilot. */
+function obstructionColumn(seed,region,index,clearY=270){
+  const center=eventClamp(clearY,126,414);
+  const clearHalf=89;
+  const units=[];
+  for(let lane=0;lane<7;lane++){
+    const rowY=25+lane*77;
+    const profile=asteroidSpec(seed,region,index*17+lane,'column');
+    const size=Math.min(64,18+Math.floor(profile.size*.65));
+    if(Math.abs(rowY+size*.5-center)<clearHalf+size*.5)continue;
+    units.push({...profile,size,y:eventClamp(rowY,16,540-size-16),mass:Math.max(.35,size**3/30000)});
+  }
+  return units.slice(0,5);
+}
+/** Finite split tree. Tiny shards no longer split; no infinite cascade. */
+function splitAsteroid(size,seed,depth=0){
+  if(!Number.isFinite(size)||size<36||depth>=2)return [];
+  const count=seed>.63?3:2,ratio=seed>.63?.43:.54;
+  const child=Math.max(14,Math.floor(size*ratio));
+  if(child>=size)return [];
+  return Array.from({length:count},(_,i)=>({size:child-(i%2),depth:depth+1,angle:(i-(count-1)/2)*.78}));
+}
+/** In vacuum: uniform inertial motion; near planets: gravity is common, drag varies with mass. */
+function moveDebris(body,dt,gravity=0){
+  const step=eventClamp(Number.isFinite(dt)?dt:0,0,.05);
+  const g=Math.max(0,Number.isFinite(gravity)?gravity:0);
+  const mass=Math.max(.1,Number(body.mass)||1);
+  const drag=g>0?Math.exp(-step*.50/Math.sqrt(mass)):1;
+  const vx=(Number(body.vx)||0)*drag;
+  const vy=((Number(body.vy)||0)+g*step)*drag;
+  return {x:(Number(body.x)||0)+vx*step,y:(Number(body.y)||0)+vy*step,vx,vy};
 }
 
 const W = 960, H = 540, TAU = Math.PI * 2;
@@ -2011,6 +2094,11 @@ const ships = {
     ellipse(g, '#2a0b50', 26, 25, 9, 6); ellipse(g, '#bcf5ff', 24, 24, 4, 2);
     g.fillStyle='#ffe066';g.fillRect(64,21,8,9);
   }),
+  portal: sprite(58, 58, g => {
+    g.lineWidth=6;g.strokeStyle='#61eaf9';g.beginPath();g.arc(29,29,24,0,TAU);g.stroke();
+    g.lineWidth=2;g.strokeStyle='#d5a0ff';g.beginPath();g.ellipse(29,29,18,25,-.28,0,TAU);g.stroke();
+    g.fillStyle='#edffff';for(let i=0;i<6;i++){const a=i*TAU/6;g.beginPath();g.arc(29+24*Math.cos(a),29+24*Math.sin(a),2.5,0,TAU);g.fill();}
+  }),
   asteroid: sprite(62, 60, g => {
     path(g, '#916e81', [[8,16],[23,5],[41,7],[55,21],[54,40],[35,56],[15,47],[5,32]]);
     path(g, '#b69394', [[8,16],[23,5],[35,17],[28,28],[13,26]]);
@@ -2071,10 +2159,12 @@ let lastHudSecond = -1;
 let score, wave, elapsed, spawnClock, spawnCount, bossActive, kills, fireClock, invulnerable, announcementTime;
 let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
+let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 
 function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
+  warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -2105,7 +2195,7 @@ function updateHud() {
   $('#wave').textContent='VAGUE '+wave;
   const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
   $('#terrainStatus').hidden = false;
-  $('#terrainStatus').textContent = ({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family;
+  $('#terrainStatus').textContent = warp?'🌀 PORTAIL WARP · BONUS '+Math.ceil(warp.remaining)+' s':(({space:'🌌 ESPACE',atmosphere:'🪐 ATMOSPHÈRE',surface:'🏔️ SURFACE',interior:'🪨 PROFONDEURS',exit:'✨ SORTIE'})[s.phase]+' · '+id.family);
   $('#distance').textContent = formatDuration(elapsed);
 }
 function msg(text, duration=1.9) { announce=text;announcementTime=duration; }
@@ -2170,6 +2260,97 @@ function mutableAsteroid() {
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
   return {...original,image,mask:copy};
 }
+/** Each asteroid's alpha raster is its only collision shape, not an invisible circle. */
+function rockSprite(size,seed=.5){
+  const w=Math.max(14,Math.floor(size)),r=w*.48;
+  return sprite(w,w,g=>{
+    const n=10,pts=[];
+    for(let i=0;i<n;i++){
+      const a=i*TAU/n,rough=.76+.21*Math.sin(seed*149+i*37.7);
+      pts.push([w*.5+Math.cos(a)*r*rough,w*.5+Math.sin(a)*r*rough]);
+    }
+    path(g,'#9c8793',pts);
+    g.save();g.globalCompositeOperation='source-atop';
+    const glow=g.createLinearGradient(0,0,w,w);
+    glow.addColorStop(0,'#d9c6b0');glow.addColorStop(.48,'#947789');glow.addColorStop(1,'#51455c');
+    g.fillStyle=glow;g.fillRect(0,0,w,w);
+    g.strokeStyle='#65546d';g.lineWidth=Math.max(1,w*.035);
+    for(let i=0;i<3;i++){
+      const x=w*(.23+.19*i),y=w*(.30+.20*((i+Math.floor(seed*7))%2));
+      g.beginPath();g.ellipse(x,y,w*.07,w*.045,i*.8,0,TAU);g.stroke();
+    }g.restore();
+  });
+}
+function spawnRock(profile,y,x=W+12){
+  if(enemies.length>=17)return false;
+  const s=rockSprite(profile.size,profile.seed);
+  const posY=clamp(y,16,H-s.height-16),posX=x;
+  if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
+  const hp=Math.max(1,Math.ceil(profile.size/18));
+  enemies.push({kind:'asteroid',rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
+    species:null,sprite:s,x:posX,y:posY,vx:-profile.speed,vy:profile.vy||0,mass:profile.mass||1,
+    hp,maxHp:hp,phase:0,fire:99,age:0,hue:0,blockedTime:0,drillCooldown:0});
+  return true;
+}
+function nearbyPortal(){
+  if(warp)return null;
+  for(const r of [stageAt(terrain.scroll+W*.5).region,stageAt(terrain.scroll+W*.5).region+1]){
+    const p=portalPosition(universe.seed,r);
+    if(!p||portalSeen.has(r))continue;
+    const x=p.worldX-terrain.scroll;
+    if(x<-65||x>W+66)continue;
+    const o={kind:'portal',sprite:ships.portal,x,y:p.y,region:r};
+    if(terrain.collideEntity(o))continue;
+    return o;
+  }
+  return null;
+}
+function enterWarp(portal){
+  portalSeen.add(portal.region);
+  warp={remaining:WARP_DURATION,clock:0,broken:0,region:portal.region};
+  terrain.active=false;warpClock=0;
+  enemies=[];bullets=[];enemyShots=[];missiles=[];powerups=[];
+  invulnerable=Math.max(invulnerable,1.1);
+  music.scene('battle');msg('🌀 PORTAIL SECRET — PLUIE D’ASTÉROÏDES !',3.5);
+  particlesAt(player.x+37,player.y+23,'shield',46);
+  sound.play('pickup');updateHud();
+}
+function leaveWarp(){
+  if(!warp)return;
+  const broken=warp.broken;
+  warp=null;terrain.active=true;
+  enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
+  spawnClock=2;invulnerable=1.2;
+  reward(350+broken*45);
+  msg('✨ RETOUR DANS TON UNIVERS · BONUS WARP +'+(350+broken*45),3.5);
+  updateHud();
+}
+function drawWarpBackground(){
+  ctx.fillStyle='#06031e';ctx.fillRect(0,0,W,H);
+  const t=warp?.clock||0;
+  ctx.save();ctx.translate(W*.45,H*.5);
+  for(let i=0;i<28;i++){
+    const z=((i/28+t*.47)%1),radius=6+z*z*680;
+    ctx.strokeStyle=i%3?'#5932a9':'#67e9f3';
+    ctx.globalAlpha=.09+z*.32;ctx.lineWidth=1+z*3;
+    ctx.beginPath();ctx.ellipse(0,0,radius*1.6,radius*.73,0,0,TAU);ctx.stroke();
+  }
+  for(let n=0;n<100;n++){
+    const a=n*2.3999,z=(n*.618+t*.56)%1,r=z*z*740;
+    ctx.fillStyle=n%4===0?'#ffcaed':'#9bdfff';ctx.globalAlpha=.2+z*.6;
+    ctx.fillRect(Math.cos(a)*r*1.5,Math.sin(a)*r*.72,1+z*5,1+z*2);
+  }
+  ctx.restore();ctx.globalAlpha=1;
+}
+function drawHiddenPortal(o){
+  const dist=Math.hypot(o.x+29-player.x-37,o.y+29-player.y-23);
+  const reveal=clamp((220-dist)/170,0,1);
+  ctx.save();ctx.globalAlpha=.14+.76*reveal;
+  const pulse=1+.09*Math.sin(elapsed*4);
+  ctx.translate(o.x+29,o.y+29);ctx.scale(pulse,pulse);
+  ctx.drawImage(o.sprite.image,-29,-29);
+  ctx.restore();
+}
 function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=W+12;
@@ -2188,7 +2369,7 @@ function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
   for(let i=0;i<count && particles.length<850;i++) {
     const angle=rand(0,TAU),speed=rand(25,180);
-    particles.push({x,y,vx:Math.cos(angle)*speed+dx,vy:Math.sin(angle)*speed,life:rand(.2,.75),age:0,color:colors[Math.floor(rand(0,colors.length))],size:rand(1.5,4.4)});
+    particles.push({x,y,vx:Math.cos(angle)*speed+dx,vy:Math.sin(angle)*speed,life:rand(.2,.75),age:0,color:colors[Math.floor(rand(0,colors.length))],size:rand(1.5,4.4),mass:rand(.2,4.5)});
   }
 }
 function choosePixel(result) {
@@ -2239,9 +2420,19 @@ function dropBonus(enemy) {
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):enemy.species?.weapon==='burst'?3:1;
-  for(let i=0;i<burst;i++)enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
-    vx:enemy.kind==='boss'?-270:-210,vy:(i-(burst-1)/2)*95+(enemy.kind==='boss'?rand(-60,60):rand(-25,25))});
+  if(enemyShots.length>=135)return;
+  const weapon=enemy.species?.weapon||'single';
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
+  const aimed=clamp(dy/dx*225,-190,190);
+  for(let i=0;i<burst&&enemyShots.length<140;i++){
+    const spread=i-(burst-1)/2;
+    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+      weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
+      spread*95+rand(-25,25);
+    enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
+      vx:enemy.kind==='boss'?-270:-210,vy});
+  }
 }
 function playerDamage(r) {
   if(invulnerable>0) return;
@@ -2276,7 +2467,18 @@ function hitEnemy(enemy,r) {
     particlesAt(epicentre.x,epicentre.y,'hull',enemy.kind==='boss'?75:32);
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:.58,age:0,size:enemy.kind==='boss'?75:34,color:'#ffb062'});
     sound.play('explosion');
-    if(enemy.kind==='asteroid')dropBonus(enemy);
+    if(enemy.kind==='asteroid' && (enemy.rockType!=='rain'&&enemy.rockType!=='warp'||Math.random()<.14))dropBonus(enemy);
+    if(warp&&enemy.kind==='asteroid')warp.broken++;
+    if(enemy.kind==='asteroid'&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
+      const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
+      for(const [i,shard] of fragments.entries()){
+        if(enemies.length>=16)break;
+        const profile={size:shard.size,speed:Math.abs(enemy.vx)*(.88+i*.14),vy:enemy.vy+shard.angle*80,
+          mass:Math.max(.22,shard.size**3/30000),seed:(enemy.rockSeed+i*.19)%1,
+          kind:'fragment',depth:shard.depth};
+        spawnRock(profile,enemy.y+enemy.sprite.height*.5-shard.size*.5+shard.angle*14,enemy.x+15+i*9);
+      }
+    }
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
@@ -2341,9 +2543,10 @@ function update(dt) {
   elapsed+=dt;
   universe.recordElapsed(elapsed);
   $('#distance').textContent=formatDuration(elapsed);
-  terrain.update(dt);
-  const stage=terrain.lastStage;
-  music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
+  if(warp){warp.clock+=dt;warp.remaining-=dt;if(warp.remaining<=0)leaveWarp();}
+  else terrain.update(dt);
+  const stage=warp?{...terrain.lastStage,phase:'space'}:terrain.lastStage;
+  music.scene(warp?'battle':sceneMusic(stage.phase,bossActive,player.hp<=1));
   if(stage.phase!==lastWorldPhase){
     if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);}
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
@@ -2355,6 +2558,10 @@ function update(dt) {
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
+  if(!warp){
+    const portal=nearbyPortal();
+    if(portal && check(player,portal).hit)enterWarp(portal);
+  }
   const tiltMove = tilt.getVector();
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
@@ -2372,7 +2579,19 @@ function update(dt) {
   fireClock-=dt;
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
-  if(spawnClock<=0&&!bossActive){
+  if(warp){
+    warpClock-=dt;
+    if(warpClock<=0 && enemies.length<15){
+      const batch=2+(rockSerial%3);
+      for(let j=0;j<batch;j++){
+        const p=asteroidSpec(universe.seed,warp.region,rockSerial++,'warp');
+        const y=20+keyedFloat(universe.seed,warp.region*100000+rockSerial,848)*(H-p.size-40);
+        spawnRock(p,y,W+25+j*48);
+      }
+      warpClock=.42+keyedFloat(universe.seed,rockSerial,849)*.18;
+    }
+  }
+  if(spawnClock<=0&&!bossActive&&!warp){
     const profile=difficultyAt({seconds:elapsed,region:stage.region,kills,hearts:player.hp,phase:stage.phase,seed:universe.seed});
     const active=enemies.filter(e=>e.hp>0).length;
     // Bounded director: rest periods and an active-entity cap protect both the player and mobile FPS.
@@ -2385,6 +2604,21 @@ function update(dt) {
           bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
+      }else if(spawnCount>0&&spawnCount%11===0){
+        const rocks=obstructionColumn(universe.seed,stage.region,spawnCount,player.y+player.sprite.height*.5);
+        let placed=0;
+        for(const rock of rocks){
+          if(enemies.length>=profile.maxActive+3)break;
+          placed+=Number(spawnRock(rock,rock.y,W+12+placed*15));
+        }
+        if(placed){msg('☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
+        else spawnClock=.48;
+      }else if(asteroidWeather(universe.seed,stage.region,elapsed,stage.phase).active&&spawnCount%2===0){
+        const rock=asteroidSpec(universe.seed,stage.region,rockSerial++,'rain');
+        if(stage.phase==='space'||stage.phase==='exit'){rock.vy=0;rock.kind='belt';}
+        const y=16+keyedFloat(universe.seed,stage.region*100000+rockSerial,850)*(H-rock.size-32);
+        if(spawnRock(rock,y)){spawnCount++;spawnClock=Math.max(.55,profile.spawnInterval*.65);}
+        else spawnClock=.43;
       }else{
         const archetype=speciesFor(universe.seed,stage.region,spawnCount);
         const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
@@ -2409,11 +2643,17 @@ function update(dt) {
       if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
       enemy.vx=-(28+enemy.bossPhase*6);
     }
-    const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+    const rock=enemy.kind==='asteroid';
+    const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+    const motion=rock?moveDebris(enemy,dt,g):null;
+    if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const moveY=rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
-    // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
-    // Substeps prevent them from crossing thin rock or a moving piston in one frame.
-    const navigation=advanceEnemyOnTerrain(enemy,terrain,enemy.vx*dt,moveY);
+    const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
+    // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
+    const navigation=warp?{trapped:false,blocked:false}:
+      advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
+    if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
       enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
@@ -2438,6 +2678,7 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
@@ -2456,7 +2697,7 @@ function update(dt) {
     const r=check(enemy,player);
     if(r.hit){playerDamage(r);if(enemy.kind!=='boss'){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
   }
-  if (!gameOver && invulnerable<=0) {
+  if (!gameOver && !warp && invulnerable<=0) {
     const collision = terrain.collideEntity(player);
     if (collision) {
       const p = terrain.firstWorldImpact(collision);
@@ -2482,8 +2723,8 @@ function update(dt) {
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
-  const gravity=debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
-  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.vy+=gravity*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
+  const gravity=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+  for(const p of particles){p.age+=dt;Object.assign(p,moveDebris(p,dt,gravity));}
   particles=particles.filter(p=>p.age<p.life);
   decals=decals.filter(d=>{d.age+=dt;return d.age<d.life&&d.target.hp>0;});
   shockwaves=shockwaves.filter(w=>{w.age+=dt;return w.age<w.life;});
@@ -2492,6 +2733,7 @@ function update(dt) {
   for(const cloud of clouds){cloud.x-=cloud.speed*dt;if(cloud.x<-cloud.r)cloud.x=W+cloud.r;}
 }
 function drawBackground() {
+  if(warp){drawWarpBackground();return;}
   drawOmegaWorld(ctx,universe.seed,terrain.scroll,elapsed,W,H);
   for(const c of clouds){
     const grad=ctx.createRadialGradient(c.x,c.y,10,c.x,c.y,c.r);
@@ -2513,7 +2755,9 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
-  terrain.draw(ctx, W);
+  if(!warp)terrain.draw(ctx, W);
+  const portal=nearbyPortal();
+  if(portal)drawHiddenPortal(portal);
   for(const item of powerups){
     // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
@@ -2552,6 +2796,7 @@ function render() {
     ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
   }
   ctx.restore();
+  if(warp){ctx.fillStyle='#110d2cbb';ctx.fillRect(300,12,360,23);ctx.fillStyle='#c4faff';ctx.font='bold 15px sans-serif';ctx.fillText('🌀 WARP BONUS  ·  '+Math.ceil(warp.remaining)+' s  ·  '+warp.broken+' roches',317,29);}
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';

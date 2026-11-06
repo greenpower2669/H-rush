@@ -52,3 +52,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 ## OMEGA 0.4.9 — correction orientation du capteur
 - `src/tilt.js` : signes corrigés pour les rotations 90°/270° ; `tests/tilt.test.js` : déplacements physiques droite/bas sur les quatre orientations, avec calibrage neutre.
 - `ash-rush-standalone.html` : copie autonome synchronisée, utilisée par l'APK ; package Android et sauvegarde compatibles avec 0.4.8.
+
+## OMEGA 0.5.0 — météo, événements, portails
+- `src/omega-events.js` : portails cachés, pluie/belts de roches, formation colonnes avec ouverture, fragments limités, déplacement inertiel/gravité/traînée ; `tests/omega-events-050.test.js` : oracles déterministes.
+- `src/game.js` : sprites d'astéroïdes originaux à masque pixel, séquence warp 16s, retour de parcours, formations, projectiles variés, cap de charge ; `src/ecology.js` : mouvements/armes supplémentaires.

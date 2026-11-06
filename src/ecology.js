@@ -40,7 +40,23 @@ export function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'zigzag':return Math.cos(age*3.2+phase)*40*dt;
     case 'pursuit':return Math.max(-38*dt,Math.min(38*dt,(playerY-enemyY)*.6*dt));
     case 'patrol':return Math.sin(age*1.8+phase)*24*dt;
+    case 'swoop':return Math.cos(age*5+phase)*94*dt;
+    case 'feint':return Math.sin(age*7+phase)*(age%4<2?78:-55)*dt;
+    case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
+    case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
+    case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
     default:return 0;
+  }
+}
+
+/** Horizontal feints and charges stay bounded and obey terrain collision. */
+export function movementSpeedScale(spec,age,phase){
+  switch(spec?.movement){
+    case 'swoop':return 1.15+.29*Math.sin(age*3.8+phase);
+    case 'feint':return .95+.43*Math.cos(age*2.8+phase);
+    case 'orbit':return .87+.21*Math.sin(age*2+phase);
+    case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    default:return 1;
   }
 }
 
@@ -61,8 +77,10 @@ export function adaptSpecies(spec, seed, region, phase, encounter, condition = '
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const movement=draw>.68 ? m.moves[(identity.faction+encounter)%m.moves.length] : spec.movement;
-  const weapon=spec.weapon==='none' ? 'none' : draw>.58 ? m.weapon : spec.weapon;
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
+  const armory=['aimed','cross','spiral',m.weapon];
+  const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
   return {...spec, speed:Math.max(25,Math.round(spec.speed*m.speed*variation*aggressive)),
     hp:Math.max(1,Math.round(spec.hp*m.hp*(.92+draw*.26))),
     movement,weapon,hue:(spec.hue+identity.tone*.35+encounter*9)%360,

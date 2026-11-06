@@ -8,7 +8,10 @@ const FORMATIONS=Object.freeze([
   Object.freeze({name:'duo',offsets:Object.freeze([-84,84])}),
   Object.freeze({name:'chevron',offsets:Object.freeze([-102,-34,34,102])}),
   Object.freeze({name:'tenaille',offsets:Object.freeze([-145,145,-70,70])}),
-  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])})
+  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])}),
+  Object.freeze({name:'éventail',offsets:Object.freeze([-155,-82,0,82,155])}),
+  Object.freeze({name:'escorte',offsets:Object.freeze([0,-110,110,-40,40])}),
+  Object.freeze({name:'attaque croisée',offsets:Object.freeze([-135,115,30,-75])})
 ]);
 /** High score remains a record of one run, not the lifetime progression. */
 export function personalHighScore(hall) {

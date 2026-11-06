@@ -86,3 +86,8 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 ## OMEGA 0.4.9 — repère de gravité Android
 - Le capteur Android fournit X/Y dans le repère physique de l'appareil ; le jeu utilise X vers la droite et Y vers le bas. Avec écran en paysage, `screenGravity` transforme ROTATION_90 en `{x:+deviceY,y:+deviceX}` et ROTATION_270 en `{x:-deviceY,y:-deviceX}` ; portrait 0/180 inchangé. Le calibrage neutre et les inversions utilisateur restent indépendants.
 - Ne jamais modifier collision A & B ni la sauvegarde pour corriger un simple repère de commande ; valider les deux paysages sur matériel avant de considérer la prise en main certifiée.
+
+## OMEGA 0.5.0 — événements, passages et corps physiques
+- `src/omega-events.js` définit les portails déterministes par seed/région, les fenêtres météoriques, les colonnes à brèche garantie, la fragmentation à profondeur <=2 et l'intégration inertielle ou sous pesanteur/traînée. Les particules et météores ne tombent pas artificiellement en espace profond.
+- Les portails bonus sont temporaires (16 secondes), sans progression de la distance pendant le détour : terrain, cicatrices, graine, sauvegarde JSON et collision `A & B` sont préservés. Le portail est une silhouette alpha contrôlée par le même masque AND ; son halo discret est un indice visuel seulement.
+- Dans le modèle ludique, gravité identique pour petits/grands débris, mais décélération liée à la masse ; ne pas confondre ceci avec une simulation orbitale ou une prédiction physique exacte.
