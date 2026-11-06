@@ -27,3 +27,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/tilt.js` : pilote capteur gravité Android, calibration, filtrage, sensibilité, priorité du tactile.
 - `src/bonuses.js` : silhouettes des 20 bonus, masque AND calculé depuis l'alpha de chaque dessin.
 - `assets/branding/` : iconographie officielle, écran d'accueil 16:9/9:16 ; ressources à empaqueter par GitHub Actions.
+
+- `src/input.js` : calibrage tactile persistant, inversion X/Y et positionnement à droite du doigt.
+- `src/tilt.js` : sélection tactile/inclinaison persistante, tactile par défaut, calibrage neutre.
+- `src/bonuses.js` et `src/health.js` : 24 apparences, bonus ♥+ rare, plafond de 8 cœurs.

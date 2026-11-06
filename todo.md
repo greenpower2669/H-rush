@@ -165,3 +165,13 @@
 - [ ] Ajuster l'équilibrage/sensibilité selon retour de jeu ; mesurer FPS et consommation capteur.
 - [ ] Signature Android stable : conserver les identités de debug indépendantes jusqu'à publication.
 - [ ] Hall mondial et enrichissement des planches : missions futures, hors OMEGA 0.4.4.
+
+## OMEGA 0.4.5 — demandes de pilotage et bonus
+- [x] Mode Tactile initial, choix Tactile / Inclinaison dans options et bouton rapide.
+- [x] Inversion X et Y indépendantes, communes aux modes tactile et inclinaison, avec sauvegarde.
+- [x] Calibrage tactile interactif par un toucher + ajustement X/Y en option + remise à zéro.
+- [x] Rare bonus ♥+ : plafond de cœurs augmenté temporairement à 8, sprite distinct et poids 3 %.
+- [x] Préserver moteur de collision AND, 16:9, musiques et commandes paysage.
+- [ ] Contrôler les 2 orientations paysage et le mouvement X/Y sur Samsung (retour tactile et tilt).
+- [ ] Régler les amplitudes du calibrage et l'équilibrage ♥+ après retour de jeu.
+- [ ] Toujours livrer uniquement APK autonome, sans AAB.

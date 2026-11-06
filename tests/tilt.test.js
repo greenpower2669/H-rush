@@ -20,10 +20,11 @@ test('calibrated tilt persists options, expires safely and falls back to touch',
  let clock=1000;const map=new Map();const storage={getItem:key=>map.get(key),setItem:(key,val)=>map.set(key,val)};
  const tilt=new TiltController(storage,()=>clock);
  assert.equal(tilt.getVector().active,false);
- tilt.accept(1,2);assert.equal(tilt.getVector().active,true);
+ assert.equal(tilt.mode,'touch');assert.equal(tilt.enabled,false);
+ tilt.setMode('tilt');tilt.accept(1,2);assert.equal(tilt.getVector().active,true);
  tilt.accept(4,5);assert.ok(tilt.getVector().x>0);assert.ok(tilt.getVector().y<0);
  tilt.calibrate();assert.equal(tilt.getVector().x,0);
  tilt.setSensitivity(1.7);tilt.setEnabled(false);assert.equal(tilt.getVector().active,false);
- const restored=new TiltController(storage,()=>clock);assert.equal(restored.enabled,false);assert.equal(restored.sensitivity,1.7);
+ const restored=new TiltController(storage,()=>clock);assert.equal(restored.mode,'touch');assert.equal(restored.enabled,false);assert.equal(restored.sensitivity,1.7);
  clock+=1300;assert.equal(tilt.getVector().available,false);
 });

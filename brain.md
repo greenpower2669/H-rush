@@ -55,3 +55,8 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 - Les 20 variantes de bonus (cinq catégories × quatre silhouettes) sont dessinées sur Canvas et les masques `A & B` sont calculés depuis leurs pixels alpha ; éviter toute géométrie visible non synchronisée avec les collisions.
 - Branding 16:9 / 9:16 et icône proviennent uniquement de `assets/branding` déjà validés par Fab ; pas de substitution générique. L'accueil attend JOUER et calibre le capteur ; aucune simulation perdue au lancement.
 - Livraison : uniquement APK, sans AAB ; CI vérifie l'icône native, le splash embarqué et les quatre musiques.
+
+## Contrôles et bonus 0.4.5
+24. Pilotage tactile **par défaut**, indépendamment des anciens paramètres `enabled` de 0.4.4. Le choix explicite touch/tilt est persistant. X/Y peuvent être inversés séparément pour les deux modes ; le moteur de collision travaille toujours dans le même repère logique.
+25. Le calibrage tactile ajuste le décalage du doigt via un toucher et des glissières, sans toucher aux coordonnées de masque; les 2 doigts restent distincts (second = missile). Le capteur n'influence jamais le jeu en mode tactile.
+26. Un bonus exceptionnel `extraHeart` (3 % des bonus aléatoires) augmente le plafond temporaire de cinq à huit cœurs ; `heal` conserve sa règle existante.

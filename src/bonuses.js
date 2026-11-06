@@ -1,9 +1,9 @@
 /** Twenty distinct collectible silhouettes, rasterized and collision-tested from identical alpha. */
 import { maskFromImageData } from './collision.js';
-export const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection']);
+export const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart']);
 export const BONUS_VARIANTS = 4;
-const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff']});
-const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+'};
+const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a']});
+const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+'};
 export function bonusVariant(seed,region,index,type) {
   const input=String(seed)+':'+String(region)+':'+String(index)+':'+type;
   let h=2166136261;
@@ -41,4 +41,11 @@ export function createBonusSprites() {
     return {image,mask:maskFromImageData(ctx.getImageData(0,0,40,40),42),width:40,height:40,type,variant:v};
   });
   return catalog;
+}
+
+/** Extra hearts are genuinely rare (3% of random drops), not one sixth of all drops. */
+export function pickBonusType(random=Math.random) {
+  const r=Math.max(0,Math.min(0.999999,Number(random())||0));
+  if(r<.03)return 'extraHeart';
+  return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
 }

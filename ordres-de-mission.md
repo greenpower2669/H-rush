@@ -43,3 +43,6 @@ Concepteur : Fabrice Gourdant. Étendre Ash Rush à un univers 2D personnel gén
 
 ## Mission OMEGA 0.4.4 — autorisée par « Go »
 Implémenter le pilotage à l'inclinaison avec calibrage et secours tactile, diversifier les apparences des bonus, installer les véritables iconographies et splash écran 16:9 du répertoire `assets/branding`, sans modification de Djipie et sans AAB. Conserver moteur AND et les améliorations OMEGA 0.4.3, exécuter les tests et publier uniquement une APK autonome GitHub Release.
+
+## Ordre OMEGA 0.4.5 — 6 novembre 2026
+Retour utilisateur : préférer le tactile au lancement, commandes apparemment inversées ; ajouter dans les options le calibrage tactile, un bouton de bascule tactile/inclinaison, inversions X et Y distinctes. Distribuer parfois des bonus de cœurs supplémentaires. Préserver les versions précédentes ; valider les tests et publier uniquement l'APK.

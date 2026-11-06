@@ -139,3 +139,10 @@ Licences CC0 : https://opengameart.org/content/space-echo et https://opengameart
 L'APK Android lit la gravité via les capteurs natifs, calibre la position neutre au lancement de JOUER, puis pilote le vaisseau en paysage. Une **zone morte** et un filtre limitent les tremblements. Le bouton **🎮 Inclinaison / ✋ Tactile** commute le mode ; dans **🌌 Univers**, régler la sensibilité, inverser X/Y ou cliquer **⌖ Calibrer**. Le doigt garde toujours la priorité et les flèches/clavier restent utilisables. Si aucun capteur n'est détecté, les commandes tactiles/clavier restent opérationnelles. Le tir est automatique quand l'inclinaison est active ; missiles au bouton ou au deuxième doigt.
 
 Les bonus ont cinq fonctions (tir, missile, cœur, bouclier, protection) et **quatre formes animables par fonction** : diamant, hexagone, étoile et orbite ; leurs pixels visibles génèrent leurs masques binaires exacts. Le fond de l'écran d'accueil est `assets/branding/h-rush-splash-16x9.webp` en paysage (9:16 en portrait), et l'icône native utilise `assets/branding/h-rush-icon-1024.png`. Toutes ces ressources sont emballées dans l'APK ; aucune permission Internet. **Aucune génération AAB** jusqu'à décision future.
+
+## OMEGA 0.4.5 — tactile par défaut, commandes et cœurs supplémentaires
+- Lancement **tactile** même si un ancien paramètre 0.4.4 avait activé l'inclinaison. Bouton rapide `✋ Tactile / 🎮 Inclinaison`, choix aussi dans 🌌 Univers.
+- Les inversions **X** et **Y** sont indépendantes et s'appliquent au toucher comme à l'inclinaison.
+- Calibrage tactile par un toucher à sa position naturelle ; les décalages X/Y sont réglables et sauvegardés localement, réinitialisables. Le vaisseau reste à droite du doigt et le deuxième doigt lance le missile.
+- Nouveau bonus rare **♥+** (3 % des bonus aléatoires) : augmente le plafond des cœurs de la partie de 5 à 8 au maximum. Le soin habituel reste disponible. 6 catégories × 4 silhouettes = 24 variantes.
+- APK Android autonome uniquement, avec branding 16:9 et musiques Djipie conservés ; aucun AAB.

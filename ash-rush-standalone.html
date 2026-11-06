@@ -138,6 +138,16 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 .tilt-settings label{font-size:12px;display:inline-flex;align-items:center;gap:4px}
 #tiltSensitivity{width:96px;accent-color:#6eecff}#tiltStatus{width:100%;font-size:11px;color:#acf0d3}
 
+/* 0.4.5: larger contrast, accessible touch/tilt options on short landscape screens. */
+.control-subsection{display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;padding:7px 9px;
+ background:#0d2449;border-radius:9px;border:1px solid #2a648b}
+.control-subsection strong{width:100%;font-size:12px;color:#f5f9ff}
+.control-subsection label{display:flex;align-items:center;gap:4px;color:#c3e9fc}
+.control-subsection small{flex-basis:100%;color:#a7dff0}
+#controlMode{font-weight:800;padding:7px 10px;border-color:#67e0ff}
+#touchOffsetX,#touchOffsetY{width:105px;accent-color:#71f6d0}
+@media(orientation:landscape) and (max-height:420px){.control-subsection{padding:5px;gap:5px}.tilt-settings{gap:6px}}
+
 </style>
   
 </head>
@@ -156,13 +166,13 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.4</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.5</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
-            <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE À L’INCLINAISON</div>
+            <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE TACTILE</div>
             <button id="welcomeStart" class="action-primary">🚀 JOUER</button>
-            <p>Tiens le téléphone à l’angle souhaité puis appuie sur JOUER pour calibrer. Tactile toujours disponible.</p>
+            <p>Pilotage tactile au départ. Choisis Inclinaison ou inverse X / Y dans 🌌 Univers pour adapter les commandes.</p>
           </div>
         </section>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
@@ -178,7 +188,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="true" title="Activer ou couper le pilotage à l’inclinaison">🎮 Inclinaison</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
@@ -191,12 +201,22 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p>Graine unique : <code id="seedLabel"></code></p>
         <p>Famille actuelle : <strong id="worldLabel"></strong> · Record : <strong id="recordLabel"></strong></p>
         <p>Les cratères et découvertes sont conservés sur cet appareil. Exporte ton univers pour le transférer.</p>
-        <fieldset class="tilt-settings"><legend>🎮 Pilotage à l’inclinaison</legend>
-          <button id="tiltCalibrate">⌖ Calibrer la position neutre</button>
-          <label>Sensibilité <input id="tiltSensitivity" type="range" min="40" max="180" value="100" step="10"></label>
-          <label><input id="tiltInvertX" type="checkbox"> Inverser X</label>
-          <label><input id="tiltInvertY" type="checkbox"> Inverser Y</label>
-          <div id="tiltStatus" role="status">En attente du capteur</div>
+        <fieldset class="tilt-settings"><legend>✋🎮 Commandes et calibrage</legend>
+          <label for="controlMode">Mode <select id="controlMode" aria-label="Mode de pilotage"><option value="touch">✋ Tactile</option><option value="tilt">🎮 Inclinaison</option></select></label>
+          <label><input id="tiltInvertX" type="checkbox"> Inverser X ↔</label>
+          <label><input id="tiltInvertY" type="checkbox"> Inverser Y ↕</label>
+          <div class="control-subsection"><strong>✋ Calibrer le tactile</strong>
+            <button id="touchCalibrate">⌖ Calibrer au prochain toucher</button>
+            <button id="touchReset">↺ Réinitialiser</button>
+            <label>Décalage X <input id="touchOffsetX" type="range" min="88" max="220" value="88" step="4"></label>
+            <label>Décalage Y <input id="touchOffsetY" type="range" min="-90" max="90" value="0" step="5"></label>
+            <small id="touchStatus" role="status">Calibrage standard</small>
+          </div>
+          <div class="control-subsection"><strong>🎮 Inclinaison</strong>
+            <button id="tiltCalibrate">⌖ Calibrer le point neutre</button>
+            <label>Sensibilité <input id="tiltSensitivity" type="range" min="40" max="180" value="100" step="10"></label>
+            <div id="tiltStatus" role="status">En attente du capteur</div>
+          </div>
         </fieldset>
         <div class="omega-buttons"><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
         <input id="omegaImportFile" type="file" accept="application/json,.json" hidden aria-label="Importer une sauvegarde OMEGA">
@@ -205,11 +225,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> incliner après calibration, ou poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.4 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.5 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -1271,16 +1291,47 @@ function createMusicEngine(AudioCtor = (typeof Audio !== 'undefined' ? Audio : n
     get requested(){return requested;},get enabled(){return enabled;}};
 }
 
-/** Position du vaisseau à droite du doigt, en coordonnées logiques. */
-function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worldHeight = 540) {
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  // 88px de séparation horizontale, dont 74px de vaisseau + une petite marge.
-  // Le pilote touche plutôt la partie gauche de l'écran : le vaisseau reste devant son doigt.
-  const clearance = Math.max(88, shipWidth + 14);
+/** Touch aiming and grip calibration. Coordinates stay in the same logical XY plane as the AND masks. */
+const TOUCH_KEY = 'ashrush-touch-calibration-v1';
+const DEFAULT_TOUCH_X = 88;
+const DEFAULT_TOUCH_Y = 0;
+const clampTouch = (v,a,b) => Math.min(b,Math.max(a,v));
+
+/** An inverted axis mirrors the physical finger about the play field, before applying the ship clearance. */
+function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worldHeight = 540, options = {}) {
+  const offsetX = Number.isFinite(options.offsetX) ? clampTouch(options.offsetX,88,220) : DEFAULT_TOUCH_X;
+  const offsetY = Number.isFinite(options.offsetY) ? clampTouch(options.offsetY,-90,90) : DEFAULT_TOUCH_Y;
+  const px = options.invertX ? worldWidth-point.x : point.x;
+  const py = options.invertY ? worldHeight-point.y : point.y;
+  const clearance = Math.max(offsetX,shipWidth+14);
   return {
-    x: clamp(point.x + clearance, 10, worldWidth - shipWidth - 15),
-    y: clamp(point.y - shipHeight * 0.5, 35, worldHeight - shipHeight - 15),
+    x: clampTouch(px+clearance,10,worldWidth-shipWidth-15),
+    y: clampTouch(py-shipHeight*.5+offsetY,35,worldHeight-shipHeight-15)
   };
+}
+
+class TouchCalibration {
+  constructor(storage = null) {
+    this.storage=storage;
+    let saved={};
+    try { saved=JSON.parse(storage?.getItem(TOUCH_KEY)||'{}')||{}; } catch { /* keep usable defaults */ }
+    this.offsetX=Number.isFinite(saved.offsetX)?clampTouch(saved.offsetX,88,220):DEFAULT_TOUCH_X;
+    this.offsetY=Number.isFinite(saved.offsetY)?clampTouch(saved.offsetY,-90,90):DEFAULT_TOUCH_Y;
+  }
+  save() {try {this.storage?.setItem(TOUCH_KEY,JSON.stringify({offsetX:this.offsetX,offsetY:this.offsetY}));} catch {} }
+  setOffsets(x,y){this.offsetX=clampTouch(Number(x)||DEFAULT_TOUCH_X,88,220);this.offsetY=clampTouch(Number(y)||0,-90,90);this.save();}
+  reset(){this.setOffsets(DEFAULT_TOUCH_X,DEFAULT_TOUCH_Y);}
+  /** One tap at the natural thumb position targets a comfortable place ahead and centre-screen. */
+  calibrate(point,width=960,height=540,shipWidth=74,shipHeight=46,options={}) {
+    const px=options.invertX?width-point.x:point.x;
+    const py=options.invertY?height-point.y:point.y;
+    if(!Number.isFinite(px)||!Number.isFinite(py))return false;
+    this.setOffsets(clampTouch(width*.42-px,88,220),clampTouch(height*.5-py+shipHeight*.5,-90,90));
+    return true;
+  }
+  target(point,shipWidth,shipHeight,width=960,height=540,options={}) {
+    return touchTarget(point,shipWidth,shipHeight,width,height,{...options,offsetX:this.offsetX,offsetY:this.offsetY});
+  }
 }
 
 /** Enemy navigation against the actual terrain 2D AND masks, never a graphical approximation.
@@ -1368,30 +1419,43 @@ function advanceEnemyOnTerrain(enemy,terrain,dx,dy,opts={}) {
  * Pure state transitions, independent of rendering and Fab's AND collision engine.
  */
 const MAX_HEARTS = 5;
+const EXTRA_HEARTS_CAP = 8;
 const PV_PER_HEART = 4;
 
 function initialHealth() { return { hp: MAX_HEARTS, pv: PV_PER_HEART }; }
 
 function applyHealthDamage(state, kind = 'hit') {
   const hp = state.hp, pv = state.pv;
-  if (!Number.isInteger(hp) || hp < 0 || hp > MAX_HEARTS ||
+  const maximum = state.maxHearts ?? MAX_HEARTS;
+  const extra = state.maxHearts === undefined ? {} : {maxHearts:maximum};
+  if (!Number.isInteger(maximum) || maximum < MAX_HEARTS || maximum > EXTRA_HEARTS_CAP ||
+      !Number.isInteger(hp) || hp < 0 || hp > maximum ||
       !Number.isInteger(pv) || pv < 0 || pv > PV_PER_HEART ||
       (hp === 0 && pv !== 0) || (hp > 0 && pv === 0)) throw RangeError('Invalid hull health');
   if (kind !== 'hit' && kind !== 'wall') throw RangeError('Invalid damage type');
-  if (hp === 0) return { hp: 0, pv: 0 };
+  if (hp === 0) return { hp: 0, pv: 0, ...extra };
   if (kind === 'wall') {
     const hearts = hp - 1;
-    return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0 };
+    return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0, ...extra };
   }
-  if (pv > 1) return { hp, pv: pv - 1 };
+  if (pv > 1) return { hp, pv: pv - 1, ...extra };
   const hearts = hp - 1;
-  return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0 };
+  return { hp: hearts, pv: hearts > 0 ? PV_PER_HEART : 0, ...extra };
 }
 
 /** Healing pickups restore one heart and refill the active heart's PV. */
 function restoreHeart(state) {
   if (state.hp <= 0) return initialHealth();
-  return { hp: Math.min(MAX_HEARTS, state.hp + 1), pv: PV_PER_HEART };
+  const maximum=state.maxHearts??MAX_HEARTS;
+  return { hp: Math.min(maximum,state.hp+1), pv: PV_PER_HEART, ...(state.maxHearts===undefined?{}:{maxHearts:maximum}) };
+}
+
+/** Rare extra-heart pickups permanently raise the heart ceiling for the current run, up to eight. */
+function grantExtraHeart(state) {
+  const maximum=state.maxHearts??MAX_HEARTS;
+  if(state.hp<=0) return initialHealth();
+  if(maximum<EXTRA_HEARTS_CAP) return {hp:Math.min(maximum+1,state.hp+1),pv:PV_PER_HEART,maxHearts:maximum+1};
+  return {hp:Math.min(maximum,state.hp+1),pv:PV_PER_HEART,maxHearts:maximum};
 }
 
 /** Stable native Android gravity projection with a calibrated touch-first fallback. */
@@ -1417,12 +1481,14 @@ class TiltController {
     this.storage=storage;this.now=now;
     let saved={};
     try { saved=JSON.parse(storage?.getItem(TILT_KEY) || '{}') || {}; } catch { /* unusable settings */ }
-    this.enabled=saved.enabled!==false;
+    // New control selection defaults to touch even when migrating a 0.4.4 tilt-only setting.
+    this.mode=saved.mode==='tilt'?'tilt':'touch';
     this.sensitivity=Number.isFinite(saved.sensitivity)?Math.min(1.8,Math.max(.4,saved.sensitivity)):1;
     this.invertX=!!saved.invertX;this.invertY=!!saved.invertY;
     this.current=null;this.neutral=null;this.lastAt=0;this.awaitingCalibration=true;
   }
-  save() {try {this.storage?.setItem(TILT_KEY,JSON.stringify({enabled:this.enabled,sensitivity:this.sensitivity,invertX:this.invertX,invertY:this.invertY}));} catch { /* touch remains available */ }}
+  get enabled(){return this.mode==='tilt';}
+  save() {try {this.storage?.setItem(TILT_KEY,JSON.stringify({mode:this.mode,sensitivity:this.sensitivity,invertX:this.invertX,invertY:this.invertY}));} catch { /* touch remains available */ }}
   accept(x,y,rotation=0) {
     const v=screenGravity(x,y,rotation);
     if(!v)return false;
@@ -1432,7 +1498,8 @@ class TiltController {
     return true;
   }
   calibrate(){if(this.current){this.neutral={...this.current};this.awaitingCalibration=false;return true;}this.awaitingCalibration=true;return false;}
-  setEnabled(value){this.enabled=!!value;if(this.enabled)this.calibrate();this.save();}
+  setMode(mode){if(mode!=='touch'&&mode!=='tilt')throw RangeError('Unknown control mode');this.mode=mode;if(this.enabled)this.calibrate();this.save();}
+  setEnabled(value){this.setMode(value?'tilt':'touch');}
   setSensitivity(value){this.sensitivity=Math.max(.4,Math.min(1.8,Number(value)||1));this.save();}
   setInversion(x,y){this.invertX=!!x;this.invertY=!!y;this.save();}
   getVector(){
@@ -1444,10 +1511,10 @@ class TiltController {
 }
 
 /** Twenty distinct collectible silhouettes, rasterized and collision-tested from identical alpha. */
-const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection']);
+const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart']);
 const BONUS_VARIANTS = 4;
-const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff']});
-const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+'};
+const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a']});
+const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+'};
 function bonusVariant(seed,region,index,type) {
   const input=String(seed)+':'+String(region)+':'+String(index)+':'+type;
   let h=2166136261;
@@ -1487,6 +1554,13 @@ function createBonusSprites() {
   return catalog;
 }
 
+/** Extra hearts are genuinely rare (3% of random drops), not one sixth of all drops. */
+function pickBonusType(random=Math.random) {
+  const r=Math.max(0,Math.min(0.999999,Number(random())||0));
+  if(r<.03)return 'extraHeart';
+  return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -1494,6 +1568,8 @@ const grid = new SpatialGrid(112);
 const storage = (() => {try {return globalThis.localStorage;} catch {return null;}})();
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
+const touch = new TouchCalibration(storage);
+let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
 const terrain = new OmegaTerrain(universe);
@@ -1628,7 +1704,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;
+  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -1773,7 +1849,7 @@ function spawnBonus(type,x,y,vx=-90) {
   powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
 }
 function dropBonus(enemy) {
-  const type=BONUS_TYPES[Math.floor(Math.random()*BONUS_TYPES.length)];
+  const type=pickBonusType();
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
@@ -1844,8 +1920,7 @@ function advanceProjectile(b, dt, targets, friendly) {
           if (removed && friendly) {
             reward(Math.max(1, Math.round(removed / 25)));
             if (universe.scarCount % 13 === 0) {
-              const kinds=['laser','missile','heal','shield','protection'];
-              spawnBonus(kinds[Math.floor(Math.random()*kinds.length)],point.screenX,point.y,-72);
+              spawnBonus(pickBonusType(),point.screenX,point.y,-72);
             }
           }
           particlesAt(point.screenX, point.y, 'motor', b.kind === 'missile' ? 31 : 12);
@@ -1895,7 +1970,7 @@ function update(dt) {
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
-    const target = touchTarget(pointer, player.sprite.width, player.sprite.height, W, H);
+    const target = touch.target(pointer, player.sprite.width, player.sprite.height, W, H, {invertX:tilt.invertX,invertY:tilt.invertY});
     player.x+=(target.x-player.x)*Math.min(1,dt*16);
     player.y+=(target.y-player.y)*Math.min(1,dt*16);
   } else {
@@ -1990,6 +2065,7 @@ function update(dt) {
       if(item.type==='laser') {player.fireLevel=Math.min(3,player.fireLevel+1);msg('TIR MULTIPLE !',1.6);}
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
       else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
+      else if(item.type==='extraHeart'){const oldMax=player.maxHearts??5;Object.assign(player,grantExtraHeart(player));msg(player.maxHearts>oldMax?'💝 CŒUR EXTRA ! '+player.maxHearts+' CŒURS MAX':'💝 CŒUR RESTAURÉ !',2.3);}
       else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
@@ -2026,7 +2102,7 @@ function render() {
   drawBackground();
   terrain.draw(ctx, W);
   for(const item of powerups){
-    // 20 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
+    // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
@@ -2077,11 +2153,15 @@ function frame(now){
 function updateTiltUi() {
   const active=tilt.getVector();
   $('#tiltToggle').textContent=tilt.enabled?'🎮 Inclinaison':'✋ Tactile';
+  $('#controlMode').value=tilt.mode;
   $('#tiltToggle').setAttribute('aria-pressed',String(tilt.enabled));
   $('#tiltStatus').textContent=active.available?(tilt.enabled?'Capteur actif · calibrage disponible':'Capteur détecté · tactile actif'):'Capteur indisponible : pilotage tactile / clavier';
   $('#tiltSensitivity').value=String(Math.round(tilt.sensitivity*100));
   $('#tiltInvertX').checked=tilt.invertX;
   $('#tiltInvertY').checked=tilt.invertY;
+  $('#touchOffsetX').value=String(Math.round(touch.offsetX));
+  $('#touchOffsetY').value=String(Math.round(touch.offsetY));
+  $('#touchStatus').textContent='Décalage X : '+Math.round(touch.offsetX)+' · Y : '+Math.round(touch.offsetY)+' (en pixels de jeu)';
 }
 window.addEventListener('ashrush:gravity',event=>{
   const d=event.detail||{};
@@ -2089,6 +2169,7 @@ window.addEventListener('ashrush:gravity',event=>{
   if(Math.random()<.05)updateTiltUi();
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
+$('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -2098,9 +2179,17 @@ $('#tiltSensitivity').addEventListener('input',e=>{
 });
 $('#tiltInvertX').addEventListener('change',e=>tilt.setInversion(e.target.checked,tilt.invertY));
 $('#tiltInvertY').addEventListener('change',e=>tilt.setInversion(tilt.invertX,e.target.checked));
+$('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target.value),touch.offsetY);updateTiltUi();});
+$('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
+$('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
+$('#touchCalibrate').addEventListener('click',()=>{
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  $('#omegaPanel').hidden=true;paused=false;
+  msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
+});
 $('#welcomeStart').addEventListener('click',()=>{
   welcoming=false;$('#welcomeScreen').hidden=true;paused=false;
-  tilt.calibrate();updateTiltUi();sound.unlock();music.unlock();
+  if(tilt.enabled)tilt.calibrate();updateTiltUi();sound.unlock();music.unlock();
   $('#pause').textContent='⏸ Pause';
 });
 function pointFromEvent(e){
@@ -2108,6 +2197,11 @@ function pointFromEvent(e){
   return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
 }
 canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();music.unlock();
+  if(calibratingTouch){
+    calibratingTouch=false;const point=pointFromEvent(e);
+    touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
+    updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
+  }
   if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
   mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
 canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});

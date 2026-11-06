@@ -127,3 +127,13 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 .tilt-settings legend{color:#b6edff;font-weight:700;font-size:12px}
 .tilt-settings label{font-size:12px;display:inline-flex;align-items:center;gap:4px}
 #tiltSensitivity{width:96px;accent-color:#6eecff}#tiltStatus{width:100%;font-size:11px;color:#acf0d3}
+
+/* 0.4.5: larger contrast, accessible touch/tilt options on short landscape screens. */
+.control-subsection{display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;padding:7px 9px;
+ background:#0d2449;border-radius:9px;border:1px solid #2a648b}
+.control-subsection strong{width:100%;font-size:12px;color:#f5f9ff}
+.control-subsection label{display:flex;align-items:center;gap:4px;color:#c3e9fc}
+.control-subsection small{flex-basis:100%;color:#a7dff0}
+#controlMode{font-weight:800;padding:7px 10px;border-color:#67e0ff}
+#touchOffsetX,#touchOffsetY{width:105px;accent-color:#71f6d0}
+@media(orientation:landscape) and (max-height:420px){.control-subsection{padding:5px;gap:5px}.tilt-settings{gap:6px}}

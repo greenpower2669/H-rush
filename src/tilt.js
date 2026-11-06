@@ -21,12 +21,14 @@ export class TiltController {
     this.storage=storage;this.now=now;
     let saved={};
     try { saved=JSON.parse(storage?.getItem(TILT_KEY) || '{}') || {}; } catch { /* unusable settings */ }
-    this.enabled=saved.enabled!==false;
+    // New control selection defaults to touch even when migrating a 0.4.4 tilt-only setting.
+    this.mode=saved.mode==='tilt'?'tilt':'touch';
     this.sensitivity=Number.isFinite(saved.sensitivity)?Math.min(1.8,Math.max(.4,saved.sensitivity)):1;
     this.invertX=!!saved.invertX;this.invertY=!!saved.invertY;
     this.current=null;this.neutral=null;this.lastAt=0;this.awaitingCalibration=true;
   }
-  save() {try {this.storage?.setItem(TILT_KEY,JSON.stringify({enabled:this.enabled,sensitivity:this.sensitivity,invertX:this.invertX,invertY:this.invertY}));} catch { /* touch remains available */ }}
+  get enabled(){return this.mode==='tilt';}
+  save() {try {this.storage?.setItem(TILT_KEY,JSON.stringify({mode:this.mode,sensitivity:this.sensitivity,invertX:this.invertX,invertY:this.invertY}));} catch { /* touch remains available */ }}
   accept(x,y,rotation=0) {
     const v=screenGravity(x,y,rotation);
     if(!v)return false;
@@ -36,7 +38,8 @@ export class TiltController {
     return true;
   }
   calibrate(){if(this.current){this.neutral={...this.current};this.awaitingCalibration=false;return true;}this.awaitingCalibration=true;return false;}
-  setEnabled(value){this.enabled=!!value;if(this.enabled)this.calibrate();this.save();}
+  setMode(mode){if(mode!=='touch'&&mode!=='tilt')throw RangeError('Unknown control mode');this.mode=mode;if(this.enabled)this.calibrate();this.save();}
+  setEnabled(value){this.setMode(value?'tilt':'touch');}
   setSensitivity(value){this.sensitivity=Math.max(.4,Math.min(1.8,Number(value)||1));this.save();}
   setInversion(x,y){this.invertX=!!x;this.invertY=!!y;this.save();}
   getVector(){

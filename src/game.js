@@ -2,10 +2,10 @@ import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from '.
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
-import { initialHealth, applyHealthDamage, restoreHeart, PV_PER_HEART } from './health.js';
-import { touchTarget } from './input.js';
+import { initialHealth, applyHealthDamage, restoreHeart, grantExtraHeart, PV_PER_HEART } from './health.js';
+import { TouchCalibration } from './input.js';
 import { TiltController, screenGravity } from './tilt.js';
-import { createBonusSprites, BONUS_TYPES, bonusVariant } from './bonuses.js';
+import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
 import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
 import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
@@ -21,6 +21,8 @@ const grid = new SpatialGrid(112);
 const storage = (() => {try {return globalThis.localStorage;} catch {return null;}})();
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
+const touch = new TouchCalibration(storage);
+let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
 const terrain = new OmegaTerrain(universe);
@@ -155,7 +157,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;
+  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -300,7 +302,7 @@ function spawnBonus(type,x,y,vx=-90) {
   powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
 }
 function dropBonus(enemy) {
-  const type=BONUS_TYPES[Math.floor(Math.random()*BONUS_TYPES.length)];
+  const type=pickBonusType();
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
@@ -371,8 +373,7 @@ function advanceProjectile(b, dt, targets, friendly) {
           if (removed && friendly) {
             reward(Math.max(1, Math.round(removed / 25)));
             if (universe.scarCount % 13 === 0) {
-              const kinds=['laser','missile','heal','shield','protection'];
-              spawnBonus(kinds[Math.floor(Math.random()*kinds.length)],point.screenX,point.y,-72);
+              spawnBonus(pickBonusType(),point.screenX,point.y,-72);
             }
           }
           particlesAt(point.screenX, point.y, 'motor', b.kind === 'missile' ? 31 : 12);
@@ -422,7 +423,7 @@ function update(dt) {
   const dx=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')||keys.has('q')||keys.has('Q')?1:0);
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
-    const target = touchTarget(pointer, player.sprite.width, player.sprite.height, W, H);
+    const target = touch.target(pointer, player.sprite.width, player.sprite.height, W, H, {invertX:tilt.invertX,invertY:tilt.invertY});
     player.x+=(target.x-player.x)*Math.min(1,dt*16);
     player.y+=(target.y-player.y)*Math.min(1,dt*16);
   } else {
@@ -517,6 +518,7 @@ function update(dt) {
       if(item.type==='laser') {player.fireLevel=Math.min(3,player.fireLevel+1);msg('TIR MULTIPLE !',1.6);}
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
       else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
+      else if(item.type==='extraHeart'){const oldMax=player.maxHearts??5;Object.assign(player,grantExtraHeart(player));msg(player.maxHearts>oldMax?'💝 CŒUR EXTRA ! '+player.maxHearts+' CŒURS MAX':'💝 CŒUR RESTAURÉ !',2.3);}
       else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
@@ -553,7 +555,7 @@ function render() {
   drawBackground();
   terrain.draw(ctx, W);
   for(const item of powerups){
-    // 20 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
+    // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
@@ -604,11 +606,15 @@ function frame(now){
 function updateTiltUi() {
   const active=tilt.getVector();
   $('#tiltToggle').textContent=tilt.enabled?'🎮 Inclinaison':'✋ Tactile';
+  $('#controlMode').value=tilt.mode;
   $('#tiltToggle').setAttribute('aria-pressed',String(tilt.enabled));
   $('#tiltStatus').textContent=active.available?(tilt.enabled?'Capteur actif · calibrage disponible':'Capteur détecté · tactile actif'):'Capteur indisponible : pilotage tactile / clavier';
   $('#tiltSensitivity').value=String(Math.round(tilt.sensitivity*100));
   $('#tiltInvertX').checked=tilt.invertX;
   $('#tiltInvertY').checked=tilt.invertY;
+  $('#touchOffsetX').value=String(Math.round(touch.offsetX));
+  $('#touchOffsetY').value=String(Math.round(touch.offsetY));
+  $('#touchStatus').textContent='Décalage X : '+Math.round(touch.offsetX)+' · Y : '+Math.round(touch.offsetY)+' (en pixels de jeu)';
 }
 window.addEventListener('ashrush:gravity',event=>{
   const d=event.detail||{};
@@ -616,6 +622,7 @@ window.addEventListener('ashrush:gravity',event=>{
   if(Math.random()<.05)updateTiltUi();
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
+$('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -625,9 +632,17 @@ $('#tiltSensitivity').addEventListener('input',e=>{
 });
 $('#tiltInvertX').addEventListener('change',e=>tilt.setInversion(e.target.checked,tilt.invertY));
 $('#tiltInvertY').addEventListener('change',e=>tilt.setInversion(tilt.invertX,e.target.checked));
+$('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target.value),touch.offsetY);updateTiltUi();});
+$('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
+$('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
+$('#touchCalibrate').addEventListener('click',()=>{
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  $('#omegaPanel').hidden=true;paused=false;
+  msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
+});
 $('#welcomeStart').addEventListener('click',()=>{
   welcoming=false;$('#welcomeScreen').hidden=true;paused=false;
-  tilt.calibrate();updateTiltUi();sound.unlock();music.unlock();
+  if(tilt.enabled)tilt.calibrate();updateTiltUi();sound.unlock();music.unlock();
   $('#pause').textContent='⏸ Pause';
 });
 function pointFromEvent(e){
@@ -635,6 +650,11 @@ function pointFromEvent(e){
   return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
 }
 canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();music.unlock();
+  if(calibratingTouch){
+    calibratingTouch=false;const point=pointFromEvent(e);
+    touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
+    updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
+  }
   if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
   mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
 canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});

@@ -71,6 +71,7 @@ jobs:
           assert 'class TiltController' in html
           assert 'function createBonusSprites' in html
           assert 'id="welcomeScreen"' in html and 'id="tiltToggle"' in html
+          assert 'id="controlMode"' in html and 'id="touchCalibrate"' in html
           assert 'function safeEnemySpawn' in html
           assert 'function insertHallEntry' in html
           assert 'id="endReplay"' in html
@@ -113,11 +114,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.4-tilt-branding-debug.apk
+          APK=AshRush-Omega-v0.4.5-controls-hearts-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegatilt' versionCode='44' versionName='0.4.4'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegacontrols' versionCode='45' versionName='0.4.5'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -129,15 +130,17 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.4-tilt-branding-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.5-controls-hearts-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
             assert b'function finishRun' in html and b'id="gameOverPanel"' in html
             assert b'function adaptSpecies' in html and b'function insertHallEntry' in html
             assert b'function sceneMusic' in html and b'function createMusicEngine' in html
-            assert b'class TiltController' in html and b'function createBonusSprites' in html
+            assert b'class TiltController' in html and b'class TouchCalibration' in html
+            assert b'function createBonusSprites' in html and b'function grantExtraHeart' in html
             assert b'id="welcomeStart"' in html and b'id="tiltCalibrate"' in html
+            assert b'id="controlMode"' in html and b'id="touchCalibrate"' in html
             assert len(apk.read('assets/assets/branding/h-rush-splash-16x9.webp')) > 200000
             assert len(apk.read('assets/assets/branding/h-rush-icon-1024.png')) > 1000000
             assert b'function applyHealthDamage' in html and b'PV_PER_HEART = 4' in html
@@ -154,14 +157,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.4-tilt-branding-preview
-          APK=AshRush-Omega-v0.4.4-tilt-branding-debug.apk
+          TAG=v0.4.5-controls-hearts-preview
+          APK=AshRush-Omega-v0.4.5-controls-hearts-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.4 - inclinaison, bonus et branding 16:9" \
-              --notes "OMEGA 0.4.4 : pilotage par capteur de gravité Android natif et projection paysage, filtrage, calibrage neutre, zone morte, sensibilité et inversion, tactile/keyboard toujours prioritaires. 20 bonus visuellement distincts (5 types x 4 formes) dont les vrais masques de collision dérivent de l'alpha affiché. Accueil 16:9 et icône native extraits des assets/branding de Fab, assets embarqués hors ligne. Cœurs/PV, 11 obstacles mobiles, ennemis et boss soumis au relief AND, 4 musiques CC0 Djipie et sons SpaceFortress, Hall of Fame et univers personnel persistant. APK debug test indépendant, pas de AAB. Configurations et performances du capteur à valider sur Samsung." \
+              --title "Ash Rush OMEGA 0.4.5 - tactile prioritaire, axes et coeurs bonus" \
+              --notes "OMEGA 0.4.5 : tactile selectionne par defaut, bascule tactile/inclinaison, inversion X/Y independante, calibrage tactile par toucher et decalages persistants, inversion des axes compatible inclinaison. 24 bonus visuellement distincts (6 types x 4 formes), coeur extra rare (plafond 8 coeurs) dont les vrais masques de collision dérivent de l'alpha affiché. Accueil 16:9 et icône native extraits des assets/branding de Fab, assets embarqués hors ligne. Cœurs/PV, 11 obstacles mobiles, ennemis et boss soumis au relief AND, 4 musiques CC0 Djipie et sons SpaceFortress, Hall of Fame et univers personnel persistant. APK debug test indépendant, pas de AAB. Configurations et performances du capteur à valider sur Samsung." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

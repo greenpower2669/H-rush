@@ -93,3 +93,8 @@
 
 ## OMEGA 0.4.4 — test ciblé en préparation
 Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, zone morte, calibration, persistance des préférences, TTL capteur, variantes de bonus. Les images d'accueil et l'icône native doivent être vérifiées directement dans l'APK par GitHub Actions. La réponse sensorielle en conditions réelles reste à tester sur téléphone.
+
+## 2026-11-06 — OMEGA 0.4.5
+- Réponse au retour : inclinaison parfois inversée, demande tactile initial, calibrage tactile, interrupteurs d'axes X/Y, cœurs supplémentaires occasionnels.
+- Tests automatisés Node et HTML embarqué : vérifier l'exécution CI sur le commit final avant de déclarer l'APK publié.
+- Contrôle réel du capteur et de la qualité de calibration sur le Samsung restant à effectuer.
