@@ -25,7 +25,7 @@ const input = readFileSync(resolve(root, 'src/input.js'), 'utf8').replace(/\bexp
 const health = readFileSync(resolve(root, 'src/health.js'), 'utf8').replace(/\bexport\s+(?=(?:async\s+function|const|function|class)\b)/g, '');
 const tilt = readFileSync(resolve(root, 'src/tilt.js'), 'utf8').replace(/\bexport\s+(?=(?:async\s+function|const|function|class)\b)/g, '');
 const bonuses = readFileSync(resolve(root, 'src/bonuses.js'), 'utf8').replace(/^import\s+[^\n]+;\s*/gm, '').replace(/\bexport\s+(?=(?:async\s+function|const|function|class)\b)/g, '');
-const difficulty = readFileSync(resolve(root, 'src/difficulty.js'), 'utf8').replace(/^import\\s+[^\\n]+;\\s*/gm, '').replace(/\\bexport\\s+(?=(?:async\\s+function|const|function|class)\\b)/g, '');
+const difficulty = readFileSync(resolve(root, 'src/difficulty.js'), 'utf8').replace(/^import\s+[^\n]+;\s*/gm, '').replace(/\bexport\s+(?=(?:async\s+function|const|function|class)\b)/g, '');
 const game = readFileSync(resolve(root, 'src/game.js'), 'utf8')
   .replace(/^import\s+[^\n]+;\s*/gm, '');
 const standalone = html
