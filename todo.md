@@ -260,6 +260,6 @@
 - [x] Réduire les rayons de brûlure à mesure que la proportion effacée approche du repère de 20% ; rendre les bords plus jaunes/blancs et lumineux, uniquement sur alpha existant.
 - [x] Conserver les PV et dégâts de combat au-delà du plafond ; éviter le déclenchement de destruction instantanée des robots à partir de leur masque.
 - [x] Ajouter tests longue durée avec 55+ impacts, contrôle des masques et de toutes les frames animées.
-- [ ] Vérifier CI, tests, reconstruction exacte HTML, APK autonome signé, SHA256 et Release directe 0.5.2.
+- [x] GitHub Actions `42228246873` : **104/104 tests**, standalone HTML régénéré identique, Gradle APK Debug, package/version code 52, contrôle signature v2, ressources CC0, Release `v0.5.2-incandescence-15pct-preview` et lien APK direct vérifiés ; **13 979 311 octets**, SHA-256 `9cb2d417103666c274379c0eff6645075d210bd0793c69fe09a615032b8ba89c`.
 - [ ] Réglage visuel Samsung : équilibre entre petit trou et halo lumineux après ~10–30 tirs, FPS et atlas animé ; possibilité future de tester plafonds 5%, 10%, 15%.
 - [ ] Vérifier signature Debug d'installation et sauvegarde de l'univers avant désinstallation.
