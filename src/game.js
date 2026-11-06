@@ -19,6 +19,8 @@ import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './e
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
 import { resolveSecondFingerAim, noseWorldPoint, projectileOriginAtNose, vectorShotFromNose, steerSecondFingerShot } from './dual-aim.js';
+import { groundOrientation, anchoredAndPose, ballisticArc, groundTurretMuzzle,
+  isBallisticTurret, isDiggingWorm, digWormTerrain } from './ground-combat.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
 
@@ -115,6 +117,11 @@ const ships = {
   }),
   laser: sprite(24, 8, g => { ellipse(g, '#6cfff0', 12, 4, 11, 3); g.fillStyle='#fff';g.fillRect(7,3,15,2); }),
   hostileLaser: sprite(17, 9, g => { ellipse(g, '#ff4ca5', 8, 4, 8, 4); ellipse(g, '#fff2a4', 8, 4, 4, 2); }),
+  ballisticShell: sprite(13,13,g=>{
+    ellipse(g,'#e66736',6.5,6.5,6.1,6.1);
+    ellipse(g,'#ffd38a',6.5,6.5,3.9,3.9);
+    ellipse(g,'#ffffff',5.4,5.1,1.7,1.7);
+  }),
   missile: sprite(31, 12, g => {
     path(g,'#f3e0fa',[[2,4],[17,2],[23,0],[30,6],[23,11],[17,9],[2,8]]);
     path(g,'#ff9e50',[[3,2],[11,4],[11,8],[3,11]]);
@@ -163,7 +170,8 @@ function updateSpriteAnimations() {
     if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
     if(enemy.morph){
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        enemy.terrainAngle??0,enemy.gunAngle??0);
       switchDamagedFrame(enemy,animated);
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
@@ -446,6 +454,12 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
+  // Find a real AND-supported resting pose rather than trusting the uncarved
+  // mathematical terrainBounds surface.
+  if(anchor==='ground'||anchor==='ceiling'){
+    const supported=anchoredAndPose(terrain,s,position.x,position.y,anchor);
+    if(supported!==null)position.y=supported;
+  }
   const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
     species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
@@ -454,7 +468,8 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,chewClock:0,terrainAngle:0,gunAngle:0,groundClock:0,
+    supportY:null,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
