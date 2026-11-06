@@ -250,7 +250,7 @@
 - [x] Modéliser un tangage progressif proportionnel au déplacement horizontal (avance nez bas, recul nez haut) et les trajectoires laser/missile alignées sur le nez.
 - [x] Tourner la forme visible du vaisseau et des tirs avec le masque AND issu des mêmes pixels, sans redimensionnement de masque théorique approximatif.
 - [x] Ajouter panaches de propulseurs et poussière stratifiée près du vrai relief, avec limite RAM/entités, aucune poussière en espace profond.
-- [ ] Vérifier 0.5.1 avec tests Node + reconstruction autonome byte-à-byte, Gradle, signature et APK GitHub direct.
+- [x] GitHub Actions `42223944592` réussi : **99/99 tests**, HTML autonome reconstruit identique, musiques CC0, Gradle APK Debug, `apksigner` v2, `aapt` package/versionCode 51, ressources et SHA-256 ; Release `v0.5.1-sentinelles-hover-preview`, asset APK direct vérifié.
 - [ ] QA Samsung : assiette et sensations tactiles / capteur, tirs bien dans le prolongement du nez, collisions de la silhouette réellement pivotée, qualité nuages dans les 40 environnements, performances de longue partie et perception des robots.
 - [ ] Vérifier si la taille des robots, leur cadence et absence de mine correspondent à l'intention exacte de Fab ; ajustement sur retour de partie.
 - [ ] Tester installation / sauvegarde JSON lors d'une mise à jour Android signée Debug avec certificat variable.
