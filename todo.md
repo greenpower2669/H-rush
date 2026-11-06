@@ -327,3 +327,15 @@
 - [ ] QA Samsung en paysage : tap/double tap des deux doigts, pilotage pendant tir, mouvements vers et depuis l'ennemi, absence de double dépense de munitions, contrôles rapides, absence de faux missiles lors des glissés.
 - [ ] QA visuelle et performances : silhouettes reconnaissables (49 ennemis/16 boss), orientation, contraste, masques et cratères AND exacts, fluidité RAM/FPS et rendu de longues parties. Si le style procédural n'est toujours pas assez riche, planches artistiques HD à étudier avant une version finale.
 - [ ] Exporter l'univers JSON avant toute désinstallation, vérifier la compatibilité du certificat Debug sur appareil, faire valider la PR #12 avant toute fusion vers main. Aucun AAB demandé.
+
+## H-RUSH OMEGA 0.5.9 — stabilité WebView (6 novembre 2026)
+- [x] Examiner les sources 0.5.8 : aucune gestion native du renderer WebView disparu, caches de rotations de sprites blessés potentiellement coûteux et boucle de rendu sans diagnostic d'erreur.
+- [x] `onRenderProcessGone` native : diagnostic local, détachement/destruction de la WebView invalide, redémarrage unique puis écran de reprise manuelle si récidive en 90 secondes.
+- [x] Activer un mode graphique mémoire réduite après terminaison, sans changer la résolution logique des collisions AND.
+- [x] Catch sur `requestAnimationFrame`, panneau d'erreur lisible, diagnostic JS enregistré localement et bouton Diagnostic accessible depuis Univers.
+- [x] Marquage des copies de sprites blessés comme volatiles : 4 rotations en cache au lieu de 32, plus de recréation de raster si frame/bucket/tir inchangés.
+- [x] Tests statiques du mécanisme natif, diagnostic, garde-fous de caches ; HTML autonome synchronisé avec le code.
+- [ ] Valider GitHub Actions : tests, HTML inchangé après reconstruction, APK signé 0.5.9/code 59 et checksum ; n'annoncer une livraison qu'après publication réelle.
+- [ ] Essais Samsung : crash pendant combat long, nombreux adversaires blessés, pause/reprise, changement d'application, rotation, vérification des crashes et du mode graphique réduit, collecte éventuelle du diagnostic depuis Univers.
+- [ ] Mesurer FPS/RAM réels sur une session longue, distinguer arrêt de WebView, exception JS et arrêt système complet ; si les crashs persistent, collecter logcat Android et heure/circonstances.
+- [ ] Vérifier mise à jour APK/signature sans désinstallation ni perte de sauvegarde ; exporter l'univers JSON avant manipulation. Aucune fusion `main` et aucun AAB.
