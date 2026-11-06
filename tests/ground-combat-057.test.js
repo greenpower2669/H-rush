@@ -154,3 +154,10 @@ test('ballistic solution follows the target when its relative height or distance
    assert.ok(Math.abs(s.x+s.vx*s.flight-s.target.x)<.001);
  }
 });
+
+test('artillery remains live for a tank with a support-only ecological weapon role',()=>{
+ const game=src('src/game.js');
+ assert.ok(game.includes("enemy.species?.weapon!=='none'||isBallisticTurret(enemy.morph)"),
+   'tank turrets must still shoot a real ballistic shell when generic species is unarmed');
+ assert.ok(game.includes("enemyShots.push({kind:'shell'"));
+});
