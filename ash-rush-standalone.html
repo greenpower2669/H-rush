@@ -178,7 +178,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.10</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.11</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -250,11 +250,11 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; le premier contact du deuxième doigt lance également un missile ; maintenir puis glisser ce doigt pour viser librement, sans accrochage automatique. Une fois lancés, lasers et missiles continuent en ligne droite. L’<strong>autofocus</strong> (ciblage et guidage automatiques) est facultatif et désactivé par défaut dans 🌌 Univers → Commandes. Relâcher le deuxième doigt pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; poser le deuxième doigt active uniquement la visée, <strong>sans lancer de missile</strong> ; maintenir puis glisser ce doigt pour viser librement, sans accrochage automatique. Seul un double-tap rapide du premier ou du deuxième doigt lance un missile. Une fois lancés, lasers et missiles continuent en ligne droite. L’<strong>autofocus</strong> (ciblage et guidage automatiques) est facultatif et désactivé par défaut dans 🌌 Univers → Commandes. Relâcher le deuxième doigt pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.10 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.11 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -2192,8 +2192,8 @@ class TouchCalibration {
   }
 }
 
-/** OMEGA 0.5.8: two short taps by EITHER steering or targeting finger fire once.
- * Secondary single-touch fire remains immediate for backwards compatibility.
+/** OMEGA 0.5.11: two short taps by EITHER steering or targeting finger fire once.
+ * A single secondary touch exclusively sets the manual aiming pointer; no shot.
  * Pointer IDs are transient on Android; gestures pair by role, not pointerId.
  * All times are monotonic PointerEvent.timeStamp milliseconds.
  */
@@ -2206,7 +2206,7 @@ const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 class TouchMissileGestures{
   constructor(){this.reset();}
   reset(){this.active=new Map();this.previous={primary:null,secondary:null};}
-  /** Returns true ONLY for an immediate secondary-finger launch. */
+  /** Register a touch. Pointer-down NEVER fires a missile. */
   down(id,role,point,time){
     if(!validPoint(point)||!Number.isFinite(time)||this.active.has(id))return false;
     if(role!=='primary'&&role!=='secondary')return false;
@@ -2215,12 +2215,11 @@ class TouchMissileGestures{
       distance(previous.point,point)<=MAX_DOUBLE_TAP_DISTANCE;
     this.active.set(id,{role,start:{...point},last:{...point},time,paired,maxTravel:0});
     if(previous&&(!paired||time-previous.time>DOUBLE_TAP_WINDOW_MS))this.previous[role]=null;
-    // Legacy: first touch of the SECOND finger launches; the second touch of
-    // its double-tap pair is swallowed to avoid consuming two ammunition.
-    return role==='secondary'&&!paired;
+    // All launches happen on the second short tap RELEASE, in either role.
+    return false;
   }
   move(id,point){const a=this.active.get(id);if(a&&validPoint(point)){a.last={...point};a.maxTravel=Math.max(a.maxTravel,distance(a.start,point));}}
-  /** Returns true on the second completed PRIMARY tap; secondary was already fired. */
+  /** Returns true after the second completed tap of EITHER finger role. */
   up(id,point,time,cancelled=false){
     const a=this.active.get(id);if(!a)return false;
     this.active.delete(id);
@@ -2228,7 +2227,7 @@ class TouchMissileGestures{
     const quick=!cancelled&&Number.isFinite(time)&&time>=a.time&&
       time-a.time<=MAX_TAP_MS&&a.maxTravel<=MAX_TAP_TRAVEL&&distance(a.start,end)<=MAX_TAP_TRAVEL;
     if(!quick){this.previous[a.role]=null;return false;}
-    if(a.paired){this.previous[a.role]=null;return a.role==='primary';}
+    if(a.paired){this.previous[a.role]=null;return true;}
     this.previous[a.role]={point:{...end},time};
     return false;
   }
@@ -4298,7 +4297,7 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
       secondFingerAim={id:e.pointerId,start:point,current:point,
         target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
       canvas.setPointerCapture(e.pointerId);
-      if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
+      touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp); // aim only; first tap NEVER launches
     }
     e.preventDefault();return;
   }
@@ -4312,8 +4311,8 @@ canvas.addEventListener('pointermove',e=>{
   if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
-  // A short double tap of the steering finger launches without steering loss.
-  // Secondary single touch already launches; its second tap cannot spend ammo twice.
+  // A short double-tap (either finger) fires exactly once on the second release.
+  // A single secondary touch only changes aim, even when repositioned.
   const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
   if(fire)launchMissile();
   if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
