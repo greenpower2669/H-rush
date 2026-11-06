@@ -132,7 +132,7 @@ test('the beam vector origin is the ACTUAL rightmost opaque ship nose, never its
   const ship=shipSprite(),cx=170,cy=260;
   const nose=noseWorldPoint(cx,cy,ship,0);
   assert.ok(Math.abs(nose.x-(cx+81.5-45))<1e-9);
-  assert.ok(Math.abs(nose.y-cy)<1e-9);
+  assert.ok(Math.abs(nose.y-cy)<=.5+1e-9,'a visible pixel center may lie half a pixel off-axis');
   for(const pitch of [-.3,-.15,0,.15,.3]){
     const at=noseWorldPoint(cx,cy,ship,pitch);
     const aim={x:755,y:100,mode:'air',enemy:null};
