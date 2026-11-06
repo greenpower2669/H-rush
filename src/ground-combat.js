@@ -81,10 +81,10 @@ export function alignByTerrainAnd(terrain,entity,anchor='ground',maxTravel=95){
     }
     best=y;
   }
-  if(supported){
-    entity.y=best;
-    if(test(entity.y)){entity.y=original;return {supported:false,moved:0,embedded:true};}
-  }
+  // In a crater the ground may be farther away than this frame's search
+  // distance. Drop toward it rather than leaving the unit floating.
+  entity.y=best;
+  if(test(entity.y)){entity.y=original;return {supported:false,moved:0,embedded:true};}
   return {supported,moved:entity.y-original};
 }
 /** Separate visible turret barrel and ballistic projectile must share the same
@@ -121,13 +121,21 @@ const biteSprite={mask:biteMask,width:9,height:9};
  */
 export function gnawTerrainByAnd(enemy,terrain){
   if(!enemy?.sprite||!terrain?.collideEntity||!terrain?.carveImpact)return null;
-  const mouthX=enemy.vx<0?enemy.x+enemy.sprite.width*.13-10:
-    enemy.x+enemy.sprite.width*.87+1;
-  const mouthY=enemy.y+enemy.sprite.height*.76;
+  const mask=enemy.sprite.mask;
+  const headX=Math.round(enemy.vx<0?mask.width*.17:mask.width*.83);
+  let foot=-1;
+  // Approximate the visible head's lowest surviving alpha, not the square
+  // bounding box of a tilted sprite with transparent corners.
+  for(let y=mask.height-1;y>=0&&foot<0;y--)
+    for(let x=Math.max(0,headX-8);x<=Math.min(mask.width-1,headX+8);x++)
+      if(hasPixel(mask,x,y)){foot=y;break;}
+  if(foot<0)return null;
+  const mouthX=enemy.x+headX+(enemy.vx<0?-11:2);
+  const mouthY=enemy.y+foot-3;
   const probe={sprite:biteSprite,x:mouthX,y:mouthY};
   let hit=terrain.collideEntity(probe);
   if(!hit||hit.kind!=='tile'){
-    probe.y+=11;
+    probe.y+=12;
     hit=terrain.collideEntity(probe);
   }
   if(!hit||hit.kind!=='tile')return null;
