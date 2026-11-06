@@ -967,7 +967,7 @@ function update(dt) {
     enemy.fire-=dt;
     if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
-      else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
+      else if(enemy.species?.weapon!=='none'||isBallisticTurret(enemy.morph))fireEnemy(enemy);
       enemy.fire=(robot?rand(1.1,1.85):enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
