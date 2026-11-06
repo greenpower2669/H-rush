@@ -272,13 +272,14 @@ export class OmegaTerrain {
   draw(ctx,viewportWidth){
     const lo=Math.max(0,Math.floor(this.scroll/TILE_SIZE));
     const hi=Math.ceil((this.scroll+viewportWidth)/TILE_SIZE);
-    for(let i=lo;i<=hi;i++){
-      const t=this.tile(i);ctx.drawImage(t.image,Math.round(i*TILE_SIZE-this.scroll),0);
-    }
-    for(const gate of this.visibleGates(this.scroll-80,this.scroll+viewportWidth+80)){
+    // Moving gates appear off-screen and pass BEHIND the actual terrain image.
+    // The geometry and the AND collision of the gates and ground stay unchanged.
+    for(const gate of this.visibleGates(this.scroll-110,this.scroll+viewportWidth+110)){
       const x=Math.round(gate.worldX-this.scroll),y=gateY(gate,this.time);
       ctx.drawImage(gate.image,x,y);
-      // The image and its exact binary mask define all edges. No synthetic rectangular frame.
+    }
+    for(let i=lo;i<=hi;i++){
+      const t=this.tile(i);ctx.drawImage(t.image,Math.round(i*TILE_SIZE-this.scroll),0);
     }
   }
   nextBlockedGate(){

@@ -19,7 +19,7 @@ test('atmospheric globe is already full-sized, even before its first visible pix
 test('only a right-to-left translation reveals/hides the fixed globe',()=>{
   const p=PHASE_START;
   const before=geo(p.atmosphere-1600),a=geo(p.atmosphere-850),
-    mid=geo(p.surface),b=geo(p.exit+470),after=geo(p.spaceTail);
+    mid=geo(p.surface),b=geo(p.spaceTail+170),after=geo(REGION_SIZE);
   assert.equal(before.visible,false,'the entire initial halo starts beyond the right edge');
   assert.equal(after.visible,false,'the entire final halo exits beyond the left edge');
   assert.ok(before.x>a.x&&a.x>mid.x);
@@ -31,7 +31,7 @@ test('only a right-to-left translation reveals/hides the fixed globe',()=>{
 test('arrival/departure have no visible positional jump and never reverse course',()=>{
   const p=PHASE_START;
   const checkpoints=[0,p.atmosphere-1500,p.atmosphere,p.surface-450,
-    p.surface,p.interior,p.exit-900,p.exit,p.spaceTail-140,REGION_SIZE];
+    p.surface,p.interior,p.exit,p.spaceTail-360,p.spaceTail,REGION_SIZE-160,REGION_SIZE];
   for(const x of checkpoints){
     const pos=geo(x),near=geo(Math.max(0,x-.02));
     assert.ok(Math.abs(pos.x-near.x)<.2,'position discontinuity at '+x);
@@ -44,6 +44,7 @@ test('arrival/departure have no visible positional jump and never reverse course
   }
   assert.equal(geo(0).visible,false);
   assert.equal(geo(REGION_SIZE).visible,false);
+  assert.equal(geo(PHASE_START.spaceTail).visible,true,'atmosphere must outlast disappearing soil');
   assert.equal(stageAt(REGION_SIZE).phase,'space');
 });
 test('actual scene drawing always uses invariant radius and off-screen culling',()=>{
@@ -63,7 +64,7 @@ test('actual scene drawing always uses invariant radius and off-screen culling',
     p.interior+500,p.exit,p.spaceTail]){
     const before=centers.length;
     drawOmegaWorld(g,seed,Math.max(0,local-960*.45),0,960,540);
-    if(local===0||local===p.spaceTail)assert.equal(centers.length,before);
+    if(local===0)assert.equal(centers.length,before);
   }
   const planetRadii=radii.filter(v=>v>960);
   assert.ok(planetRadii.length>=3);
