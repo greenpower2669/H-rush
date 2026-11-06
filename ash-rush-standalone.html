@@ -1635,7 +1635,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
-function paintMorph(g,m,frame,phase){
+function paintMorph(g,m,frame,phase,poseAngle=0,gunAngle=0){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -1644,7 +1644,8 @@ function paintMorph(g,m,frame,phase){
   const lit=`hsl(${(hue+85)%360} 92% 68%)`;
   const dark=`hsl(${(hue+260)%360} 58% 17%)`;
   const metal=`hsl(${(hue+18)%360} 30% 72%)`;
-  g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
+  // Orientation transforms visible alpha AND its future mask together, including gun geometry.
+  g.save();g.translate(w/2,h/2);g.rotate(poseAngle);g.scale(w*.43,h*.40);
   g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
   const shape=m.shape;
   switch(shape){
@@ -1693,8 +1694,9 @@ function paintMorph(g,m,frame,phase){
       strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
       strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
       for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
-      if(shape==='tank'){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);oval(g,.18,-.58,.19,.15,hull);}
-      else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
+      // Movable cannon is drawn below, rotating to match the ballistic firing arc.
+      if(shape==='tank')oval(g,-.10,-.39,.27,.20,hull);
+      else oval(g,-.10,-.39,.20,.16,hull);
       break;
     case 'walker':
       strokeShape(g,[[-.72,-.42],[-.2,-.72],[.58,-.55],[.88,-.2],[.62,.17],[-.67,.19]],hull);
@@ -1774,6 +1776,19 @@ function paintMorph(g,m,frame,phase){
       oval(g,.26,0,.29,.3,dark);oval(g,.34,0,.11,.16,lit);
       break;
   }
+  if(['tank','rover','turret','tower','fortress'].includes(shape)){
+    // Articulated barrel points toward the player above-left. No decorative-only
+    // turret: this barrel's endpoint is the actual ballistic shell muzzle.
+    const gun=bestiaryClamp(gunAngle,.13,1.19);
+    const originX=-.10,originY=-.39;
+    const tipX=originX-.71*Math.cos(gun),tipY=originY-.71*Math.sin(gun);
+    g.strokeStyle=dark;g.lineWidth=.21;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=.115;g.beginPath();g.moveTo(originX,originY);
+    g.lineTo(tipX,tipY);g.stroke();
+    oval(g,originX,originY,.20,.19,hull);
+    oval(g,tipX,tipY,.075,.07,lit);
+  }
   if(m.boss){
     // Boss anatomy carries extra armored gun pods; the central silhouette remains
     // the profile's own shape, not an interchangeable old scout/manta template.
@@ -1789,15 +1804,18 @@ function paintMorph(g,m,frame,phase){
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-function spriteForMorph(morph,frame=0,phase=0){
+function spriteForMorph(morph,frame=0,phase=0,poseAngle=0,gunAngle=0){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
+  const tilt=Math.round(bestiaryClamp(poseAngle,-.22,.22)/.055)*.055;
+  const gun=Math.round(bestiaryClamp(gunAngle,.13,1.19)/.08)*.08;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)
+    +':'+tilt.toFixed(3)+':'+(gunAngle?gun.toFixed(3):'base');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
-  paintMorph(g,morph,frame,phase);
+  paintMorph(g,morph,frame,phase,tilt,gunAngle?gun:0);
   const data=g.getImageData(0,0,w,h);
   const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
   spriteCache.set(key,s);
@@ -2750,6 +2768,131 @@ function steerSecondFingerShot(shot,target,dt){
   return true;
 }
 
+import { groundOrientation, anchoredAndPose, ballisticArc, groundTurretMuzzle,
+  isBallisticTurret, isDiggingWorm, digWormTerrain } from './ground-combat.js';
+/** OMEGA 0.5.6 — animated ground/ceiling combat with exact terrain AND probes.
+ * For projectile flight use y-positive-down kinematics (screen coordinates).
+ */
+const groundClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const probe={width:2,height:2,mask:createMask(2,2,()=>true)};
+const MAX_GROUND_TILT=.22;
+const WORM_BITE_INTERVAL=.42;
+const WORM_BITE_RADIUS=9;
+const BALLISTIC_GRAVITY=245;
+const BALLISTIC_SPEED_X=208;
+function isBallisticTurret(morph){
+  return Boolean(morph&&['tank','rover','turret','tower','fortress'].includes(morph.shape));
+}
+function isDiggingWorm(morph){return morph?.shape==='worm';}
+function landOccupied(terrain,x,y){
+  return Boolean(terrain.collideEntity({sprite:probe,x:Math.round(x),y:Math.round(y)}));
+}
+/** Samples occupied pixels from the SAME terrain mask used for projectile and hull AND.
+ * A destroyed tile is not treated as an invisible rectangular floor anymore.
+ */
+function findSolidContactY(terrain,x,aroundY,search=40){
+  const center=Math.round(aroundY),lo=Math.max(1,center-search),hi=Math.min(538,center+search);
+  for(let y=lo;y<=hi;y+=4){
+    if(landOccupied(terrain,x,y)){
+      for(let fine=Math.max(lo,y-3);fine<=y;fine++){
+        if(landOccupied(terrain,x,fine))return fine;
+      }
+      return y;
+    }
+  }
+  return null;
+}
+/** Small ground angle based on ACTUAL left/right physical terrain pixels,
+ * not an analytic terrainBounds height which ignores permanent laser craters.
+ */
+function groundOrientation(terrain,x,width,nearY,previous=0){
+  const left=findSolidContactY(terrain,x+width*.25,nearY,38);
+  const right=findSolidContactY(terrain,x+width*.75,nearY,38);
+  if(left===null||right===null)return previous;
+  const delta=right-left;
+  if(Math.abs(delta)>34)return previous; // cliff/void cannot tilt a tank suddenly
+  const angle=Math.atan2(delta,Math.max(1,width*.5));
+  return groundClamp(angle,-MAX_GROUND_TILT,MAX_GROUND_TILT);
+}
+/** Project a rotated morphology back onto the true solid boundary using its
+ * own collision mask: no AABB contact, no screen rectangle, no fake slope.
+ */
+function anchoredAndPose(terrain,sprite,x,desiredY,anchor='ground',maxScan=42){
+  if(anchor!=='ground'&&anchor!=='ceiling')return desiredY;
+  const h=540,maxY=h-sprite.height-14;
+  const origin=groundClamp(Math.round(desiredY),24,Math.max(24,maxY));
+  const collides=y=>Boolean(terrain.collideEntity({sprite,x,y}));
+  let best=null,dist=Infinity;
+  for(let step=0;step<=maxScan;step+=3){
+    for(const sign of step===0?[0]:[-1,1]){
+      const y=groundClamp(origin+sign*step,24,Math.max(24,maxY));
+      if(collides(y))continue;
+      // Ground body must touch rock within two pixels below; ceiling roots above.
+      const touchY=anchor==='ground'?y+2:y-2;
+      if(!collides(touchY))continue;
+      const d=Math.abs(y-origin);
+      if(d<dist){best=y;dist=d;}
+    }
+    if(best!==null)return best;
+  }
+  // Returning the safe old y is preferable to embedding a rotated hitbox in rock.
+  if(!collides(origin))return origin;
+  for(let n=1;n<=maxScan;n+=2){
+    for(const delta of [-n,n]){
+      const y=groundClamp(origin+delta,24,Math.max(24,maxY));
+      if(!collides(y))return y;
+    }
+  }
+  return null; // signal "blocked", never phase through the real AND mask
+}
+/** Ballistic velocity aimed to intersect a player on a predictable arc.
+ * For fixed vx, t=dx/vx; vy=(dy-.5*g*t²)/t.
+ * Limit vertical speed to keep difficulty playable and arc legible.
+ */
+function ballisticArc(from,to,{speedX=BALLISTIC_SPEED_X,gravity=BALLISTIC_GRAVITY}={}){
+  const diff=to.x-from.x;
+  const vx=diff<0?-Math.abs(speedX):Math.abs(speedX);
+  const flight=groundClamp(Math.abs(diff)/Math.abs(vx),.28,2.3);
+  const vy=groundClamp((to.y-from.y-.5*gravity*flight*flight)/flight,-375,40);
+  const pitch=groundClamp(Math.atan2(-vy,Math.abs(vx)),.13,1.19);
+  return {vx,vy,gravity,flight,pitch};
+}
+/** Pivot and muzzle are in the SAME normalized basis used by paintMorph().
+ * The gun points left and up so its visible barrel follows the launched arc.
+ */
+function groundTurretMuzzle(enemy,pitch){
+  const w=enemy.sprite.width,h=enemy.sprite.height;
+  const sx=w*.43,sy=h*.40;
+  const localX=sx*(-.10-.71*Math.cos(pitch)),localY=sy*(-.39-.71*Math.sin(pitch));
+  const a=enemy.terrainAngle||0;
+  const c=Math.cos(a),s=Math.sin(a);
+  // Same center, rotate, nonuniform scale and normalized barrel coordinates
+  // as paintMorph(). Hence the round shell truly exits the VISIBLE muzzle.
+  return {x:enemy.x+w*.5+localX*c-localY*s,
+    y:enemy.y+h*.5+localX*s+localY*c};
+}
+/** The worm bites at the first AND contact, not at a fake rectangular floor.
+ * The terrain supplies permanent scar serialization in carveImpact().
+ */
+function digWormTerrain(terrain,worm,dt,emit){
+  if(!isDiggingWorm(worm.morph)||!(dt>0)||worm.hp<=0)return 0;
+  worm.chewClock=(worm.chewClock??0)-dt;
+  if(worm.chewClock>0)return 0;
+  worm.chewClock=WORM_BITE_INTERVAL;
+  const x=worm.x+(worm.vx<0?2:worm.sprite.width-2);
+  const y=worm.y+worm.sprite.height*.53;
+  const hit=terrain.collideEntity({
+    sprite:worm.sprite,
+    x:worm.x+(worm.vx<0?-8:8),
+    y:worm.y+5});
+  if(!hit)return 0;
+  const p=terrain.firstWorldImpact(hit);
+  if(!p)return 0;
+  const result=terrain.carveImpact(hit,p,WORM_BITE_RADIUS);
+  if(result>0)emit?.(p.screenX,p.y,result);
+  return result;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -2843,6 +2986,11 @@ const ships = {
   }),
   laser: sprite(24, 8, g => { ellipse(g, '#6cfff0', 12, 4, 11, 3); g.fillStyle='#fff';g.fillRect(7,3,15,2); }),
   hostileLaser: sprite(17, 9, g => { ellipse(g, '#ff4ca5', 8, 4, 8, 4); ellipse(g, '#fff2a4', 8, 4, 4, 2); }),
+  ballisticShell: sprite(13,13,g=>{
+    ellipse(g,'#e66736',6.5,6.5,6.1,6.1);
+    ellipse(g,'#ffd38a',6.5,6.5,3.9,3.9);
+    ellipse(g,'#ffffff',5.4,5.1,1.7,1.7);
+  }),
   missile: sprite(31, 12, g => {
     path(g,'#f3e0fa',[[2,4],[17,2],[23,0],[30,6],[23,11],[17,9],[2,8]]);
     path(g,'#ff9e50',[[3,2],[11,4],[11,8],[3,11]]);
@@ -2891,7 +3039,8 @@ function updateSpriteAnimations() {
     if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
     if(enemy.morph){
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        enemy.terrainAngle??0,enemy.gunAngle??0);
       switchDamagedFrame(enemy,animated);
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
@@ -3174,6 +3323,12 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
+  // Find a real AND-supported resting pose rather than trusting the uncarved
+  // mathematical terrainBounds surface.
+  if(anchor==='ground'||anchor==='ceiling'){
+    const supported=anchoredAndPose(terrain,s,position.x,position.y,anchor);
+    if(supported!==null)position.y=supported;
+  }
   const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
     species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
@@ -3182,7 +3337,8 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,chewClock:0,terrainAngle:0,gunAngle:0,groundClock:0,
+    supportY:null,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -3306,6 +3462,20 @@ function dropBonus(enemy) {
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&(enemy.kind!=='boss'||enemy.bossPhase%2===0)){
+    // Real turret barrel AND mask faces where the shell physically flies.
+    const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+    const rough=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.50),target);
+    enemy.gunAngle=clamp(rough.pitch-(enemy.terrainAngle||0),.13,1.19);
+    const muzzle=groundTurretMuzzle(enemy,enemy.gunAngle);
+    const arc=ballisticArc(muzzle,target);
+    enemy.gunAngle=clamp(arc.pitch-(enemy.terrainAngle||0),.13,1.19);
+    enemyShots.push({kind:'ballistic',ballistic:true,gravity:arc.gravity,age:0,
+      sprite:ships.ballisticShell,x:muzzle.x-ships.ballisticShell.width*.5,
+      y:muzzle.y-ships.ballisticShell.height*.5,vx:arc.vx,vy:arc.vy});
+    particlesAt(muzzle.x,muzzle.y,'motor',5);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
   const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
     weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
@@ -3382,6 +3552,12 @@ function hitEnemy(enemy,r) {
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
+  if(b.ballistic){
+    // Screen y points DOWN: y(t)=y0+vy0*t+0.5*g*t*t.
+    b.vy+=b.gravity*dt;
+    b.age=(b.age||0)+dt;
+    if(b.age>3.8)return true;
+  }
   const dx=b.vx*dt,dy=b.vy*dt;
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
@@ -3583,8 +3759,30 @@ function update(dt) {
     const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
     const lowerTarget=shape?.anchor==='ground'?
       Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
-    const targetY=upperTarget??lowerTarget;
-    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
+    if(!warp&&shape?.anchor==='ground'){
+      enemy.groundClock-=dt;
+      if(enemy.groundClock<=0){
+        enemy.groundClock=.18;
+        enemy.terrainAngle=groundOrientation(terrain,enemy.x,enemy.sprite.width,
+          bounds.bottom,enemy.terrainAngle||0);
+        // Real pixel overlap and permanent craters define whether a hull rests
+        // on rock; the analytic bounds only offer a search starting point.
+        enemy.supportY=anchoredAndPose(terrain,enemy.sprite,enemy.x,
+          Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7),'ground');
+      }
+      if(isBallisticTurret(shape)){
+        const target={x:player.x+player.sprite.width*.5,y:player.y+player.sprite.height*.5};
+        const desired=ballisticArc(groundTurretMuzzle(enemy,enemy.gunAngle||.48),target).pitch-
+          (enemy.terrainAngle||0);
+        enemy.gunAngle=clamp((enemy.gunAngle||.40)+(desired-(enemy.gunAngle||.40))*
+          Math.min(1,dt*5),.13,1.19);
+      }
+    }
+    const targetY=shape?.anchor==='ground'?
+      (enemy.supportY===null?null:enemy.supportY-jumpHeight):upperTarget;
+    const anchorMove=targetY===null?
+      (shape?.anchor==='ground'?Math.min(95*dt,H-enemy.sprite.height-14-enemy.y):null):
+      clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
       rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
       enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
@@ -3594,8 +3792,20 @@ function update(dt) {
     const navigation=warp?{trapped:false,blocked:false}:
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
+    if(!warp&&isDiggingWorm(shape)){
+      const dug=digWormTerrain(terrain,enemy,dt,(px,py,count)=>{
+        particlesAt(px,py,'motor',Math.min(14,4+Math.ceil(count/25)));
+      });
+      if(dug>0){enemy.blockedTime=0;}
+    }
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      if(!warp&&isDiggingWorm(shape)){
+        // A buried worm keeps gnawing its way out instead of dying immediately;
+        // no overlap is ever accepted as a legal rendered pose.
+        enemy.blockedTime+=dt;
+        if(enemy.blockedTime<2.5)continue;
+      }
+      enemy.hp=0;
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -3610,7 +3820,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&!isDiggingWorm(shape)&&enemy.blockedTime>.65){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
