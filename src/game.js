@@ -5,8 +5,9 @@ import { createMusicEngine, sceneMusic } from './music.js';
 import { initialHealth, applyHealthDamage, restoreHeart, grantExtraHeart, PV_PER_HEART } from './health.js';
 import { TouchCalibration } from './input.js';
 import { TiltController, screenGravity } from './tilt.js';
-import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
+import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
+import { morphFor, bossMorphFor, spriteForMorph, morphMovement, bossWeapons } from './bestiary.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
@@ -15,7 +16,7 @@ import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
 import { burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
-import { WARP_DURATION, portalPosition, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
+import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
@@ -152,18 +153,24 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
-  if (!artFrames) return;
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.baseSprite = artFrames.player[frame % artFrames.player.length];
+  if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
-    const frames = artFrames[enemy.kind];
-    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
+    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if(enemy.morph){
+      const phase=enemy.kind==='boss'?enemy.bossPhase:0;
+      const animated=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase);
+      switchDamagedFrame(enemy,animated);
+    }else if(artFrames){
+      const frames=artFrames[enemy.kind];
+      if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
+    }
   }
-  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  if(artFrames)for(const rocket of missiles)
+    rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -180,12 +187,13 @@ let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
+let lastBonusSpawn=-Infinity;
 
 function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
-  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};
+  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};lastBonusSpawn=-Infinity;
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -318,15 +326,15 @@ function sentinelSprite(size,seed){
   s.mask=maskFromImageData(g.getImageData(0,0,w,w));
   return s;
 }
-function spawnRock(profile,y,x=W+12){
+function spawnRock(profile,y,x=null){
   if(enemies.length>=17)return false;
   const robot=profile.kind==='sentry';
   const stats=robot?sentinelStats(profile.size,profile.threat):null;
   const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
-  const posY=clamp(y,16,H-s.height-16),posX=x;
+  const posY=clamp(y,16,H-s.height-16),posX=x??offscreenSpawnX(W,s.width);
   if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
   const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
-  enemies.push({kind:'asteroid',robot,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
+  enemies.push({kind:'asteroid',robot,column:profile.column===true,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
     species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
     vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
     hp,maxHp:hp,phase:rand(0,TAU),fire:robot?rand(.7,1.6):99,age:0,hue:0,blockedTime:0,drillCooldown:0});
@@ -357,13 +365,23 @@ function enterWarp(portal){
 }
 function leaveWarp(){
   if(!warp)return;
-  const broken=warp.broken;
+  const broken=warp.broken,fromRegion=warp.region;
   warp=null;terrain.active=true;bossActive=false;
   enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
-  spawnClock=2;invulnerable=1.2;
+  hoverClouds=[];hoverClock=0;
+  // Preserve scarred planet data, but resume in the NEXT region's real space phase.
+  terrain.scroll=warpExitWorld(fromRegion);
+  terrain.lastStage=stageAt(terrain.scroll+W*.5);
+  terrain.pendingTime=0;
+  universe.advance(terrain.scroll);
+  terrain.flush();
+  lastWarnedGate=null;lastWorldPhase='space';wave=terrain.lastStage.region+1;
+  player.x=clamp(player.x,12,W-player.sprite.width-15);
+  player.y=clamp(player.y,50,H-player.sprite.height-50);
+  spawnClock=2.7;invulnerable=2.3;
   reward(350+broken*45);
-  msg('✨ RETOUR DANS TON UNIVERS · BONUS WARP +'+(350+broken*45),3.5);
-  updateHud();
+  msg('🌌 RETOUR DANS L’ESPACE · RÉGION '+(fromRegion+2)+' · BONUS WARP +'+(350+broken*45),3.8);
+  music.scene('space');updateHud();
 }
 function drawWarpBackground(){
   ctx.fillStyle='#06031e';ctx.fillRect(0,0,W,H);
@@ -383,12 +401,27 @@ function drawWarpBackground(){
   ctx.restore();ctx.globalAlpha=1;
 }
 function drawHiddenPortal(o){
-  const dist=Math.hypot(o.x+29-player.x-37,o.y+29-player.y-23);
-  const reveal=clamp((220-dist)/170,0,1);
-  ctx.save();ctx.globalAlpha=.14+.76*reveal;
-  const pulse=1+.09*Math.sin(elapsed*4);
-  ctx.translate(o.x+29,o.y+29);ctx.scale(pulse,pulse);
+  const dist=Math.hypot(o.x+29-player.x-player.sprite.width*.5,o.y+29-player.y-player.sprite.height*.5);
+  const reveal=clamp((190-dist)/160,0,1);
+  const biome=biomeFor(universe.seed,o.region);
+  ctx.save();ctx.translate(o.x+29,o.y+29);
+  // A naturally carved alien alcove, rather than a bright ring floating in the sky.
+  ctx.globalAlpha=.37+.45*reveal;
+  ctx.fillStyle=biome.rock;
+  ctx.beginPath();ctx.ellipse(0,4,32,35,0,0,TAU);ctx.fill();
+  ctx.fillStyle='#080e1a';ctx.globalAlpha=.64+.25*reveal;
+  ctx.beginPath();ctx.ellipse(0,0,23,27,0,0,TAU);ctx.fill();
+  ctx.strokeStyle=biome.far;ctx.lineWidth=6;ctx.globalAlpha=.85;
+  ctx.beginPath();ctx.arc(0,2,29,.9,5.5);ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha=.06+.40*reveal;
+  ctx.rotate(.018*Math.sin(elapsed*2.6));
   ctx.drawImage(o.sprite.image,-29,-29);
+  ctx.restore();
+  ctx.globalAlpha=.17+.39*reveal;ctx.strokeStyle=biome.glow;ctx.lineWidth=1.2;
+  for(const [x,y] of [[-22,-8],[19,14],[-14,21]]){
+    ctx.beginPath();ctx.moveTo(x-3,y-4);ctx.lineTo(x+3,y);ctx.lineTo(x-1,y+5);ctx.stroke();
+  }
   ctx.restore();
 }
 function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
@@ -398,16 +431,27 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
-  const s=kind==='asteroid'?mutableAsteroid():ships[kind];
-  const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
-  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
+  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+    (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
+  const spawnX=offscreenSpawnX(W,s.width,70);
+  const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
+  const anchor=morph?.anchor;
+  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+    anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
+  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
-  if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
-    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
+  if(!position)return false;
+  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
+    movement:morphMovement(morph),fireRate:1}:species?{...species,
+      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+  enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
     blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
@@ -507,23 +551,33 @@ function launchMissile() {
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
+  if(warp||powerups.length>=BONUS_MAX_SIMULTANEOUS)return false;
   const choice=BONUS_TYPES.includes(type)?type:'shield';
   const variant=bonusVariant(universe.seed,stageAt(terrain.scroll).region,bonusSerial++,choice);
   powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
+  lastBonusSpawn=elapsed;
+  return true;
 }
 function dropBonus(enemy) {
-  const type=pickBonusType();
-  spawnBonus(type,enemy.x,enemy.y);
+  const eligible=bonusDropAllowed({elapsed,sinceLast:elapsed-lastBonusSpawn,active:powerups.length,
+    kind:enemy.kind,rockType:enemy.rockType,warp:!!warp,hearts:player.hp,roll:Math.random()});
+  return eligible&&spawnBonus(pickBonusType(),enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
   const weapon=enemy.species?.weapon||'single';
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
+    weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
   const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
   const aimed=clamp(dy/dx*225,-190,190);
   for(let i=0;i<burst&&enemyShots.length<140;i++){
     const spread=i-(burst-1)/2;
-    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+    const vy=enemy.kind==='boss'?
+      weapon==='aimed'?aimed+spread*39:
+      weapon==='spiral'?Math.sin(enemy.age*5.8+enemy.phase+i*1.18)*155:
+      weapon==='cross'?spread*130:weapon==='rapid'?aimed*.64+spread*70:
+      spread*94+rand(-40,40):
+      weapon==='aimed'?aimed:
       weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
       spread*95+rand(-25,25);
     enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
@@ -566,7 +620,7 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
       size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
     sound.play(enemy.robot?'impact':'explosion');
-    if(enemy.kind==='asteroid' && (enemy.rockType!=='rain'&&enemy.rockType!=='warp'||Math.random()<.14))dropBonus(enemy);
+    dropBonus(enemy);
     if(warp&&enemy.kind==='asteroid')warp.broken++;
     if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
       const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
@@ -581,7 +635,6 @@ function hitEnemy(enemy,r) {
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
-    else if(kills%11===0)spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
   }else if(enemy.kind==='boss')reward(5);
@@ -715,7 +768,7 @@ function update(dt) {
       const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
       if(bossWave){
         if(spawnEnemy('boss',null,0,profile.bossPhases)){
-          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          bossActive=true;msg('⚠ '+enemies[enemies.length-1]?.morph?.name.toUpperCase()+' ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
@@ -724,8 +777,9 @@ function update(dt) {
         let placed=0;
         for(const rock of rocks){
           if(enemies.length>=profile.maxActive+3)break;
-          const candidate=gravitational?sentinelRock(rock,profile.threat):rock;
-          placed+=Number(spawnRock(candidate,rock.y,W+12+placed*15));
+          const base=gravitational?sentinelRock(rock,profile.threat):rock;
+          const candidate={...base,column:true};
+          placed+=Number(spawnRock(candidate,rock.y,offscreenSpawnX(W,candidate.size,90)+placed*26));
         }
         if(placed){msg(gravitational?'🤖 COLONNE DE SENTINELLES — TROUVE LA BRÈCHE':'☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
         else spawnClock=.48;
@@ -757,7 +811,11 @@ function update(dt) {
     enemy.age+=dt;
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
-      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      if(next>enemy.bossPhase){
+        enemy.bossPhase=next;
+        if(enemy.morph)enemy.species.weapon=bossWeapons(enemy.morph,next);
+        msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
+      }
       enemy.vx=-(28+enemy.bossPhase*6);
     }
     const robot=enemy.robot===true;
@@ -765,8 +823,18 @@ function update(dt) {
     const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
     const motion=rock?moveDebris(enemy,dt,g):null;
     if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const shape=enemy.morph;
+    const worldX=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+    const bounds=shape?.anchor!=='air'&&shape?terrainBounds(universe.seed,Math.max(0,worldX)):null;
+    const upperTarget=shape?.anchor==='ceiling'?Math.max(24,bounds.top+6):null;
+    const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
+    const lowerTarget=shape?.anchor==='ground'?
+      Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
+    const targetY=upperTarget??lowerTarget;
+    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
-      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
+      enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
@@ -874,15 +942,19 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
-  if(!warp)terrain.draw(ctx, W);
-  const portal=nearbyPortal();
-  if(portal)drawHiddenPortal(portal);
+  if(!warp){
+    // Hidden portals and moving columns belong BEHIND the true rock/soil alpha tiles.
+    const portal=nearbyPortal();
+    if(portal)drawHiddenPortal(portal);
+    for(const enemy of enemies)if(enemy.column)drawEntity(enemy);
+    terrain.draw(ctx, W);
+  }
   for(const item of powerups){
     // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)drawEntity(enemy);
+  for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
