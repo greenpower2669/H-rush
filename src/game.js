@@ -32,6 +32,8 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
+const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
 const touchMissiles = new TouchMissileGestures();
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
@@ -48,7 +50,7 @@ const $ = selector => document.querySelector(selector);
 let scale = 1;
 function resize() {
   // Conservative DPR limits fill-rate and heat on high-density phones.
-  const dpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, SAFE_GRAPHICS ? 1 : matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   scale = dpr;
@@ -147,7 +149,10 @@ function pitchSprite(base,angle){
   g.drawImage(base.image,-base.width/2,-base.height/2);
   g.setTransform(1,0,0,1,0,0);
   const result={image:c,mask:maskFromImageData(g.getImageData(0,0,size,size)),width:size,height:size};
-  if(cache.size>32)cache.delete(cache.keys().next().value);
+  // Damage canvases are cloned per hit/enemy; 32 rotated canvases per clone
+  // multiplied by 12 damaged frames and many enemies can exhaust WebView RAM.
+  const cap=base.volatileDamage?4:20;
+  while(cache.size>=cap)cache.delete(cache.keys().next().value);
   cache.set(bucket,result);
   return result;
 }
@@ -181,6 +186,9 @@ function updateSpriteAnimations(dt=.016) {
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
       const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
+      if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
+        continue; // Avoid per-frame raster mask and damage-cache churn.
       const centerX=enemy.x+enemy.sprite.width*.5;
       const centerY=enemy.y+enemy.sprite.height*.5;
       switchDamagedFrame(enemy,base);
@@ -189,6 +197,9 @@ function updateSpriteAnimations(dt=.016) {
       // The bitmap may become a square when tilted. Preserve world-space center.
       enemy.x=centerX-enemy.sprite.width*.5;
       enemy.y=centerY-enemy.sprite.height*.5;
+      enemy.lastVisualSource=base;
+      enemy.lastVisualPitch=pitchBucket;
+      enemy.visualDirty=false;
     }else if(artFrames){
       const frames=artFrames[enemy.kind];
       if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
@@ -662,6 +673,7 @@ function hitEnemy(enemy,r) {
       const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
       const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
       addEnemyBurn(enemy,localX,localY,radius);
+      enemy.visualDirty=true;
       // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
       if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
         pitchSpriteCache.delete(damaged);
@@ -1114,13 +1126,42 @@ function render() {
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';
 }
+// A thrown exception inside requestAnimationFrame previously stopped the game
+// forever without leaving any diagnostic on the offline Android installation.
+let fatalFrameError=false;
+function recordRuntimeError(error,origin){
+  const msgText=String(error?.stack||error?.message||error||'Erreur inconnue').slice(0,2400);
+  const diagnostic={at:new Date().toISOString(),origin,detail:msgText,
+    stage:terrain.lastStage?.phase||'unknown',region:terrain.lastStage?.region??-1,
+    enemies:enemies?.length??0,projectiles:(bullets?.length||0)+(enemyShots?.length||0),
+    safeGraphics:SAFE_GRAPHICS};
+  try{storage?.setItem(RUNTIME_ERROR_KEY,JSON.stringify(diagnostic));}catch{}
+  console.error('H-RUSH diagnostic',diagnostic);
+  return diagnostic;
+}
+window.addEventListener('error',event=>recordRuntimeError(event.error||event.message,'window'));
+function stopBrokenFrame(error){
+  if(fatalFrameError)return;
+  fatalFrameError=true;paused=true;
+  const diagnostic=recordRuntimeError(error,'animation');
+  try{terrain.flush();}catch{}
+  const panel=$('#crashPanel');
+  if(panel){
+    $('#crashMessage').textContent='Le jeu a rencontré une erreur, mais ton univers a été conservé.';
+    $('#crashDetails').value=JSON.stringify(diagnostic,null,2);
+    panel.hidden=false;
+  }
+}
 let lastTime=performance.now();
 function frame(now){
+  if(fatalFrameError)return;
   const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
-  if(!paused&&!gameOver) update(dt);
-  music.setPaused(paused);music.tick(dt);
-  render();
-  requestAnimationFrame(frame);
+  try{
+    if(!paused&&!gameOver) update(dt);
+    music.setPaused(paused);music.tick(dt);
+    render();
+    requestAnimationFrame(frame);
+  }catch(error){stopBrokenFrame(error);}
 }
 function updateTiltUi() {
   const active=tilt.getVector();
@@ -1233,6 +1274,16 @@ $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText()
 $('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
 $('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
 $('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
+$('#omegaDiagnostics').addEventListener('click',()=>{
+  let saved='Aucun incident JavaScript enregistré';
+  try{saved=storage?.getItem(RUNTIME_ERROR_KEY)||saved;}catch{}
+  let native='';
+  try{native=window.AshRushAndroid?.lastRendererIssue?.()||'';}catch{}
+  $('#omegaCopy').value=saved+(native?'\nAndroid : '+native:'');
+  $('#omegaCopy').hidden=false;
+  $('#omegaMessage').textContent='Diagnostic local affiché : tu peux sélectionner et copier ce texte.';
+});
+$('#crashReload').addEventListener('click',()=>window.location.reload());
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
 $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled);sound.setEnabled(!sound.enabled);if(sound.enabled)music.unlock();$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
