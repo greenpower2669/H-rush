@@ -93,8 +93,13 @@ export function ballisticArc(from,to,{speedX=BALLISTIC_SPEED_X,gravity=BALLISTIC
 export function groundTurretMuzzle(enemy,pitch){
   const w=enemy.sprite.width,h=enemy.sprite.height;
   const sx=w*.43,sy=h*.40;
-  return {x:enemy.x+w*.5+sx*(-.10-.71*Math.cos(pitch)),
-    y:enemy.y+h*.5+sy*(-.39-.71*Math.sin(pitch))};
+  const localX=sx*(-.10-.71*Math.cos(pitch)),localY=sy*(-.39-.71*Math.sin(pitch));
+  const a=enemy.terrainAngle||0;
+  const c=Math.cos(a),s=Math.sin(a);
+  // Same center, rotate, nonuniform scale and normalized barrel coordinates
+  // as paintMorph(). Hence the round shell truly exits the VISIBLE muzzle.
+  return {x:enemy.x+w*.5+localX*c-localY*s,
+    y:enemy.y+h*.5+localX*s+localY*c};
 }
 /** The worm bites at the first AND contact, not at a fake rectangular floor.
  * The terrain supplies permanent scar serialization in carveImpact().
