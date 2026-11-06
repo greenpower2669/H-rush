@@ -2,7 +2,7 @@
  * No gameplay collisions are tested here: only the existing A & B engine decides hits.
  */
 import { keyedFloat } from './universe.js';
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const boundChallenge=(n,a,b)=>Math.max(a,Math.min(b,n));
 const FORMATIONS=Object.freeze([
   Object.freeze({name:'isolé',offsets:Object.freeze([0])}),
   Object.freeze({name:'duo',offsets:Object.freeze([-84,84])}),
@@ -15,26 +15,26 @@ export function personalHighScore(hall) {
   return Array.isArray(hall) ? hall.reduce((best,run)=>Math.max(best,Number.isSafeInteger(run?.score)&&run.score>=0?run.score:0),0):0;
 }
 export function difficultyAt({seconds=0,region=0,kills=0,hearts=5,phase='space',seed}) {
-  const t=clamp(Number.isFinite(seconds)?seconds:0,0,86400);
-  const world=clamp(Number.isFinite(region)?region:0,0,10000);
+  const t=boundChallenge(Number.isFinite(seconds)?seconds:0,0,86400);
+  const world=boundChallenge(Number.isFinite(region)?region:0,0,10000);
   const survival=Math.log1p(t/95)*1.25;
   const exploration=Math.sqrt(world)*.29;
   const experience=Math.log1p(Math.max(0,kills)/15)*.17;
   const lowHealth=hearts<=1?.85:hearts<=2?.50:0;
   const rest=t>=115 && t%115<14;
-  const threat=clamp(survival+exploration+experience-lowHealth-(rest?.82:0),0,5);
+  const threat=boundChallenge(survival+exploration+experience-lowHealth-(rest?.82:0),0,5);
   const timeSlice=Math.floor(t/32);
   const roll=keyedFloat(seed,Math.floor(world)*65536+timeSlice,481);
-  const available=t<75?1:clamp(2+Math.floor(threat*.74),2,FORMATIONS.length);
+  const available=t<75?1:boundChallenge(2+Math.floor(threat*.74),2,FORMATIONS.length);
   const formation=FORMATIONS[Math.floor(roll*available)];
   return {
     threat,rest,formation,
-    spawnInterval:clamp(2.35-threat*.29,.87,2.35)*(rest?1.55:1),
-    maxActive:clamp(2+Math.floor(threat*1.1),2,8),
+    spawnInterval:boundChallenge(2.35-threat*.29,.87,2.35)*(rest?1.55:1),
+    maxActive:boundChallenge(2+Math.floor(threat*1.1),2,8),
     speedFactor:1+threat*.115,
     healthFactor:1+threat*.10,
-    fireFactor:clamp(1-threat*.065,.68,1),
-    bossPhases:clamp(1+Math.floor(threat/1.45),1,4),
+    fireFactor:boundChallenge(1-threat*.065,.68,1),
+    bossPhases:boundChallenge(1+Math.floor(threat/1.45),1,4),
     bossEvery:14
   };
 }
@@ -47,6 +47,6 @@ export function formationOffset(plan,encounter) {
 /** Boss escalates only after losing the corresponding share of its hull. */
 export function bossPhaseAt(hp,maxHp,phases=1) {
   if(!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0)return 0;
-  const count=clamp(Math.floor(phases),1,4);
-  return clamp(Math.floor((1-clamp(hp/maxHp,0,1))*count),0,count-1);
+  const count=boundChallenge(Math.floor(phases),1,4);
+  return boundChallenge(Math.floor((1-boundChallenge(hp/maxHp,0,1))*count),0,count-1);
 }
