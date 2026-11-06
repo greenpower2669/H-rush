@@ -4,6 +4,7 @@ import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
 import { initialHealth, applyHealthDamage, restoreHeart, grantExtraHeart, PV_PER_HEART } from './health.js';
 import { TouchCalibration } from './input.js';
+import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
@@ -31,6 +32,7 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const touchMissiles = new TouchMissileGestures();
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -226,7 +228,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;secondFingerAim=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -1152,7 +1154,7 @@ $('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target
 $('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
 $('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
 $('#touchCalibrate').addEventListener('click',()=>{
-  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;touchMissiles.reset();
   $('#omegaPanel').hidden=true;paused=false;
   msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
 });
@@ -1179,16 +1181,24 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
       secondFingerAim={id:e.pointerId,start:point,current:point,
         target:acquireTwoFingerTarget(enemies,point,W,H)};
       canvas.setPointerCapture(e.pointerId);
-      launchMissile(); // retain the existing second-finger missile gesture
+      if(touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp))launchMissile();
     }
     e.preventDefault();return;
   }
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
+  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);
+  touchMissiles.down(e.pointerId,'primary',pointer,e.timeStamp);
+  canvas.setPointerCapture(e.pointerId);e.preventDefault();});
 canvas.addEventListener('pointermove',e=>{
-  if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);
-  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=pointFromEvent(e);
+  const point=pointFromEvent(e);
+  touchMissiles.move(e.pointerId,point);
+  if(dragging&&e.pointerId===mainPointerId)pointer=point;
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
 });
 for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
+  // A short double tap of the steering finger launches without steering loss.
+  // Secondary single touch already launches; its second tap cannot spend ammo twice.
+  const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
+  if(fire)launchMissile();
   if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
   if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
 });
@@ -1204,7 +1214,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
