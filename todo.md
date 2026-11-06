@@ -231,6 +231,6 @@
 - [x] Corriger les transformations ROTATION_90/270° des données Android `TYPE_GRAVITY` vers le repère logique du jeu.
 - [x] Ajouter des cas de test direction physique droite/bas pour rotations 0/90/180/270 et garder calibrage, mode tactile, sensibilité, inversion paramétrable.
 - [x] Préserver score, terrain, seed personnelle, collisions A & B, format JSON et identifiant Android.
-- [ ] Confirmer CI et asset APK v0.4.9, certificat et SHA-256, puis consigner les liens et résultats.
+- [x] CI `42215613968` réussie : APK 0.4.9 13 969 487 octets, contrôles version/package/signature `apksigner` et SHA-256 ; Release `v0.4.9-tilt-axes-preview` et asset `.apk` direct présents.
 - [ ] Contrôler physiquement sur Samsung les deux orientations paysage (90° et 270°), les inversions volontairement cochées et le recalibrage du neutre.
 - [ ] Valider la conservation de données après mise à jour depuis la version installée ; signature Debug potentiellement différente, prévoir export JSON avant réinstallation.
