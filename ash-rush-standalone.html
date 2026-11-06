@@ -148,6 +148,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #touchOffsetX,#touchOffsetY{width:105px;accent-color:#71f6d0}
 @media(orientation:landscape) and (max-height:420px){.control-subsection{padding:5px;gap:5px}.tilt-settings{gap:6px}}
 
+/* OMEGA 0.4.8 — personal run record always visible alongside the survival timer. */
+#highScore{color:#ffe29c}.end-record{font-weight:900;letter-spacing:.1em;color:#fff0ab;text-shadow:0 0 15px #ffb74a;font-size:clamp(14px,2vw,22px)}
+@media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px}.hud small{font-size:7.5px}.hud strong{font-size:10px}}
+
 </style>
   
 </head>
@@ -156,7 +160,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <header class="header">
       <div class="brand"><img class="brand-mark" src="assets/branding/h-rush-icon-original.png" alt="" width="32" height="32"><span><strong>ASH RUSH</strong><small>COLLISIONS AND · FAB</small></span></div>
       <div class="hud">
-        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
+        <div><small>SCORE</small><strong id="score">000000</strong></div><div><small>HIGH SCORE</small><strong id="highScore">000000</strong></div><div><small>TEMPS</small><strong id="distance">00:00</strong></div>
         <div><small>CŒURS / PV</small><strong id="hp" aria-live="polite">♥ ♥ ♥ ♥ ♥</strong></div>
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
@@ -166,7 +170,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.7</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -180,6 +184,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
             <div class="end-eyebrow">🚀 H-RUSH OMEGA</div>
             <h2>GAME OVER</h2>
             <p id="endCause">Vaisseau détruit</p>
+            <div id="endRecord" class="end-record" hidden>🏆 NOUVEAU RECORD !</div>
             <div class="end-score">SCORE DE LA PARTIE <strong id="endScore">0</strong></div>
             <div class="end-details" id="endDetails"></div>
             <div class="end-actions"><button id="endReplay" class="action-primary">↻ REJOUER</button><button id="endHall">🏆 HALL OF FAME</button></div>
@@ -229,7 +234,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.7 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -517,7 +522,7 @@ function scoreRun(start, end) {
 
 /** H-RUSH OMEGA: deterministic, per-installation 128-bit universe and durable discoveries. */
 const OMEGA_KEY = 'ashrush-omega-universe-v1';
-// OMEGA 0.4.7 — extended regions (~2m40s at the normal 102u/s scroll speed).
+// OMEGA 0.4.8 — extended regions (~2m40s at the normal 102u/s scroll speed).
 // These boundaries are shared by world, terrain, atmosphere and tests.
 const REGION_SIZE = 16384;
 const PHASE_START = Object.freeze({space:0,atmosphere:3000,surface:5600,interior:10000,exit:14300,spaceTail:15800});
@@ -1108,90 +1113,137 @@ function paintLandmark(g,x,y,L,biome,phase,frame){
   }
 }
 
-function paintScenery(g,biome,worldX,time,W,H,phase){
-  const space=phase==='space';
-  const kind=biome.kind;
-  if(space){
-    g.save();g.globalAlpha=.30;
-    for(let i=0;i<12;i++){
-      const x=mod(i*159+biome.motifSeed-worldX*.11,W+200)-100;
-      const y=70+mod(i*131+biome.motifSeed,H-130);
-      const r=4+hash(i,biome.motifSeed)*15;
-      g.strokeStyle=biome.glow;g.beginPath();g.ellipse(x,y,r,r*.42,i*.37,0,PI2);g.stroke();
-    }g.restore();return;
-  }
-  if(phase==='interior'){
-    g.save();g.globalAlpha=.15;
-    for(let i=0;i<12;i++){
-      const x=mod(i*173-worldX*.28,W+110)-55,y=95+(i*127)%345;
-      g.strokeStyle=biome.glow;g.lineWidth=3;g.beginPath();g.moveTo(x,y+21);g.lineTo(x+18,y);g.lineTo(x,y-25);g.stroke();
-    }g.restore();return;
-  }
-  // The far layer is drawn first; wide buildings and rock formations reach deep into the ground.
+/** Continuous altitude envelopes in the same local coordinate system as terrainBounds.
+ * A surface object's opacity is precisely zero in deep space and before spaceTail.
+ * No stateful random or frame-dependent spawn is involved.
+ */
+function visualEnvelope(stage) {
+  const p=stage.local;
+  // Geological thresholds are shared with the collision terrain.
+  const a=PHASE_START.atmosphere, s=PHASE_START.surface, i=PHASE_START.interior;
+  const e=PHASE_START.exit, tail=PHASE_START.spaceTail;
+  let surface=0,planet=0;
+  if(p<a-1250)planet=0;
+  else if(p<a)planet=.58*scenicSmooth((p-(a-1250))/1250);
+  else if(p<s)planet=.58+.42*scenicSmooth((p-a)/(s-a)*1.6);
+  else if(p<i)planet=1;
+  else if(p<i+900)planet=1-.86*scenicSmooth((p-i)/900);
+  else if(p<e-650)planet=.14;
+  else if(p<e+170)planet=.14+.86*scenicSmooth((p-(e-650))/820);
+  else if(p<tail)planet=1-scenicSmooth((p-(e+170))/(tail-(e+170)));
+  if(p<a+650)surface=0;
+  else if(p<s+260)surface=scenicSmooth((p-(a+650))/(s+260-(a+650)));
+  else if(p<i-500)surface=1;
+  else if(p<i+900)surface=1-scenicSmooth((p-(i-500))/1400);
+  else if(p<e-650)surface=0;
+  else if(p<e+170)surface=scenicSmooth((p-(e-650))/820);
+  else if(p<tail-440)surface=1-scenicSmooth((p-(e+170))/(tail-440-(e+170)));
+  surface=scenicClamp(surface);
+  planet=scenicClamp(planet);
+  const atmosphere=stage.phase==='atmosphere'
+    ? scenicSmooth((p-a)/1100)*(1-.20*scenicSmooth((p-s+480)/480))
+    : stage.phase==='exit'?scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(tail-480))/480))
+    : stage.phase==='surface'?.68:0;
+  return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
+}
+
+function paintScenery(g,biome,worldX,time,W,H,visibility) {
+  if(visibility<=.001)return; // Never paint terrestrial objects in the space field.
+  const kind=biome.kind, depth=.60+.40*visibility;
+  g.save();
+  g.globalAlpha*=visibility;
+  // Distinct angular speeds by physical depth, both moderated when high above the surface.
   for(let layer=0;layer<2;layer++){
-    const spacing=layer===0?135:190;
-    const drift=worldX*(layer===0?.105:.21);
-    const start=Math.floor((drift-130)/spacing),end=Math.ceil((drift+W+160)/spacing);
-    g.save();g.globalAlpha=layer===0?.31:.65;
-    for(let i=start;i<=end;i++){
-      const x=i*spacing-drift+(hash(i+55,biome.motifSeed)-.5)*spacing*.49;
-      const L=landmarkGeometry(biome.motifSeed,i,layer,kind,H);
-      // Mountain and architecture bases lie below the foreground terrain horizon.
-      paintLandmark(g,x,L.foot,L,biome,phase,time);
+    const spacing=layer===0?156:205;
+    const speed=(layer===0?.065:.17)*(.45+.55*visibility);
+    const drift=worldX*speed;
+    const start=Math.floor((drift-170)/spacing),end=Math.ceil((drift+W+220)/spacing);
+    g.save();g.globalAlpha*=layer===0?.33:.64;
+    for(let n=start;n<=end;n++){
+      const x=n*spacing-drift+(hash(n+55,biome.motifSeed)-.5)*spacing*.49;
+      const L=landmarkGeometry(biome.motifSeed,n,layer,kind,H);
+      // Scale towards the observer while always leaving the foundation below the matte.
+      const scaled={...L,height:L.height*depth,width:L.width*depth,foot:H+40+layer*12};
+      paintLandmark(g,x,scaled.foot,scaled,biome,'surface',time);
     }
     g.restore();
   }
-  // Foreground matte is painted AFTER all scenery. It hides their feet and anchors them.
+  // The three geological foreground mattes hide the feet of the architecture.
+  // Each foreground layer travels faster than the last and reacts to altitude.
   for(let layer=0;layer<3;layer++){
     g.beginPath();g.moveTo(0,H);
-    const h=layer===0?408:layer===1?450:490;
+    const horizon=(layer===0?408:layer===1?450:490)+(1-depth)*48;
     for(let x=0;x<=W+20;x+=20){
-      const wx=worldX*(.14+layer*.13)+x*(.25+layer*.11);
-      const y=h+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)+Math.sin(wx/38+biome.tone)*8;
+      const wx=worldX*(.14+layer*.13)*(.60+.40*visibility)+x*(.25+layer*.11);
+      const y=horizon+Math.sin(wx/(99-layer*17)+biome.motifSeed*.04)*(26+layer*10)*depth+Math.sin(wx/38+biome.tone)*8*depth;
       g.lineTo(x,y);
     }
     g.lineTo(W,H);g.closePath();
     g.fillStyle=layer===0?biome.far+'c9':layer===1?biome.rock+'b3':'#151c39dd';g.fill();
   }
-  const baseGlow=g.createLinearGradient(0,H*.70,0,H);
-  baseGlow.addColorStop(0,biome.glow+'00');baseGlow.addColorStop(1,biome.far+'a8');
-  g.fillStyle=baseGlow;g.fillRect(0,H*.70,W,H*.30);
+  const haze=g.createLinearGradient(0,H*.63,0,H);
+  haze.addColorStop(0,biome.glow+'00');haze.addColorStop(1,biome.far+'a8');
+  g.fillStyle=haze;g.fillRect(0,H*.63,W,H*.37);
+  g.restore();
 }
 
 function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
-  const s=stageAt(Math.max(0,worldX+W*.45)),id=regionIdentity(seed,s.region);
-  const biome=biomeFor(seed,s.region);
-  const grad=ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#020d2c');grad.addColorStop(.62,biome.sky);grad.addColorStop(1,biome.far);
-  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-  for(let i=0;i<90;i++){
-    const x=mod(i*149+id.familyIndex*73-worldX*(.06+(i%3)*.02),W);
-    const y=(i*239+id.faction*39)%H;
-    ctx.globalAlpha=.18+.42*((Math.sin(frame*.6+i*4.1)+1)/2);
-    ctx.fillStyle=i%11===0?biome.glow:'#c5e9ff';ctx.fillRect(x,y,i%7===0?2:1,i%7===0?2:1);
-  }ctx.globalAlpha=1;
-  if(['atmosphere','surface','exit'].includes(s.phase)){
-    const intensity=s.phase==='surface'?1:s.phase==='atmosphere'?scenicSmooth(s.phaseProgress):1-scenicSmooth(s.phaseProgress);
-    ctx.save();ctx.globalAlpha=.25+intensity*.65;
-    const gx=730+(s.local-3900)*.014,gy=325,radius=260+intensity*145;
-    const halo=ctx.createRadialGradient(gx-75,gy-80,30,gx,gy,radius);
-    halo.addColorStop(0,'#b8f3de');halo.addColorStop(.32,['#396bac','#a46ed8','#5ebabc','#e5a36f'][id.familyIndex%4]);
-    halo.addColorStop(.83,'#193b78');halo.addColorStop(1,'#4274e700');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(gx,gy,radius,0,PI2);ctx.fill();ctx.restore();
-    // A faint orange plasma veil during atmospheric penetration, not full-screen blinding fire.
-    if(s.phase==='atmosphere'||s.phase==='exit'){
-      const heat=(s.phase==='atmosphere'?Math.sin(s.phaseProgress*Math.PI):Math.sin(s.phaseProgress*Math.PI))*.13;
-      ctx.fillStyle=`rgba(255,116,50,${Math.max(0,heat)})`;ctx.fillRect(0,0,W,H);
-    }
-  }
-  paintScenery(ctx,biome,worldX,frame,W,H,s.phase);
-  if(s.phase==='space'&&s.region>0){
-    ctx.save();ctx.globalAlpha=.15;ctx.translate(W*.77,H*.34);ctx.rotate(frame*.025);
-    ctx.strokeStyle='#a7abff';ctx.lineWidth=5;
-    for(let radius=35;radius<=120;radius+=24){ctx.beginPath();ctx.ellipse(0,0,radius,radius*.24,0,0,PI2);ctx.stroke();}
+  const stage=stageAt(Math.max(0,worldX+W*.45));
+  const id=regionIdentity(seed,stage.region),biome=biomeFor(seed,stage.region);
+  const env=visualEnvelope(stage);
+  // Start from genuinely dark interplanetary space, not a permanent terrestrial horizon.
+  ctx.fillStyle='#020715';ctx.fillRect(0,0,W,H);
+  if(env.planet>.001){
+    // The planet grows under a continuous optical envelope; no hard phase switch.
+    const close=scenicSmooth((env.planet-.02)/.98);
+    const radius=105+close*1240;
+    const cx=W*.82-(close*.22*W),cy=H*.62+close*H*.10;
+    ctx.save();ctx.globalAlpha=env.planet;
+    const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.27);
+    glow.addColorStop(0,biome.sky);glow.addColorStop(.55,biome.far);
+    glow.addColorStop(.78,biome.rock);glow.addColorStop(.92,biome.glow+'95');
+    glow.addColorStop(1,biome.sky+'00');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.27,0,PI2);ctx.fill();
     ctx.restore();
   }
-  return {...s,name:id.family,faction:id.faction};
+  // Starfield remains a cosmic reference; atmospheric scattering gradually veils it.
+  for(let n=0;n<90;n++){
+    const x=mod(n*149+id.familyIndex*73-worldX*(.055+(n%3)*.023),W);
+    const y=(n*239+id.faction*39)%H;
+    ctx.globalAlpha=(.16+.42*(Math.sin(frame*.6+n*4.1)**2))*(1-env.atmosphere*.85);
+    ctx.fillStyle=n%11===0?biome.glow:'#c5e9ff';
+    ctx.fillRect(x,y,n%7===0?2:1,n%7===0?2:1);
+  }ctx.globalAlpha=1;
+  // Atmospheric scattering and cloud layers obey altitude, never a region toggle.
+  if(env.atmosphere>.001){
+    ctx.save();ctx.globalAlpha=env.atmosphere*.35;
+    const air=ctx.createLinearGradient(0,0,0,H);
+    air.addColorStop(0,biome.sky+'00');air.addColorStop(.48,biome.glow+'26');
+    air.addColorStop(1,biome.sky+'a6');
+    ctx.fillStyle=air;ctx.fillRect(0,0,W,H);
+    for(let n=0;n<7;n++){
+      const x=mod(n*197+biome.motifSeed-worldX*(.09+n%3*.06),W+320)-160;
+      const y=H*(.20+n*.094)+Math.sin(frame*.13+n)*18;
+      ctx.globalAlpha=env.atmosphere*(.035+n%3*.028);
+      ctx.fillStyle=biome.glow;
+      ctx.beginPath();ctx.ellipse(x,y,115+n%3*32,15+n%4*9,.10,0,PI2);ctx.fill();
+    }
+    ctx.restore();
+  }
+  paintScenery(ctx,biome,worldX,frame,W,H,env.surface);
+  // Warm entry/exit plasma is gentle and never changes a gameplay mask.
+  if(stage.phase==='atmosphere'||stage.phase==='exit'){
+    const heat=Math.sin(stage.phaseProgress*Math.PI)*.11;
+    ctx.fillStyle='rgba(255,116,50,'+Math.max(0,heat)+')';
+    ctx.fillRect(0,0,W,H);
+  }
+  if(stage.phase==='space'&&stage.region>0&&env.planet<.01){
+    ctx.save();ctx.globalAlpha=.13;ctx.translate(W*.79,H*.33);ctx.rotate(frame*.025);
+    ctx.strokeStyle='#a7abff';ctx.lineWidth=4;
+    for(let r=35;r<=110;r+=25){ctx.beginPath();ctx.ellipse(0,0,r,r*.24,0,0,PI2);ctx.stroke();}
+    ctx.restore();
+  }
+  return {...stage,name:id.family,faction:id.faction};
 }
 
 /** OMEGA's first data-driven enemy ecology (20 combinable roles, 6 movement families).
@@ -1835,6 +1887,58 @@ function addEnemyBurn(enemy,localX,localY,radius){
   return burn;
 }
 
+/** OMEGA 0.4.8: bounded and deterministic encounter director.
+ * No gameplay collisions are tested here: only the existing A & B engine decides hits.
+ */
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const FORMATIONS=Object.freeze([
+  Object.freeze({name:'isolé',offsets:Object.freeze([0])}),
+  Object.freeze({name:'duo',offsets:Object.freeze([-84,84])}),
+  Object.freeze({name:'chevron',offsets:Object.freeze([-102,-34,34,102])}),
+  Object.freeze({name:'tenaille',offsets:Object.freeze([-145,145,-70,70])}),
+  Object.freeze({name:'colonne',offsets:Object.freeze([-68,-24,24,68])})
+]);
+/** High score remains a record of one run, not the lifetime progression. */
+function personalHighScore(hall) {
+  return Array.isArray(hall) ? hall.reduce((best,run)=>Math.max(best,Number.isSafeInteger(run?.score)&&run.score>=0?run.score:0),0):0;
+}
+function difficultyAt({seconds=0,region=0,kills=0,hearts=5,phase='space',seed}) {
+  const t=clamp(Number.isFinite(seconds)?seconds:0,0,86400);
+  const world=clamp(Number.isFinite(region)?region:0,0,10000);
+  const survival=Math.log1p(t/95)*1.25;
+  const exploration=Math.sqrt(world)*.29;
+  const experience=Math.log1p(Math.max(0,kills)/15)*.17;
+  const lowHealth=hearts<=1?.85:hearts<=2?.50:0;
+  const rest=t>=115 && t%115<14;
+  const threat=clamp(survival+exploration+experience-lowHealth-(rest?.82:0),0,5);
+  const timeSlice=Math.floor(t/32);
+  const roll=keyedFloat(seed,Math.floor(world)*65536+timeSlice,481);
+  const available=t<75?1:clamp(2+Math.floor(threat*.74),2,FORMATIONS.length);
+  const formation=FORMATIONS[Math.floor(roll*available)];
+  return {
+    threat,rest,formation,
+    spawnInterval:clamp(2.35-threat*.29,.87,2.35)*(rest?1.55:1),
+    maxActive:clamp(2+Math.floor(threat*1.1),2,8),
+    speedFactor:1+threat*.115,
+    healthFactor:1+threat*.10,
+    fireFactor:clamp(1-threat*.065,.68,1),
+    bossPhases:clamp(1+Math.floor(threat/1.45),1,4),
+    bossEvery:14
+  };
+}
+/** Formations are visual/AI choices only; terrain-safe placement is mandatory per unit. */
+function formationOffset(plan,encounter) {
+  const offsets=plan?.offsets||[0];
+  return offsets[Math.abs(Math.floor(encounter))%offsets.length];
+}
+
+/** Boss escalates only after losing the corresponding share of its hull. */
+function bossPhaseAt(hp,maxHp,phases=1) {
+  if(!Number.isFinite(hp)||!Number.isFinite(maxHp)||maxHp<=0)return 0;
+  const count=clamp(Math.floor(phases),1,4);
+  return clamp(Math.floor((1-clamp(hp/maxHp,0,1))*count),0,count-1);
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -1982,7 +2086,7 @@ function reset(fromCheckpoint = false) {
   dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
-  score=universe.totalScore;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
+  score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
   gameOver=false;paused=false;latestImpact=null;music.scene('space');
   announcementTime=3; announce='PRÊT ? ASH RUSH !';
   $('#pause').textContent='⏸ Pause';
@@ -1990,7 +2094,9 @@ function reset(fromCheckpoint = false) {
   updateHud();
 }
 function updateHud() {
+  score=scoreRun(runBaseScore,universe.totalScore);
   $('#score').textContent=String(score).padStart(6,'0');
+  $('#highScore').textContent=String(personalHighScore(universe.hall)).padStart(6,'0');
   $('#hp').textContent=('♥ '.repeat(Math.max(0,player.hp)).trim()||'0')+' · '+player.pv+'/'+PV_PER_HEART+' PV';
   $('#hp').setAttribute('aria-label',`${player.hp} cœurs, ${player.pv} points de vie sur ${PV_PER_HEART} dans le cœur actif`);
   $('#shield').textContent='◇ '+player.shield;
@@ -2035,12 +2141,15 @@ function finishRun(cause) {
   terrain.flush();
   const s=terrain.lastStage, identity=regionIdentity(universe.seed,s.region);
   const earned=scoreRun(runBaseScore,universe.totalScore);
+  const isNewRecord=earned>personalHighScore(universe.hall);
   const newDistance=Math.max(0,universe.maxDistance-runBaseMaxDistance);
   universe.recordElapsed(elapsed);
   const entry={score:earned,points:Math.max(0,universe.state.points-runBasePoints),
     newDistance,maxDistance:universe.maxDistance,kills,seconds:Math.max(0,Math.floor(elapsed)),
     region:s.region,world:identity.family,cause,time:new Date().toISOString()};
   const rank=universe.recordRun(entry);
+  $('#endRecord').hidden=!isNewRecord;
+  $('#endRecord').textContent=isNewRecord?'🏆 NOUVEAU RECORD !':'';
   $('#endCause').textContent=cause==='wall'?'💥 Collision avec une paroi':'💥 Vaisseau détruit au combat';
   $('#endScore').textContent=earned.toLocaleString('fr-FR');
   $('#endDetails').textContent=`${kills} ennemis détruits · ${formatDuration(elapsed)} de survie · ${identity.family}` +
@@ -2052,7 +2161,7 @@ function finishRun(cause) {
   $('#endReplay').focus();
   updateHud();
 }
-function reward(points){universe.addPoints(points);score=universe.totalScore;updateHud();}
+function reward(points){universe.addPoints(points);updateHud();}
 function mutableAsteroid() {
   const original=ships.asteroid, mask=original.mask;
   const image=document.createElement('canvas');image.width=original.width;image.height=original.height;
@@ -2061,18 +2170,18 @@ function mutableAsteroid() {
   const copy={...mask,rows:new Uint32Array(mask.rows),xProjection:new Uint32Array(mask.xProjection),yProjection:new Uint32Array(mask.yProjection)};
   return {...original,image,mask:copy};
 }
-function spawnEnemy(kind='scout',species=null) {
+function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   const s=kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+rand(-80,80),24,H-s.height-16);
+  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
   // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?35:kind==='asteroid'?5:kind==='manta'?3:2);
+  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
   enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0,sourceSprite:s,scars:[],damageFrames:new Map()});
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -2130,7 +2239,7 @@ function dropBonus(enemy) {
   spawnBonus(type,enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
-  const burst=enemy.species?.weapon==='burst'?3:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):enemy.species?.weapon==='burst'?3:1;
   for(let i=0;i<burst;i++)enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
     vx:enemy.kind==='boss'?-270:-210,vy:(i-(burst-1)/2)*95+(enemy.kind==='boss'?rand(-60,60):rand(-25,25))});
 }
@@ -2240,7 +2349,7 @@ function update(dt) {
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
   }
   stageHudClock-=dt;
-  if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
+  if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
   updateSpriteAnimations();
@@ -2264,19 +2373,42 @@ function update(dt) {
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
   if(spawnClock<=0&&!bossActive){
-    const bossWave=spawnCount>0&&spawnCount%14===0;
-    if(bossWave){
-      if (spawnEnemy('boss')) {bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);spawnCount++;spawnClock=4.5;}
-      else spawnClock=.42; // Retry when the incoming lane opens, never embed the boss in rock.
-    } else {const archetype=speciesFor(universe.seed,stage.region,spawnCount);
-      const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
-      const species=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
-      if(spawnEnemy(species.base,species)){spawnCount++;spawnClock=rand(.8,1.6)*Math.max(.5,1-wave*.04);}
-      else spawnClock=.42;
+    const profile=difficultyAt({seconds:elapsed,region:stage.region,kills,hearts:player.hp,phase:stage.phase,seed:universe.seed});
+    const active=enemies.filter(e=>e.hp>0).length;
+    // Bounded director: rest periods and an active-entity cap protect both the player and mobile FPS.
+    if(profile.rest)spawnClock=.65;
+    else if(active>=profile.maxActive)spawnClock=.35;
+    else {
+      const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
+      if(bossWave){
+        if(spawnEnemy('boss',null,0,profile.bossPhases)){
+          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          spawnCount++;spawnClock=4.5;
+        }else spawnClock=.42;
+      }else{
+        const archetype=speciesFor(universe.seed,stage.region,spawnCount);
+        const situation=player.hp<=2?'low-hp':player.shield>1?'shielded':'normal';
+        const adapted=adaptSpecies(archetype,universe.seed,stage.region,stage.phase,spawnCount,situation);
+        const species={...adapted,speed:Math.round(adapted.speed*profile.speedFactor),
+          hp:Math.max(1,Math.round(adapted.hp*profile.healthFactor)),
+          fireRate:(adapted.fireRate??1)*profile.fireFactor};
+        // Wing, pincer and echelon groups appear in deterministic slots, all checked by A & B.
+        const offset=formationOffset(profile.formation,spawnCount);
+        if(spawnEnemy(species.base,species,offset)){
+          spawnCount++;
+          const variation=.88+.25*keyedFloat(universe.seed,stage.region*100000+spawnCount,750);
+          spawnClock=profile.spawnInterval*variation;
+        }else spawnClock=.42; // Retry only when there is a traversable entrance.
+      }
     }
   }
   for(const enemy of enemies){
     enemy.age+=dt;
+    if(enemy.kind==='boss'){
+      const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
+      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      enemy.vx=-(28+enemy.bossPhase*6);
+    }
     const moveY=enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     // Every enemy, boss and asteroid uses the same 2D binary AND terrain collision.
@@ -2310,7 +2442,7 @@ function update(dt) {
     if(enemy.fire<=0&&enemy.kind!=='asteroid'&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
       else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
-      enemy.fire=(enemy.kind==='boss'?rand(.36,.7):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
+      enemy.fire=(enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
   }
