@@ -128,7 +128,7 @@ export function bossWeapons(profile,phase){
   };
   return sequences[profile.family][Math.max(0,Math.floor(phase))%4];
 }
-const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
+const bestiaryClamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 const spriteCache=new Map();
 export const MAX_BESTIARY_CACHE=140;
 function strokeShape(g,points,color,fill=true){
@@ -144,7 +144,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
 function paintMorph(g,m,frame,phase){
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
-  const damagePhase=m.boss?clamp(Math.floor(phase),0,3):0;
+  const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
   const hue=(m.hue+damagePhase*14)%360;
   const hull=`hsl(${hue} 55% ${m.boss?32:38}%)`;
   const lit=`hsl(${(hue+85)%360} 92% 68%)`;
@@ -297,7 +297,7 @@ function paintMorph(g,m,frame,phase){
  */
 export function spriteForMorph(morph,frame=0,phase=0){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
-  const key=morph.id+':'+(frame&1)+':'+clamp(Math.floor(phase),0,3);
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3);
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
