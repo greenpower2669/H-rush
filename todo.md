@@ -339,3 +339,16 @@
 - [ ] Essais Samsung : crash pendant combat long, nombreux adversaires blessés, pause/reprise, changement d'application, rotation, vérification des crashes et du mode graphique réduit, collecte éventuelle du diagnostic depuis Univers.
 - [ ] Mesurer FPS/RAM réels sur une session longue, distinguer arrêt de WebView, exception JS et arrêt système complet ; si les crashs persistent, collecter logcat Android et heure/circonstances.
 - [ ] Vérifier mise à jour APK/signature sans désinstallation ni perte de sauvegarde ; exporter l'univers JSON avant manipulation. Aucune fusion `main` et aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.10 — arrêt de l'autofocus implicite (6 novembre 2026)
+- [x] Retour utilisateur : « Les tirs font parfois des sortes de zigzags », retirer l'autofocus par défaut et conserver son activation uniquement en option.
+- [x] Vérifier la cause dans la 0.5.9 : le deuxième doigt acquiert automatiquement les ennemis et les missiles poursuivent les ennemis proches même sans verrou demandé.
+- [x] Préférence persistante locale `ashrush-autofocus-v1` : nouvelle installation et migration = OFF, opt-in uniquement dans 🌌 Univers → Commandes ; expliciter son effet à l'écran.
+- [x] En mode manuel, les lasers sont dirigés vers le deuxième doigt sans verrouillage et les missiles conservent strictement leur vecteur au lancement ; aucun retargeting après la mort d'un ennemi.
+- [x] En mode autofocus demandé explicitement, conserver l'accrochage et le guidage antérieurs, avec navigation et masques de collision AND inchangés.
+- [x] Tests ciblés (préférence, visée libre, correction facultative, verrou devenu caduc, source + standalone) et adaptation des tests historiques de guidage opt-in.
+- [x] Version Android 0.5.10/code 60, HTML autonome synchronisé ; branche dédiée, aucun commit dans main.
+- [ ] CI GitHub 0.5.10 : tests, comparaison exact build HTML, compilation Android signée, checksum et publication préversion directe (ne fournir APK qu'après vérification effective).
+- [ ] QA Samsung : tirs au 1er doigt, viser librement au 2e doigt en déplaçant la cible, double-tap missile, tir droit pendant les déplacements, autofocus activé/désactivé, redémarrage avec préférence conservée.
+- [ ] Recueillir vidéo ou diagnostic si les zigzags persistent malgré l'autofocus OFF, comparer le tangage du vaisseau avec le suivi de trajectoire.
