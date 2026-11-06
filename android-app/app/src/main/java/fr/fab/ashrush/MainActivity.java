@@ -65,6 +65,9 @@ public final class MainActivity extends Activity implements SensorEventListener 
 
     /** Only the bundled file:///android_asset/ app can invoke this interface. */
     public final class UniverseBridge {
+        @JavascriptInterface public boolean lowMemoryMode() {
+            return getPreferences(MODE_PRIVATE).getBoolean("low_memory", false);
+        }
         @JavascriptInterface public String lastRendererIssue() {
             return getPreferences(MODE_PRIVATE).getString("last_renderer_issue", "");
         }
@@ -117,7 +120,8 @@ public final class MainActivity extends Activity implements SensorEventListener 
                         && now - lastRendererExitMs < RENDERER_RETRY_GUARD_MS;
                 lastRendererExitMs = now;
                 rendererExits++;
-                getPreferences(MODE_PRIVATE).edit().putString("last_renderer_issue",
+                getPreferences(MODE_PRIVATE).edit().putBoolean("low_memory", true)
+                        .putString("last_renderer_issue",
                         "WebView renderer " + (detail.didCrash() ? "crash" : "memory-kill")
                         + " · attempts=" + rendererExits
                         + " · uptime-ms=" + now).apply();
