@@ -3,6 +3,7 @@
  */
 import { maskFromImageData, collide, eraseDisc, METHODS } from './collision.js';
 import { stageAt, keyedFloat, REGION_SIZE } from './universe.js';
+import { biomeFor } from './biomes.js';
 
 export const TILE_SIZE = 128;
 export const WORLD_H = 540;
@@ -14,26 +15,28 @@ function noise(x,y,seed){let h=Math.imul((x|0)^seed,2246822519)^Math.imul(y|0,32
 /** Continuous geometry across tiles AND regions; no random calls in the hot loop. */
 export function terrainBounds(seed,worldX){
   const s=stageAt(worldX), p=s.local, wave=keyedFloat(seed,s.region,9)*OMEGA_TAU;
-  const l=worldX;
-  const mountain=28*Math.sin(l/153+wave)+19*Math.sin(l/71+wave*.6)+11*Math.sin(l/31);
+  const l=worldX,biome=biomeFor(seed,s.region);
+  const rough=biome.relief,detail=biome.roughness;
+  const mountain=rough*(28*Math.sin(l/153+wave)+19*Math.sin(l/(71/detail)+wave*.6)+11*Math.sin(l/(31/detail)));
+  const elevation=biome.kind==='ocean'?18:biome.kind==='volcanic'?-24:biome.kind==='desert'?12:0;
   let top=-80,bottom=620;
   if(p>=900 && p<1620){
     const f=smooth((p-900)/520);
-    bottom=lerp(620,426+mountain,f);
+    bottom=lerp(620,426+elevation+mountain,f);
   } else if(p>=1620 && p<2680){
-    bottom=426+mountain;
+    bottom=426+elevation+mountain;
   } else if(p>=2680 && p<4180){
     const f=smooth((p-2680)/460);
-    const canyonCentre=273+34*Math.sin(l/330+wave)+16*Math.sin(l/98);
-    const canyonGap=212+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
+    const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
+    const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     const caveTop=canyonCentre-canyonGap/2;
     const caveBottom=canyonCentre+canyonGap/2;
     top=lerp(-80,caveTop,f);
-    bottom=lerp(426+mountain,caveBottom,f);
+    bottom=lerp(426+elevation+mountain,caveBottom,f);
   } else if(p>=4180 && p<4750){
     const f=smooth((p-4180)/510);
-    const canyonCentre=273+34*Math.sin(l/330+wave)+16*Math.sin(l/98);
-    const canyonGap=212+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
+    const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
+    const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     top=lerp(canyonCentre-canyonGap/2,-80,f);
     bottom=lerp(canyonCentre+canyonGap/2,620,f);
   }
@@ -54,9 +57,9 @@ export function gateSpec(seed,region,which){
   const legacy=which<3;
   const p=legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3];
   const full=which===1; // Full crossing remains destructible by the basic laser.
-  const f=keyedFloat(seed,region,40+which);
+  const f=keyedFloat(seed,region,40+which),biome=biomeFor(seed,region);
   const amplitude=full?9+f*12:15+f*19;
-  const shape=legacy?'legacy':(which%3===0?'crystal':'rock');
+  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':biome.kind==='organic'?'organic':which%3===0?'crystal':'rock');
   const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
   const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
   const anchorTop=which===3||which===5||which===7||which===9;
@@ -71,12 +74,21 @@ export function gateSpec(seed,region,which){
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
     phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
     material:which===1?'metal':which===0?'crystal':which===2?'basalt':
+      biome.kind==='organic'?'organic':biome.kind==='ice'?'crystal':
       which%3===0?'crystal':which%3===1?'metal':'basalt'};
 }
 export function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
-/** A 60px laser crater crosses a 40px-thick gate while leaving ~90px of vertical clearance. */
-export const LASER_GATE_RADIUS=60;
-export const MISSILE_GATE_RADIUS=70;
+/** Staged excavation: basic lasers must work progressively, not open a full gate in one shot. */
+export const LASER_GATE_RADIUS=24;
+export const MISSILE_GATE_RADIUS=43;
+export const LASER_GROUND_RADIUS=9;
+export const MISSILE_GROUND_RADIUS=19;
+/** Soil is intentionally tougher than moving bars; both take multiple shots. */
+export function craterRadius(kind,weapon){
+  const missile=weapon==='missile';
+  if(kind==='gate')return missile?MISSILE_GATE_RADIUS:LASER_GATE_RADIUS;
+  return missile?MISSILE_GROUND_RADIUS:LASER_GROUND_RADIUS;
+}
 
 export class OmegaTerrain {
   constructor(universe, options={}){
@@ -109,7 +121,9 @@ export class OmegaTerrain {
     const pixels=g.createImageData(TILE_SIZE,WORLD_H),data=pixels.data;
     const world0=index*TILE_SIZE;
     const family=this.universe.region(stageAt(world0+64).region);
+    const profile=biomeFor(this.universe.seed,stageAt(world0+64).region);
     const seed=family.familyIndex*710321+family.faction*17;
+    const rgb=[1,3,5].map(i=>parseInt(profile.rock.slice(i,i+2),16));
     for(let x=0;x<TILE_SIZE;x++){
       const wx=world0+x, bounds=terrainBounds(this.universe.seed,wx);
       const hotPhase=bounds.phase==='interior'||bounds.phase==='exit';
@@ -121,9 +135,10 @@ export class OmegaTerrain {
         const edge=Math.min(Math.abs(y-bounds.top),Math.abs(y-bounds.bottom));
         const hot=hotPhase&&edge<5;
         const stripe=((Math.floor(wx/22)+Math.floor(y/14))&1)*11;
-        data[i]=Math.min(255,(hot?228:52+(palette%48))+n*.75+stripe);
-        data[i+1]=Math.min(255,(hot?117:39+((palette+63)%60))+n*.52);
-        data[i+2]=Math.min(255,(hot?58:69+((palette+140)%70))+n*.68);
+        const vein=(Math.sin(wx*.077+profile.motifSeed)*Math.cos(y*.065+profile.tone)> .66?30:0);
+        data[i]=Math.min(255,(hot?228:rgb[0])+n*.75+stripe+vein);
+        data[i+1]=Math.min(255,(hot?117:rgb[1])+n*.52+vein*.5);
+        data[i+2]=Math.min(255,(hot?58:rgb[2])+n*.68+vein*.8);
         data[i+3]=255;
       }
     }
@@ -143,7 +158,15 @@ export class OmegaTerrain {
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
     g.fillStyle=grad;
-    if(spec.shape==='legacy')g.fillRect(0,0,spec.width,spec.height);
+    if(spec.shape==='legacy'){
+      // Keep a fully obstructing core but chip its outer pixels: no rectangular outline.
+      g.fillRect(0,0,spec.width,spec.height);
+      for(let y=0;y<spec.height;y+=10){
+        const cut=2+Math.floor(3*(1+Math.sin(y*.067+spec.id)));
+        g.clearRect(0,y,cut,Math.min(10,spec.height-y));
+        g.clearRect(spec.width-cut,y,cut,Math.min(10,spec.height-y));
+      }
+    }
     else {
       // Distinct rocky/crystal edge, with real alpha holes: the mask is rasterized from this exact image.
       const w=spec.width,h=spec.height;
@@ -157,7 +180,7 @@ export class OmegaTerrain {
       }
       g.closePath();g.fill();
     }
-    if(spec.shape!=='legacy')g.globalCompositeOperation='source-atop';
+    g.globalCompositeOperation='source-atop';
     g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
     g.globalAlpha=1;g.globalCompositeOperation='source-over';
@@ -254,8 +277,7 @@ export class OmegaTerrain {
     for(const gate of this.visibleGates(this.scroll-80,this.scroll+viewportWidth+80)){
       const x=Math.round(gate.worldX-this.scroll),y=gateY(gate,this.time);
       ctx.drawImage(gate.image,x,y);
-      ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle='#f9926440';ctx.lineWidth=3;
-      ctx.strokeRect(x+1,y+1,gate.width-2,gate.height-2);ctx.restore();
+      // The image and its exact binary mask define all edges. No synthetic rectangular frame.
     }
   }
   nextBlockedGate(){

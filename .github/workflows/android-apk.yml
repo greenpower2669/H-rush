@@ -74,6 +74,9 @@ jobs:
           assert 'id="controlMode"' in html and 'id="touchCalibrate"' in html
           assert 'function safeEnemySpawn' in html
           assert 'function insertHallEntry' in html
+          assert 'function biomeFor' in html and 'function paintBiomeMotifs' in html
+          assert 'function addEnemyBurn' in html and 'function burnHole' in html
+          assert 'function craterRadius' in html
           assert 'id="endReplay"' in html
           assert '<script>' in html
           assert 'import {' not in html.split('<script>')[-1]
@@ -101,7 +104,8 @@ jobs:
           cp assets/branding/h-rush-icon-1024.png android-app/app/src/main/assets/assets/branding/
           cp ash-rush-standalone.html android-app/app/src/main/assets/ash-rush-standalone.html
           cp assets/sprites/atlas.png android-app/app/src/main/assets/assets/sprites/atlas.png
-          cp assets/audio/spacefortress/*.wav android-app/app/src/main/assets/assets/audio/spacefortress/
+          cp assets/audio/spacefortress/kinetic_ready.wav assets/audio/spacefortress/kinetic_release.wav android-app/app/src/main/assets/assets/audio/spacefortress/
+          test ! -e android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_charge.wav
           cp assets/music/djipie/* android-app/app/src/main/assets/assets/music/djipie/
           test -s android-app/app/src/main/res/drawable-nodpi/ic_hrush_launcher.png
           test -s android-app/app/src/main/assets/assets/branding/h-rush-splash-16x9.webp
@@ -114,11 +118,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=AshRush-Omega-v0.4.5-controls-hearts-debug.apk
+          APK=AshRush-Omega-v0.4.6-biomes-damage-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegacontrols' versionCode='45' versionName='0.4.5'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegabiomes' versionCode='46' versionName='0.4.6'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -127,10 +131,11 @@ jobs:
           grep -Fx 'assets/assets/branding/h-rush-icon-original.png' /tmp/ashrush-omega-entries.txt
           grep -E '^res/.+ic_hrush_launcher' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/audio/spacefortress/kinetic_release.wav' /tmp/ashrush-omega-entries.txt
+          if grep -Fq 'kinetic_charge.wav' /tmp/ashrush-omega-entries.txt; then echo 'Unwanted charge audio in APK'; exit 1; fi
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('AshRush-Omega-v0.4.5-controls-hearts-debug.apk') as apk:
+          with zipfile.ZipFile('AshRush-Omega-v0.4.6-biomes-damage-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -145,6 +150,9 @@ jobs:
             assert len(apk.read('assets/assets/branding/h-rush-icon-1024.png')) > 1000000
             assert b'function applyHealthDamage' in html and b'PV_PER_HEART = 4' in html
             assert b'function safeEnemySpawn' in html and b'function advanceEnemyOnTerrain' in html
+            assert b'function biomeFor' in html and b'function paintBiomeMotifs' in html
+            assert b'function addEnemyBurn' in html and b'function burnHole' in html
+            assert b'function craterRadius' in html
             assert len(apk.read('assets/assets/sprites/atlas.png')) > 180000
             for filename in ('space_echo.ogg','action_a.mp3','battle.mp3','horror.mp3'):
               assert len(apk.read('assets/assets/music/djipie/'+filename)) > 100000
@@ -157,14 +165,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.4.5-controls-hearts-preview
-          APK=AshRush-Omega-v0.4.5-controls-hearts-debug.apk
+          TAG=v0.4.6-biomes-damage-preview
+          APK=AshRush-Omega-v0.4.6-biomes-damage-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "Ash Rush OMEGA 0.4.5 - tactile prioritaire, axes et coeurs bonus" \
-              --notes "OMEGA 0.4.5 : tactile selectionne par defaut, bascule tactile/inclinaison, inversion X/Y independante, calibrage tactile par toucher et decalages persistants, inversion des axes compatible inclinaison. 24 bonus visuellement distincts (6 types x 4 formes), coeur extra rare (plafond 8 coeurs) dont les vrais masques de collision dérivent de l'alpha affiché. Accueil 16:9 et icône native extraits des assets/branding de Fab, assets embarqués hors ligne. Cœurs/PV, 11 obstacles mobiles, ennemis et boss soumis au relief AND, 4 musiques CC0 Djipie et sons SpaceFortress, Hall of Fame et univers personnel persistant. APK debug test indépendant, pas de AAB. Configurations et performances du capteur à valider sur Samsung." \
+              --title "H-RUSH OMEGA 0.4.6 - biomes variés, matériaux et ennemis troués" \
+              --notes "OMEGA 0.4.6 : 12 signatures visuelles de biome pour 40 familles de mondes, variations de relief, motifs espace/planètes, sans gravité passive en espace. Barres oscillantes sans cadre rectangulaire, matériau plus résistant : cratères laser 24px au lieu de 60px, sol plus dur à 9px, missiles 43px / 19px. Ennemis/vaisseaux/boss percés de petits cratères incandescents réellement retirés des sprites/masks AND NOT, conservés sur toutes les frames d'animation. Suppression du son de charge SpaceFortress non adapté, fichier absent de l'APK. Maintien de l'univers et de ses cicatrices, 5 cœurs/4 PV, bonus ♥+, tactile ou inclinaison, Hall of Fame et musiques Djipie CC0. APK de test hors ligne indépendant de 0.4.5, sans AAB. Jouabilité, performances et impressions visuelles à valider sur appareil." \
               --prerelease --target "$GITHUB_SHA"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"

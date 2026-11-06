@@ -60,3 +60,10 @@ Cinq cœurs de quatre PV chacun. Un choc paroi retire un cœur directement, avec
 24. Pilotage tactile **par défaut**, indépendamment des anciens paramètres `enabled` de 0.4.4. Le choix explicite touch/tilt est persistant. X/Y peuvent être inversés séparément pour les deux modes ; le moteur de collision travaille toujours dans le même repère logique.
 25. Le calibrage tactile ajuste le décalage du doigt via un toucher et des glissières, sans toucher aux coordonnées de masque; les 2 doigts restent distincts (second = missile). Le capteur n'influence jamais le jeu en mode tactile.
 26. Un bonus exceptionnel `extraHeart` (3 % des bonus aléatoires) augmente le plafond temporaire de cinq à huit cœurs ; `heal` conserve sa règle existante.
+
+## OMEGA 0.4.6 — physique, résistance, dégâts visibles (6 novembre 2026)
+24. Absence de gravité passive dans l'espace et la phase `exit` : `debrisGravity` retourne zéro ; les débris n'accélèrent vers le sol que dans les environnements planétaires. Le capteur d'inclinaison est une commande volontaire, distincte de cette physique.
+25. `src/biomes.js` relie les 40 familles à douze grammaires géométriques/palettes déterministes ; `omega-visuals.js` affiche des motifs distincts, `omega-terrain.js` fait varier relief et couleurs avec continuité. Les décorations sans collision ne doivent jamais être présentées comme des obstacles solides.
+26. `craterRadius` : laser barre 24px, missile barre 43px, laser sol 9px, missile sol 19px. Les barres restent plus faciles à forer que le sol, mais un tir de base ne doit plus vider une barrière complète. Des coups successifs permettent de sortir d'un obstacle bloquant.
+27. `src/damage.js` : chaque ennemi conserve ses cicatrices propres aux coordonnées du sprite ; les sprites partagés restent intacts ; chaque frame est clonée/percée au besoin, visuel et masque effacés avec la même géométrie disque AND NOT, avec contour chaud uniquement sur les pixels encore opaques.
+28. Les cadres artificiels des barres sont supprimés. Le son `kinetic_charge.wav` est désactivé et exclu de l'APK ; les sons autorisés restants et la musique Djipie restent indépendants.

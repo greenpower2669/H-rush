@@ -98,3 +98,10 @@ Modules `src/tilt.js` et `src/bonuses.js` : tests de projection 0/90/180/270°, 
 - Réponse au retour : inclinaison parfois inversée, demande tactile initial, calibrage tactile, interrupteurs d'axes X/Y, cœurs supplémentaires occasionnels.
 - Tests automatisés Node et HTML embarqué : vérifier l'exécution CI sur le commit final avant de déclarer l'APK publié.
 - Contrôle réel du capteur et de la qualité de calibration sur le Samsung restant à effectuer.
+
+## OMEGA 0.4.6 — validations exécutées localement (6 novembre 2026)
+- Reconstruction du dépôt depuis les sources de versions précédentes et synchronisation avec les changements 0.4.5.
+- 64 tests unitaires Node exécutés avec succès au jalon de développement ; tests supplémentaires couvrant 40 familles -> 12 biomes, zéro gravité en espace, limites de forage, conservation des passages, et cicatrices ennemies lors du changement d'image.
+- Chromium via `page.set_content` de l'HTML autonome : écran JOUER, démarrage du jeu et simulation après une seconde sans erreur JavaScript. Les URL `file://` et `127.0.0.1` sont bloquées dans ce conteneur ; seule l'injection directe du HTML a été testée.
+- Test sur Samsung réel et mesure FPS non effectués. Ne pas confondre tests techniques et validation artistique/ergonomique.
+- Vérification supplémentaire dans Chromium avec un vrai Canvas : après forage ennemi, pixel alpha=0 et bit AND=0 sur deux images animées distinctes ; sprite atlas partagé intact. Comparaison de 16 régions : fonds/palettes visuellement distincts, sans erreur JS. Test de ressenti Samsung toujours à effectuer.

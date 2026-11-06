@@ -46,3 +46,6 @@ Implémenter le pilotage à l'inclinaison avec calibrage et secours tactile, div
 
 ## Ordre OMEGA 0.4.5 — 6 novembre 2026
 Retour utilisateur : préférer le tactile au lancement, commandes apparemment inversées ; ajouter dans les options le calibrage tactile, un bouton de bascule tactile/inclinaison, inversions X et Y distinctes. Distribuer parfois des bonus de cœurs supplémentaires. Préserver les versions précédentes ; valider les tests et publier uniquement l'APK.
+
+## OMEGA 0.4.6 — mission retour terrain (6 novembre 2026)
+L'utilisateur rapporte une impression de gravité dans le vide, un manque de diversité de niveaux, des barres oscillantes trop fragiles avec cadre rectangulaire peu esthétique, un sol également trop fragile, un son de charge inadapté et des ennemis sans petits impacts visibles. Exigences : aucune gravité passive en espace ; enrichir graphismes et géologie ; faire passer la barre à une dureté intermédiaire (ancienne dureté du sol) et renforcer encore le sol ; retirer tous les cadres ; retirer le son de charge ; de petits trous incandescents persistants doivent changer le vrai masque des vaisseaux ennemis. Conserver collisions gameplay `A & B`, sauvegarde du terrain et commandes, musiques Djipie, Hall of Fame, APK direct uniquement sans AAB.

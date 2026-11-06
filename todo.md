@@ -175,3 +175,17 @@
 - [ ] Contrôler les 2 orientations paysage et le mouvement X/Y sur Samsung (retour tactile et tilt).
 - [ ] Régler les amplitudes du calibrage et l'équilibrage ♥+ après retour de jeu.
 - [ ] Toujours livrer uniquement APK autonome, sans AAB.
+
+## OMEGA 0.4.6 — retours sur la jouabilité (6 novembre 2026)
+- [x] Différencier nettement les régions : 12 motifs/palettes déterministes couvrant les 40 familles de mondes, relief variable et espace sans silhouettes de sol plantées.
+- [x] Zéro gravité passive pour débris spatiaux, accélération visuelle limitée aux environnements planétaires ; conserver inclinaison volontaire.
+- [x] Réduire la fragilité des barres (laser 24px, missile 43px), et rendre le sol plus dur (9px / 19px) avec cicatrices permanentes.
+- [x] Éliminer le cadre rectangulaire ajouté par le rendu autour des barres ; casser leur contour rectiligne.
+- [x] Supprimer le son de charge et ne pas le copier dans le nouvel APK ; conserver les musiques CC0 Djipie.
+- [x] Petits cratères incandescents des ennemis/boss, partage des images intact, masques AND NOT suivant toutes les images animées.
+- [x] Vérifier les tests Node et le démarrage HTML autonome avant publication.
+- [ ] Vérifier le nouvel APK sur téléphone Android réel, le rythme de forage et la lisibilité des impacts.
+- [ ] Enrichir les motifs de biome avec d'autres sprites graphiques artistiques et de nouvelles architectures physiques (12 familles graphiques, 40 familles nominales).
+- [ ] Mesurer FPS/mémoire avec ennemis multi-frames détériorés ; introduire cache borné par budgets mémoire si nécessaire.
+- [ ] Faire évoluer vers un profil Android unique signé durablement au lieu d'installations parallèles de prévisualisation.
+- [ ] Protéger les sauvegardes et enregistrer d'autres éléments destructibles, y compris les débris physiques.

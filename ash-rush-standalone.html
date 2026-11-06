@@ -166,7 +166,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.5</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.6</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -229,7 +229,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.5 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.6 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -649,6 +649,58 @@ class OmegaUniverse {
   }
 }
 
+/** OMEGA 0.4.6: coherent world signatures. A region has an artistic identity,
+ * distinct geomorphology and ambience, not just a different palette.
+ * All procedural values depend only on the universe seed and the region index.
+ */
+const BIOME_TYPES = Object.freeze([
+  'nebula', 'ocean', 'crystal', 'desert', 'machine', 'organic', 'asteroid', 'volcanic',
+  'machine', 'garden', 'organic', 'ice', 'ruins', 'storm', 'ruins', 'ocean',
+  'crystal', 'garden', 'volcanic', 'ocean', 'asteroid', 'ice', 'volcanic', 'desert',
+  'ocean', 'asteroid', 'ruins', 'machine', 'desert', 'crystal', 'organic', 'volcanic',
+  'storm', 'asteroid', 'crystal', 'ice', 'crystal', 'volcanic', 'machine', 'nebula'
+]);
+const BIOME_PALETTES = Object.freeze({
+  nebula: {sky:'#171443',rock:'#573c7d',glow:'#f080e2',far:'#312f78'},
+  ocean: {sky:'#082f53',rock:'#215b78',glow:'#55f5ee',far:'#1b7d9a'},
+  crystal: {sky:'#211a4e',rock:'#5263aa',glow:'#93f4ff',far:'#6848ad'},
+  desert: {sky:'#422846',rock:'#a16b65',glow:'#f6c18d',far:'#86525d'},
+  machine: {sky:'#0c2036',rock:'#516d82',glow:'#9ff6df',far:'#2d5471'},
+  organic: {sky:'#30233c',rock:'#815672',glow:'#ff9a9a',far:'#593e69'},
+  asteroid: {sky:'#111d37',rock:'#685f75',glow:'#e8b19b',far:'#343751'},
+  volcanic: {sky:'#35152e',rock:'#803e43',glow:'#ff9b4d',far:'#602c3f'},
+  garden: {sky:'#153e44',rock:'#3f826c',glow:'#abffb1',far:'#2f6766'},
+  ice: {sky:'#172e55',rock:'#5f8eb2',glow:'#dcfaff',far:'#467599'},
+  ruins: {sky:'#342645',rock:'#82718e',glow:'#e6bbfc',far:'#5d466c'},
+  storm: {sky:'#202e58',rock:'#596681',glow:'#e6e9ff',far:'#364577'},
+});
+const cache=new Map();
+function biomeFor(seed,region){
+  const key=seed+':'+region;
+  if(cache.has(key))return cache.get(key);
+  const identity=regionIdentity(seed,region),kind=BIOME_TYPES[identity.familyIndex];
+  const style=BIOME_PALETTES[kind];
+  const profile=Object.freeze({kind, ...style, family:identity.family,
+    tone:identity.tone, faction:identity.faction,
+    relief:.68+keyedFloat(seed,region,281)*.92,
+    roughness:.65+keyedFloat(seed,region,282)*.88,
+    gap:.82+keyedFloat(seed,region,283)*.38,
+    motifSeed:keyedFloat(seed,region,284)*1000,
+    gravity:kind==='asteroid'?.38:kind==='ocean'?.88:1});
+  cache.set(key,profile);
+  if(cache.size>48)cache.delete(cache.keys().next().value);
+  return profile;
+}
+
+/** No passive gravity in the void. Gravity is visual debris physics on planets only.
+ * Input via the accelerometer is intentional piloting, NEVER world gravity.
+ */
+function debrisGravity(phase,profile){
+  if(phase==='space'||phase==='exit')return 0;
+  const base=phase==='surface'?94:phase==='atmosphere'?46:phase==='interior'?32:0;
+  return base*Math.max(.2,Math.min(1.25,profile?.gravity??1));
+}
+
 /** H-RUSH OMEGA terrain: infinite coordinate-keyed columns, persistent craters, moving gates.
  * All gameplay contact tests remain strictly AABB + binary mask AND (Fab).
  */
@@ -662,26 +714,28 @@ function noise(x,y,seed){let h=Math.imul((x|0)^seed,2246822519)^Math.imul(y|0,32
 /** Continuous geometry across tiles AND regions; no random calls in the hot loop. */
 function terrainBounds(seed,worldX){
   const s=stageAt(worldX), p=s.local, wave=keyedFloat(seed,s.region,9)*OMEGA_TAU;
-  const l=worldX;
-  const mountain=28*Math.sin(l/153+wave)+19*Math.sin(l/71+wave*.6)+11*Math.sin(l/31);
+  const l=worldX,biome=biomeFor(seed,s.region);
+  const rough=biome.relief,detail=biome.roughness;
+  const mountain=rough*(28*Math.sin(l/153+wave)+19*Math.sin(l/(71/detail)+wave*.6)+11*Math.sin(l/(31/detail)));
+  const elevation=biome.kind==='ocean'?18:biome.kind==='volcanic'?-24:biome.kind==='desert'?12:0;
   let top=-80,bottom=620;
   if(p>=900 && p<1620){
     const f=smooth((p-900)/520);
-    bottom=lerp(620,426+mountain,f);
+    bottom=lerp(620,426+elevation+mountain,f);
   } else if(p>=1620 && p<2680){
-    bottom=426+mountain;
+    bottom=426+elevation+mountain;
   } else if(p>=2680 && p<4180){
     const f=smooth((p-2680)/460);
-    const canyonCentre=273+34*Math.sin(l/330+wave)+16*Math.sin(l/98);
-    const canyonGap=212+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
+    const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
+    const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     const caveTop=canyonCentre-canyonGap/2;
     const caveBottom=canyonCentre+canyonGap/2;
     top=lerp(-80,caveTop,f);
-    bottom=lerp(426+mountain,caveBottom,f);
+    bottom=lerp(426+elevation+mountain,caveBottom,f);
   } else if(p>=4180 && p<4750){
     const f=smooth((p-4180)/510);
-    const canyonCentre=273+34*Math.sin(l/330+wave)+16*Math.sin(l/98);
-    const canyonGap=212+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
+    const canyonCentre=273+34*Math.sin(l/330+wave)+16*detail*Math.sin(l/98);
+    const canyonGap=218*biome.gap+23*Math.sin(l/265+wave)-13*Math.sin(l/65);
     top=lerp(canyonCentre-canyonGap/2,-80,f);
     bottom=lerp(canyonCentre+canyonGap/2,620,f);
   }
@@ -702,9 +756,9 @@ function gateSpec(seed,region,which){
   const legacy=which<3;
   const p=legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3];
   const full=which===1; // Full crossing remains destructible by the basic laser.
-  const f=keyedFloat(seed,region,40+which);
+  const f=keyedFloat(seed,region,40+which),biome=biomeFor(seed,region);
   const amplitude=full?9+f*12:15+f*19;
-  const shape=legacy?'legacy':(which%3===0?'crystal':'rock');
+  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':biome.kind==='organic'?'organic':which%3===0?'crystal':'rock');
   const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
   const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
   const anchorTop=which===3||which===5||which===7||which===9;
@@ -719,12 +773,21 @@ function gateSpec(seed,region,which){
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
     phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
     material:which===1?'metal':which===0?'crystal':which===2?'basalt':
+      biome.kind==='organic'?'organic':biome.kind==='ice'?'crystal':
       which%3===0?'crystal':which%3===1?'metal':'basalt'};
 }
 function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
-/** A 60px laser crater crosses a 40px-thick gate while leaving ~90px of vertical clearance. */
-const LASER_GATE_RADIUS=60;
-const MISSILE_GATE_RADIUS=70;
+/** Staged excavation: basic lasers must work progressively, not open a full gate in one shot. */
+const LASER_GATE_RADIUS=24;
+const MISSILE_GATE_RADIUS=43;
+const LASER_GROUND_RADIUS=9;
+const MISSILE_GROUND_RADIUS=19;
+/** Soil is intentionally tougher than moving bars; both take multiple shots. */
+function craterRadius(kind,weapon){
+  const missile=weapon==='missile';
+  if(kind==='gate')return missile?MISSILE_GATE_RADIUS:LASER_GATE_RADIUS;
+  return missile?MISSILE_GROUND_RADIUS:LASER_GROUND_RADIUS;
+}
 
 class OmegaTerrain {
   constructor(universe, options={}){
@@ -757,7 +820,9 @@ class OmegaTerrain {
     const pixels=g.createImageData(TILE_SIZE,WORLD_H),data=pixels.data;
     const world0=index*TILE_SIZE;
     const family=this.universe.region(stageAt(world0+64).region);
+    const profile=biomeFor(this.universe.seed,stageAt(world0+64).region);
     const seed=family.familyIndex*710321+family.faction*17;
+    const rgb=[1,3,5].map(i=>parseInt(profile.rock.slice(i,i+2),16));
     for(let x=0;x<TILE_SIZE;x++){
       const wx=world0+x, bounds=terrainBounds(this.universe.seed,wx);
       const hotPhase=bounds.phase==='interior'||bounds.phase==='exit';
@@ -769,9 +834,10 @@ class OmegaTerrain {
         const edge=Math.min(Math.abs(y-bounds.top),Math.abs(y-bounds.bottom));
         const hot=hotPhase&&edge<5;
         const stripe=((Math.floor(wx/22)+Math.floor(y/14))&1)*11;
-        data[i]=Math.min(255,(hot?228:52+(palette%48))+n*.75+stripe);
-        data[i+1]=Math.min(255,(hot?117:39+((palette+63)%60))+n*.52);
-        data[i+2]=Math.min(255,(hot?58:69+((palette+140)%70))+n*.68);
+        const vein=(Math.sin(wx*.077+profile.motifSeed)*Math.cos(y*.065+profile.tone)> .66?30:0);
+        data[i]=Math.min(255,(hot?228:rgb[0])+n*.75+stripe+vein);
+        data[i+1]=Math.min(255,(hot?117:rgb[1])+n*.52+vein*.5);
+        data[i+2]=Math.min(255,(hot?58:rgb[2])+n*.68+vein*.8);
         data[i+3]=255;
       }
     }
@@ -791,7 +857,15 @@ class OmegaTerrain {
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
     g.fillStyle=grad;
-    if(spec.shape==='legacy')g.fillRect(0,0,spec.width,spec.height);
+    if(spec.shape==='legacy'){
+      // Keep a fully obstructing core but chip its outer pixels: no rectangular outline.
+      g.fillRect(0,0,spec.width,spec.height);
+      for(let y=0;y<spec.height;y+=10){
+        const cut=2+Math.floor(3*(1+Math.sin(y*.067+spec.id)));
+        g.clearRect(0,y,cut,Math.min(10,spec.height-y));
+        g.clearRect(spec.width-cut,y,cut,Math.min(10,spec.height-y));
+      }
+    }
     else {
       // Distinct rocky/crystal edge, with real alpha holes: the mask is rasterized from this exact image.
       const w=spec.width,h=spec.height;
@@ -805,7 +879,7 @@ class OmegaTerrain {
       }
       g.closePath();g.fill();
     }
-    if(spec.shape!=='legacy')g.globalCompositeOperation='source-atop';
+    g.globalCompositeOperation='source-atop';
     g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
     g.globalAlpha=1;g.globalCompositeOperation='source-over';
@@ -902,8 +976,7 @@ class OmegaTerrain {
     for(const gate of this.visibleGates(this.scroll-80,this.scroll+viewportWidth+80)){
       const x=Math.round(gate.worldX-this.scroll),y=gateY(gate,this.time);
       ctx.drawImage(gate.image,x,y);
-      ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle='#f9926440';ctx.lineWidth=3;
-      ctx.strokeRect(x+1,y+1,gate.width-2,gate.height-2);ctx.restore();
+      // The image and its exact binary mask define all edges. No synthetic rectangular frame.
     }
   }
   nextBlockedGate(){
@@ -918,17 +991,17 @@ const PI2=Math.PI*2;
 function mix(a,b,t){return a+(b-a)*Math.max(0,Math.min(1,t));}
 function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
   const s=stageAt(Math.max(0,worldX+W*.45)), id=regionIdentity(seed,s.region);
-  const colors=['#110b37','#0a2346','#152a43','#301a46','#1b2145','#123843','#25203e','#281d35'];
-  const base=colors[id.familyIndex%colors.length];
+  const biome=biomeFor(seed,s.region);
+  const base=biome.sky;
   const grad=ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#020d2c');grad.addColorStop(.7,base);grad.addColorStop(1,'#080b2a');
+  grad.addColorStop(0,'#020d2c');grad.addColorStop(.65,base);grad.addColorStop(1,biome.far);
   ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
   // Local stellar coordinates are stable when you revisit a region.
   for(let i=0;i<90;i++){
     const x=((i*149 + id.familyIndex*73 - worldX*(.06+(i%3)*.02))%W+W)%W;
     const y=(i*239+id.faction*39)%H;
     const a=.2+.45*((Math.sin(frame*.6+i*4.1)+1)/2);
-    ctx.globalAlpha=a;ctx.fillStyle=i%11===0?'#ffb6dc':'#c5e9ff';ctx.fillRect(x,y,i%7===0?2:1,i%7===0?2:1);
+    ctx.globalAlpha=a;ctx.fillStyle=i%11===0?biome.glow:'#c5e9ff';ctx.fillRect(x,y,i%7===0?2:1,i%7===0?2:1);
   }
   ctx.globalAlpha=1;
   if(s.phase==='atmosphere'||s.phase==='surface'||s.phase==='exit'){
@@ -968,6 +1041,7 @@ function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
     }
     ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   }
+  paintBiomeMotifs(ctx,biome,worldX,frame,W,H,s.phase);
   // Late-stage cosmic phenomenon: visuals only, collision belongs to the mask layer.
   if(s.phase==='space'&&s.region>0){
     ctx.save();ctx.globalAlpha=.15;ctx.translate(W*.77,H*.34);ctx.rotate(frame*.025);
@@ -976,6 +1050,80 @@ function drawOmegaWorld(ctx,seed,worldX,frame,W=960,H=540){
     ctx.restore();
   }
   return { ...s, name:id.family, faction:id.faction };
+}
+
+/** Ten distinct seeded scenery grammars. Decorative shapes never affect Fab's AND mask. */
+function paintBiomeMotifs(ctx,biome,worldX,frame,W,H,phase){
+  const isSpace=phase==='space';
+  const yBase=isSpace?H*.70:H*.85;
+  const drift=worldX*(isSpace?.095:.27);
+  const density=biome.kind==='machine'||biome.kind==='ruins'?16:12;
+  ctx.save();
+  ctx.globalAlpha=isSpace?.35:.63;
+  const kind=biome.kind;
+  for(let i=0;i<density;i++){
+    const x=((i*97+biome.motifSeed*1.5-drift)%(W+160)+(W+160))%(W+160)-80;
+    const varied=(Math.sin((i+1)*37.7+biome.motifSeed)*.5+.5);
+    const height=22+varied*91*biome.roughness;
+    const y=isSpace?64+((i*179+biome.motifSeed)%Math.max(1,H-128)):
+      yBase+Math.sin(i*1.3+biome.tone)*16;
+    ctx.fillStyle=biome.far;ctx.strokeStyle=biome.glow;
+    ctx.lineWidth=1.5;
+    // Space has no floor and no direction of fall: floating fragments and orbital motifs.
+    // Rooted plants, buildings and mountain silhouettes are reserved for planets.
+    if(isSpace && !['nebula','asteroid','storm'].includes(kind)){
+      ctx.beginPath();ctx.ellipse(x,y,9+varied*15,4+varied*7,i*.37,0,PI2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(x-14,y);ctx.lineTo(x+14,y);ctx.stroke();
+      if(kind==='crystal'||kind==='ice'){
+        ctx.beginPath();ctx.moveTo(x,y-14);ctx.lineTo(x+9,y);ctx.lineTo(x,y+14);ctx.lineTo(x-9,y);ctx.closePath();ctx.fill();
+      }else if(kind==='organic'||kind==='garden'){
+        ctx.beginPath();ctx.arc(x,y,6+varied*6,0,PI2);ctx.fill();
+      }else if(kind==='machine'||kind==='ruins'){
+        ctx.fillRect(x-4,y-4,8,8);
+      }
+      continue;
+    }
+    if(kind==='crystal'||kind==='ice'){
+      ctx.beginPath();ctx.moveTo(x-17,y);ctx.lineTo(x-7,y-height*.7);
+      ctx.lineTo(x+3,y-height);ctx.lineTo(x+17,y-height*.45);ctx.lineTo(x+25,y);
+      ctx.closePath();ctx.fill();ctx.stroke();
+    }else if(kind==='machine'||kind==='ruins'){
+      const h=height*(kind==='ruins'?.6:1);
+      ctx.fillRect(x-15,y-h,30,h);
+      if(kind==='machine'){
+        ctx.fillStyle=biome.glow;
+        for(let j=0;j<4;j++)ctx.fillRect(x-9,y-h+8+j*13,5,5);
+        ctx.strokeStyle=biome.glow;ctx.beginPath();ctx.moveTo(x,y-h);ctx.lineTo(x+10,y-h-16);ctx.stroke();
+      } else {ctx.fillRect(x-21,y-h-9,42,6);}
+    }else if(kind==='organic'||kind==='garden'){
+      ctx.beginPath();ctx.moveTo(x,y);ctx.bezierCurveTo(x+21,y-height*.4,x-27,y-height*.7,x+4,y-height);ctx.stroke();
+      for(let j=1;j<=3;j++){
+        ctx.beginPath();ctx.ellipse(x+Math.sin(j*2+i)*14,y-height*j/4,
+          5+varied*8,12+varied*8,Math.sin(i+j),0,PI2);ctx.fill();
+      }
+    }else if(kind==='volcanic'){
+      ctx.beginPath();ctx.moveTo(x-46,y);ctx.lineTo(x,y-height);ctx.lineTo(x+40,y);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#ffae49';ctx.beginPath();ctx.moveTo(x,y-height+4);ctx.lineTo(x+4,y-height*.55);ctx.stroke();
+    }else if(kind==='ocean'){
+      ctx.strokeStyle=biome.glow;ctx.beginPath();
+      for(let j=0;j<=48;j+=6)ctx.lineTo(x-22+j,y-height*.12+Math.sin(j/9+frame*.5+i)*5);
+      ctx.stroke();
+    }else if(kind==='desert'){
+      ctx.beginPath();ctx.moveTo(x-55,y);ctx.quadraticCurveTo(x,y-height*.65,x+55,y);ctx.closePath();ctx.fill();
+    }else if(kind==='storm'){
+      ctx.beginPath();ctx.ellipse(x,y-height*.8,30+varied*12,13,0,0,PI2);ctx.fill();
+      if((i+Math.floor(frame*.8))%4===0){ctx.beginPath();ctx.moveTo(x+4,y-height*.75);ctx.lineTo(x-4,y-height*.40);
+        ctx.lineTo(x+9,y-height*.37);ctx.lineTo(x-1,y-height*.1);ctx.stroke();}
+    }else if(kind==='asteroid'){
+      ctx.beginPath();ctx.moveTo(x-32,y-10);ctx.lineTo(x-19,y-height*.65);ctx.lineTo(x+7,y-height*.9);
+      ctx.lineTo(x+29,y-height*.46);ctx.lineTo(x+35,y+10);ctx.closePath();ctx.fill();
+    }else { // nebula
+      const glow=ctx.createRadialGradient(x,y-height*.5,0,x,y-height*.5,height*.9);
+      glow.addColorStop(0,biome.glow+'aa');glow.addColorStop(1,biome.glow+'00');
+      ctx.fillStyle=glow;ctx.fillRect(x-height,y-height*1.5,height*2,height*2);
+    }
+  }
+  ctx.restore();
 }
 
 /** OMEGA's first data-driven enemy ecology (20 combinable roles, 6 movement families).
@@ -1093,12 +1241,12 @@ async function loadGameArt() {
 
 /**
  * Ash Rush SFX — synthesized fallback with selected SpaceFortressVs originals.
- * Three original PCM WAV cues are copied from SpaceFortressVs with attribution.
+ * Two original PCM WAV cues are copied from SpaceFortressVs with attribution.
  * If external audio cannot load (e.g. standalone HTML opened alone), synth still works offline.
  */
 const SPACE_FORTRESS_CUES = Object.freeze({
-  missile: 'kinetic_charge.wav',
-  boss: 'kinetic_charge.wav',
+  // The kinetic_charge cue is intentionally silent: it sounded like an unrelated charging sequence.
+  // Both missile and boss use short synthesized effects instead.
   pickup: 'kinetic_ready.wav',
   shield: 'kinetic_ready.wav',
   explosion: 'kinetic_release.wav',
@@ -1187,13 +1335,13 @@ function createSoundEngine() {
     if (!context || context.state !== 'running') return;
     switch (name) {
       case 'laser': voice('sawtooth', 940, 250, 0.105, 0.09); break;
-      case 'missile': voice('sawtooth', 210, 60, 0.34, 0.22); voice('triangle', 680, 180, 0.27, 0.08); break;
+      case 'missile': voice('triangle', 280, 92, 0.17, 0.16); voice('sine', 140, 68, 0.13, 0.08); break;
       case 'impact': voice('triangle', 740, 115, 0.11, 0.15); voice('square', 210, 90, 0.065, 0.03); break;
       case 'explosion': voice('sawtooth', 135, 32, 0.45, 0.22); voice('triangle', 78, 35, 0.38, 0.21); break;
       case 'pickup': [630, 840, 1110].forEach((hz, i) => voice('sine', hz, hz * 1.1, 0.16, 0.12, i * 0.075)); break;
       case 'shield': voice('sine', 410, 1120, 0.23, 0.12); voice('triangle', 760, 480, 0.22, 0.06); break;
       case 'damage': voice('square', 250, 85, 0.23, 0.16); break;
-      case 'boss': [120, 150, 110].forEach((hz, i) => voice('sawtooth', hz, hz * .7, 0.25, 0.11, i * 0.22)); break;
+      case 'boss': voice('triangle', 360, 220, 0.12, 0.11); break;
       case 'graze': voice('sine', 980, 490, 0.12, 0.025); break;
     }
   }
@@ -1561,6 +1709,64 @@ function pickBonusType(random=Math.random) {
   return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
 }
 
+/** Visible local burns are always cut with exactly the same AND-NOT pixels as gameplay.
+ * Shared atlas frames are immutable; each wounded enemy owns its edited frame(s).
+ */
+function copyDamageSprite(source){
+  const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
+  image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
+  const m=source.mask;
+  return {...source,image,mask:{...m,rows:new Uint32Array(m.rows),
+    xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
+}
+function burnHole(sprite,localX,localY,radius){
+  const x=Math.round(localX),y=Math.round(localY),r=Math.max(2,Math.round(radius));
+  const removed=eraseDisc(sprite.mask,x,y,r);
+  if(!removed)return 0;
+  const g=sprite.image.getContext('2d',{willReadFrequently:true});
+  // Same integer circle as eraseDisc(), preserving exact alpha == bitmask.
+  for(let yy=Math.max(0,y-r);yy<=Math.min(sprite.height-1,y+r);yy++){
+    const dy=yy-y,span=Math.floor(Math.sqrt(Math.max(0,r*r-dy*dy)));
+    const left=Math.max(0,x-span),right=Math.min(sprite.width-1,x+span);
+    if(right>=left)g.clearRect(left,yy,right-left+1,1);
+  }
+  // An incandescent edge ONLY on remaining opaque pixels, never filling a cut hole.
+  g.save();g.globalCompositeOperation='source-atop';
+  g.lineWidth=2;g.strokeStyle='#ff6f35';g.beginPath();g.arc(x,y,r+1.2,0,Math.PI*2);g.stroke();
+  g.lineWidth=1;g.strokeStyle='#ffd477';g.beginPath();g.arc(x,y,r+2.0,0,Math.PI*2);g.stroke();
+  g.restore();
+  return removed;
+}
+function switchDamagedFrame(enemy,source){
+  enemy.sourceSprite=source;
+  if(!enemy.scars?.length){enemy.sprite=source;return source;}
+  if(!enemy.damageFrames)enemy.damageFrames=new Map();
+  let edited=enemy.damageFrames.get(source);
+  if(!edited){
+    edited=copyDamageSprite(source);
+    for(const p of enemy.scars)burnHole(edited,p.x,p.y,p.r);
+    enemy.damageFrames.set(source,edited);
+  }
+  enemy.sprite=edited;
+  return edited;
+}
+function addEnemyBurn(enemy,localX,localY,radius){
+  if(!enemy.sourceSprite)enemy.sourceSprite=enemy.sprite;
+  if(!enemy.scars)enemy.scars=[];
+  if(!enemy.damageFrames)enemy.damageFrames=new Map();
+  const burn={x:Math.round(localX),y:Math.round(localY),r:Math.max(2,Math.round(radius))};
+  enemy.scars.push(burn);
+  // The live frame and all previously cached animation frames remain synchronized.
+  for(const edited of enemy.damageFrames.values())burnHole(edited,burn.x,burn.y,burn.r);
+  if(!enemy.damageFrames.has(enemy.sourceSprite)){
+    const edited=copyDamageSprite(enemy.sourceSprite);
+    for(const hole of enemy.scars)burnHole(edited,hole.x,hole.y,hole.r);
+    enemy.damageFrames.set(enemy.sourceSprite,edited);
+  }
+  enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
+  return burn;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -1667,7 +1873,7 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player) player.sprite = ships.player;
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') enemy.sprite = ships[enemy.kind];
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
   if (!artFrames) return;
@@ -1676,7 +1882,7 @@ function updateSpriteAnimations() {
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
     const frames = artFrames[enemy.kind];
-    if (frames) enemy.sprite = frames[Math.floor(enemy.age * 9) % frames.length];
+    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
   }
   for(const rocket of missiles) rocket.sprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
@@ -1796,7 +2002,7 @@ function spawnEnemy(kind='scout',species=null) {
   enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0});
+    blockedTime:0,drillCooldown:0,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -1827,6 +2033,7 @@ function impactResult(result,target) {
   spawnSpriteExplosion(p.x,p.y,.5);
   decals.push({target,x:localX,y:localY,life:1.2,age:0,zone});
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
+  return p;
 }
 function firePlayer() {
   const y=player.y+player.sprite.height/2-4;
@@ -1868,37 +2075,38 @@ function playerDamage(r) {
   updateHud();
 }
 function hitEnemy(enemy,r) {
-  impactResult(r,enemy);
-  if(enemy.kind==='asteroid') {
-    const point=choosePixel(r);
-    const px=point.x-Math.round(enemy.x), py=point.y-Math.round(enemy.y);
-    const radius=13;
-    eraseDisc(enemy.sprite.mask,px,py,radius);
-    const g=enemy.sprite.image.getContext('2d');g.save();g.globalCompositeOperation='destination-out';
-    for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py, span=Math.floor(Math.sqrt(radius*radius-dy*dy));
-      g.clearRect(px-span,yy,span*2+1,1);
-    }g.restore();
-    particlesAt(point.x,point.y,'motor',12);
-    shockwaves.push({x:point.x,y:point.y,life:.36,age:0,size:12,color:'#ffab54'});
+  const point=impactResult(r,enemy);
+  if(point){
+    const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
+    if(enemy.kind==='asteroid'){
+      burnHole(enemy.sprite,px,py,9);
+      particlesAt(point.x,point.y,'motor',12);
+    }else{
+      // Small transparent impact holes, with incandescent lips; every atlas frame
+      // receives the same intrinsic cuts, unlike the old transient-only decal.
+      const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
+      addEnemyBurn(enemy,px,py,radius);
+      particlesAt(point.x,point.y,'motor',7);
+    }
+    shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
   if(enemy.kind==='asteroid'&&enemy.sprite.mask.filled<120)enemy.hp=0;
-  if(enemy.hp<=0) {
-    const epicentre=choosePixel(r)||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
+  if(enemy.hp<=0){
+    const epicentre=point||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
     particlesAt(epicentre.x,epicentre.y,'hull',enemy.kind==='boss'?75:32);
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:.58,age:0,size:enemy.kind==='boss'?75:34,color:'#ffb062'});
     sound.play('explosion');
     if(enemy.kind==='asteroid')dropBonus(enemy);
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
-    if(enemy.kind==='boss') { bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3); }
-    else if(kills%11===0) spawnBonus('shield',enemy.x,enemy.y,-85);
+    if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
+    else if(kills%11===0)spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
-  } else if(enemy.kind==='boss') {
-    reward(5);
-  }
+  }else if(enemy.kind==='boss')reward(5);
 }
+
 function advanceProjectile(b, dt, targets, friendly) {
   const dx=b.vx*dt,dy=b.vy*dt;
   // Broadphase query once along the swept projectile rectangle, not for each step.
@@ -1915,7 +2123,7 @@ function advanceProjectile(b, dt, targets, friendly) {
       if (hit) {
         const point = terrain.firstWorldImpact(hit);
         if (point) {
-          const crater = hit.kind==='gate' ? (b.kind==='missile' ? MISSILE_GATE_RADIUS : LASER_GATE_RADIUS) : b.kind === 'missile' ? 30 : friendly ? 15 : 8;
+          const crater = craterRadius(hit.kind,b.kind==='missile'?'missile':'laser');
           const removed = terrain.carveImpact(hit,point,crater);
           if (removed && friendly) {
             reward(Math.max(1, Math.round(removed / 25)));
@@ -1956,13 +2164,13 @@ function update(dt) {
   const stage=terrain.lastStage;
   music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
   if(stage.phase!==lastWorldPhase){
-    if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);sound.play('boss');}
+    if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);}
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
   }
   stageHudClock-=dt;
   if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
   const block=terrain.nextBlockedGate();
-  if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);sound.play('boss');}
+  if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
@@ -2014,7 +2222,7 @@ function update(dt) {
         // A boss excavates rock rather than phasing through it; all holes remain persistent.
         const p=terrain.firstWorldImpact(navigation.hit);
         if(p){
-          const dug=terrain.carveImpact(navigation.hit,p,26);
+          const dug=terrain.carveImpact(navigation.hit,p,18);
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
@@ -2070,7 +2278,8 @@ function update(dt) {
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
-  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
+  const gravity=debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.vy+=gravity*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
   particles=particles.filter(p=>p.age<p.life);
   decals=decals.filter(d=>{d.age+=dt;return d.age<d.life&&d.target.hp>0;});
   shockwaves=shockwaves.filter(w=>{w.age+=dt;return w.age<w.life;});

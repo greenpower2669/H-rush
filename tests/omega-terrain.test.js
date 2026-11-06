@@ -63,16 +63,19 @@ test('procedural tiles: actual alpha equals AND mask before and after excavation
 test('moving gate fully blocks the tunnel, a standard shot opens a ship-sized passage that remains after reload',()=>fakeCanvas(()=>{
   const {storage,random}=storageFromSeed();const u=new OmegaUniverse(storage,random),t=new OmegaTerrain(u);
   const g=t.gate(0,1);
-  assert.equal(g.mask.filled, g.width*g.height);
+  assert.ok(g.mask.filled>g.width*g.height*.6,'full barrier retains an opaque mineable core');
   const y=291,cy=y-gateY(g,t.time),left=g.worldX;
   t.scroll=left-340;
-  const laser={sprite:{width:4,height:4,mask:createMask(4,4,()=>true)},x:340,y};
-  const hit=t.collideEntity(laser);
-  assert.equal(hit?.kind,'gate');
-  const p=t.firstWorldImpact(hit);
-  assert.ok(p);
-  const removed=t.carveImpact(hit,p,LASER_GATE_RADIUS);
-  assert.ok(removed>1000);
+  const laserSprite={width:4,height:4,mask:createMask(4,4,()=>true)};
+  let strikes=0,removed=0;
+  for(const yy of [247,264,281,298,315,332]) for(const xx of [340,351,362,373]){
+    const hit=t.collideEntity({sprite:laserSprite,x:xx,y:yy});
+    if(hit?.kind!=='gate')continue;
+    const p=t.firstWorldImpact(hit);
+    if(p){removed+=t.carveImpact(hit,p,LASER_GATE_RADIUS);strikes++;}
+  }
+  assert.ok(strikes>=3,'wall now demands repeated laser strikes');
+  assert.ok(removed>1400,'cumulative mining removes a visible corridor');
   assert.ok(g.mask.filled < g.width*g.height);
   occupiedAlphaEqualsMask(g);
   const ship={sprite:{width:60,height:62,mask:createMask(60,62,()=>true)},x:340,y:y-31};

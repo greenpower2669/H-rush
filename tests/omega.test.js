@@ -48,7 +48,7 @@ test('gates oscillate in bounded y; first obligatory gate is fully solid and min
   const gate=gateSpec(seed1,0,1);
   assert.equal(gate.full,true);
   assert.equal(gate.width,40);
-  assert.ok(LASER_GATE_RADIUS>=60);
+  assert.ok(LASER_GATE_RADIUS>=18 && LASER_GATE_RADIUS<=28,'bars should require multiple laser impacts');
   assert.notEqual(gateY(gate,0),gateY(gate,0.6));
   for(let n=0;n<30;n++)assert.ok(Math.abs(gateY(gate,n*.1)-gate.baseY)<=Math.ceil(gate.amplitude));
   const a=gateSpec(seed1,0,1),b=gateSpec(seed1,0,1);

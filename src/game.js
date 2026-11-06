@@ -8,9 +8,11 @@ import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType } from './bonuses.js';
 import { loadGameArt } from './art.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE } from './universe.js';
-import { OmegaTerrain, LASER_GATE_RADIUS, MISSILE_GATE_RADIUS } from './omega-terrain.js';
+import { OmegaTerrain, craterRadius } from './omega-terrain.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
+import { biomeFor, debrisGravity } from './biomes.js';
+import { burnHole, switchDamagedFrame, addEnemyBurn } from './damage.js';
 import { speciesFor, adaptSpecies, movementDelta } from './ecology.js';
 import { scoreRun } from './hall.js';
 
@@ -120,7 +122,7 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player) player.sprite = ships.player;
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') enemy.sprite = ships[enemy.kind];
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations() {
   if (!artFrames) return;
@@ -129,7 +131,7 @@ function updateSpriteAnimations() {
   for (const enemy of enemies) {
     if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
     const frames = artFrames[enemy.kind];
-    if (frames) enemy.sprite = frames[Math.floor(enemy.age * 9) % frames.length];
+    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
   }
   for(const rocket of missiles) rocket.sprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
@@ -249,7 +251,7 @@ function spawnEnemy(kind='scout',species=null) {
   enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0});
+    blockedTime:0,drillCooldown:0,sourceSprite:s,scars:[],damageFrames:new Map()});
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -280,6 +282,7 @@ function impactResult(result,target) {
   spawnSpriteExplosion(p.x,p.y,.5);
   decals.push({target,x:localX,y:localY,life:1.2,age:0,zone});
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
+  return p;
 }
 function firePlayer() {
   const y=player.y+player.sprite.height/2-4;
@@ -321,37 +324,38 @@ function playerDamage(r) {
   updateHud();
 }
 function hitEnemy(enemy,r) {
-  impactResult(r,enemy);
-  if(enemy.kind==='asteroid') {
-    const point=choosePixel(r);
-    const px=point.x-Math.round(enemy.x), py=point.y-Math.round(enemy.y);
-    const radius=13;
-    eraseDisc(enemy.sprite.mask,px,py,radius);
-    const g=enemy.sprite.image.getContext('2d');g.save();g.globalCompositeOperation='destination-out';
-    for(let yy=Math.max(0,py-radius);yy<=Math.min(enemy.sprite.height-1,py+radius);yy++){const dy=yy-py, span=Math.floor(Math.sqrt(radius*radius-dy*dy));
-      g.clearRect(px-span,yy,span*2+1,1);
-    }g.restore();
-    particlesAt(point.x,point.y,'motor',12);
-    shockwaves.push({x:point.x,y:point.y,life:.36,age:0,size:12,color:'#ffab54'});
+  const point=impactResult(r,enemy);
+  if(point){
+    const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
+    if(enemy.kind==='asteroid'){
+      burnHole(enemy.sprite,px,py,9);
+      particlesAt(point.x,point.y,'motor',12);
+    }else{
+      // Small transparent impact holes, with incandescent lips; every atlas frame
+      // receives the same intrinsic cuts, unlike the old transient-only decal.
+      const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
+      addEnemyBurn(enemy,px,py,radius);
+      particlesAt(point.x,point.y,'motor',7);
+    }
+    shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
   if(enemy.kind==='asteroid'&&enemy.sprite.mask.filled<120)enemy.hp=0;
-  if(enemy.hp<=0) {
-    const epicentre=choosePixel(r)||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
+  if(enemy.hp<=0){
+    const epicentre=point||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
     particlesAt(epicentre.x,epicentre.y,'hull',enemy.kind==='boss'?75:32);
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:.58,age:0,size:enemy.kind==='boss'?75:34,color:'#ffb062'});
     sound.play('explosion');
     if(enemy.kind==='asteroid')dropBonus(enemy);
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
-    if(enemy.kind==='boss') { bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3); }
-    else if(kills%11===0) spawnBonus('shield',enemy.x,enemy.y,-85);
+    if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
+    else if(kills%11===0)spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
-  } else if(enemy.kind==='boss') {
-    reward(5);
-  }
+  }else if(enemy.kind==='boss')reward(5);
 }
+
 function advanceProjectile(b, dt, targets, friendly) {
   const dx=b.vx*dt,dy=b.vy*dt;
   // Broadphase query once along the swept projectile rectangle, not for each step.
@@ -368,7 +372,7 @@ function advanceProjectile(b, dt, targets, friendly) {
       if (hit) {
         const point = terrain.firstWorldImpact(hit);
         if (point) {
-          const crater = hit.kind==='gate' ? (b.kind==='missile' ? MISSILE_GATE_RADIUS : LASER_GATE_RADIUS) : b.kind === 'missile' ? 30 : friendly ? 15 : 8;
+          const crater = craterRadius(hit.kind,b.kind==='missile'?'missile':'laser');
           const removed = terrain.carveImpact(hit,point,crater);
           if (removed && friendly) {
             reward(Math.max(1, Math.round(removed / 25)));
@@ -409,13 +413,13 @@ function update(dt) {
   const stage=terrain.lastStage;
   music.scene(sceneMusic(stage.phase,bossActive,player.hp<=1));
   if(stage.phase!==lastWorldPhase){
-    if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);sound.play('boss');}
+    if(lastWorldPhase!==null){msg(({space:'🌌 RETOUR DANS L’ESPACE !',atmosphere:'🪐 ENTRÉE ATMOSPHÉRIQUE',surface:'🏔️ COMBAT EN RASE-MOTTES',interior:'🪨 PROFONDEURS — CREUSE !',exit:'✨ SORTIE VERS LES ÉTOILES'})[stage.phase],2.7);}
     lastWorldPhase=stage.phase;wave=stage.region+1;updateHud();
   }
   stageHudClock-=dt;
   if(stageHudClock<=0){stageHudClock=.3;score=universe.totalScore;updateHud();}
   const block=terrain.nextBlockedGate();
-  if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);sound.play('boss');}
+  if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
   updateSpriteAnimations();
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
@@ -467,7 +471,7 @@ function update(dt) {
         // A boss excavates rock rather than phasing through it; all holes remain persistent.
         const p=terrain.firstWorldImpact(navigation.hit);
         if(p){
-          const dug=terrain.carveImpact(navigation.hit,p,26);
+          const dug=terrain.carveImpact(navigation.hit,p,18);
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
@@ -523,7 +527,8 @@ function update(dt) {
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
-  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
+  const gravity=debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
+  for(const p of particles){p.age+=dt;p.x+=p.vx*dt;p.vy+=gravity*dt;p.y+=p.vy*dt;p.vx*=1-dt*.55;p.vy*=1-dt*.55;}
   particles=particles.filter(p=>p.age<p.life);
   decals=decals.filter(d=>{d.age+=dt;return d.age<d.life&&d.target.hp>0;});
   shockwaves=shockwaves.filter(w=>{w.age+=dt;return w.age<w.life;});

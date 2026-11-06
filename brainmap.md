@@ -31,3 +31,9 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/input.js` : calibrage tactile persistant, inversion X/Y et positionnement à droite du doigt.
 - `src/tilt.js` : sélection tactile/inclinaison persistante, tactile par défaut, calibrage neutre.
 - `src/bonuses.js` et `src/health.js` : 24 apparences, bonus ♥+ rare, plafond de 8 cœurs.
+
+## OMEGA 0.4.6 — tiroirs d'implémentation
+- `src/biomes.js` : les 12 signatures graphiques, géologiques et physiques des 40 familles de mondes.
+- `src/damage.js` : cratères incandescents sur ennemis, sprites animés clonés individuellement et masques exacts.
+- `src/omega-terrain.js` : dureté relative barres/sol, passage progressivement creusé, silhouette sans cadre.
+- `src/sound.js` : son de charge coupé, sons de combat restants.

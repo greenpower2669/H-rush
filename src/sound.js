@@ -1,11 +1,11 @@
 /**
  * Ash Rush SFX — synthesized fallback with selected SpaceFortressVs originals.
- * Three original PCM WAV cues are copied from SpaceFortressVs with attribution.
+ * Two original PCM WAV cues are copied from SpaceFortressVs with attribution.
  * If external audio cannot load (e.g. standalone HTML opened alone), synth still works offline.
  */
 export const SPACE_FORTRESS_CUES = Object.freeze({
-  missile: 'kinetic_charge.wav',
-  boss: 'kinetic_charge.wav',
+  // The kinetic_charge cue is intentionally silent: it sounded like an unrelated charging sequence.
+  // Both missile and boss use short synthesized effects instead.
   pickup: 'kinetic_ready.wav',
   shield: 'kinetic_ready.wav',
   explosion: 'kinetic_release.wav',
@@ -94,13 +94,13 @@ export function createSoundEngine() {
     if (!context || context.state !== 'running') return;
     switch (name) {
       case 'laser': voice('sawtooth', 940, 250, 0.105, 0.09); break;
-      case 'missile': voice('sawtooth', 210, 60, 0.34, 0.22); voice('triangle', 680, 180, 0.27, 0.08); break;
+      case 'missile': voice('triangle', 280, 92, 0.17, 0.16); voice('sine', 140, 68, 0.13, 0.08); break;
       case 'impact': voice('triangle', 740, 115, 0.11, 0.15); voice('square', 210, 90, 0.065, 0.03); break;
       case 'explosion': voice('sawtooth', 135, 32, 0.45, 0.22); voice('triangle', 78, 35, 0.38, 0.21); break;
       case 'pickup': [630, 840, 1110].forEach((hz, i) => voice('sine', hz, hz * 1.1, 0.16, 0.12, i * 0.075)); break;
       case 'shield': voice('sine', 410, 1120, 0.23, 0.12); voice('triangle', 760, 480, 0.22, 0.06); break;
       case 'damage': voice('square', 250, 85, 0.23, 0.16); break;
-      case 'boss': [120, 150, 110].forEach((hz, i) => voice('sawtooth', hz, hz * .7, 0.25, 0.11, i * 0.22)); break;
+      case 'boss': voice('triangle', 360, 220, 0.12, 0.11); break;
       case 'graze': voice('sine', 980, 490, 0.12, 0.025); break;
     }
   }
