@@ -8,7 +8,7 @@ import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { morphFor, bossMorphFor, spriteForMorph, morphMovement, bossWeapons } from './bestiary.js';
+import { morphFor, bossMorphFor, spriteForMorph, morphMovement, spawnMovement, bossWeapons } from './bestiary.js';
 import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
@@ -486,7 +486,9 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
-      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+      // Asteroid species intentionally have no morphology; optional chaining
+      // on morph?.anchor alone was NOT enough (!'air' evaluates true).
+      movement:spawnMovement(morph,species.movement)}:null;
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
