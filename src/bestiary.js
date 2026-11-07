@@ -109,6 +109,16 @@ export function morphFor(seed,region,phase,encounter,biome='machine'){
 export function bossMorphFor(seed,region,phase,encounter,biome='machine'){
   return deterministicPick(seed,region,phase,encounter,biome,BOSS_MORPHS,41);
 }
+/** Resolve enemy movement safely when its species has no visual morphology.
+ * Some ecological roles (notably asteroid) intentionally use mutable raster
+ * sprites instead of ENEMY_MORPHS. For them, preserve the species' movement;
+ * never dereference a missing morphology. Only grounded/ceiling morphs
+ * override the ecological movement mode.
+ */
+export function spawnMovement(morph,speciesMovement='weave'){
+  if(!morph || morph.anchor==='air')return speciesMovement;
+  return morphMovement(morph);
+}
 export function morphMovement(profile){
   if(profile.anchor==='ceiling')return 'ceiling';
   if(profile.shape==='worm')return 'jump';
