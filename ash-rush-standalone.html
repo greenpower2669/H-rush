@@ -815,7 +815,11 @@ function gateSpec(seed,region,which){
   const eligible=(mid.phase==='surface'||mid.phase==='interior');
   const floorSupported=[mid,left,right].every(v=>v.bottom<WORLD_H-28);
   const ceilingSupported=[mid,left,right].every(v=>v.top>36);
-  const enabled=eligible&&(floorSupported||ceilingSupported);
+  // Organic scenery now carries most of the threat. Keep the eleven
+  // historical identities and persistent scars, but render only 3–4 rooted
+  // columns per region instead of 11. Full corridor gates are rare.
+  const sparse=which===0||which===5||which===8||(which===1&&region%3===0);
+  const enabled=eligible&&sparse&&(floorSupported||ceilingSupported);
   const preferCeiling=which===3||which===5||which===7||which===9;
   const anchorTop=ceilingSupported&&(preferCeiling||!floorSupported);
   const anchor=anchorTop?'ceiling':'ground';
@@ -1549,6 +1553,118 @@ function mineFused(mine,player,dt){
   return mine.fuse!==null&&mine.fuse<=0;
 }
 
+/** OMEGA 0.5.15 — bounded living colony, detached appendages and rescue.
+ * Pure state logic: gameplay collision and rendering stay in game.js.
+ * The helper must be a DIFFERENT living ceiling tentacle and remain alive.
+ */
+const ORGANIC_FRAGMENT_LIMIT=6;
+const ORGANIC_STATES=Object.freeze(['fall','crawl','lunge','rescue','ambush','drop']);
+const bound=(x,a,b)=>Math.max(a,Math.min(b,x));
+const center=e=>({x:e.x+e.sprite.width*.5,y:e.y+e.sprite.height*.5});
+
+function organicCanSever(enemy){
+  return !!enemy?.morph&&['root','tentacle','vine'].includes(enemy.morph.shape)
+    &&(enemy.severCount||0)<1&&enemy.maxHp>0;
+}
+function organicSeverDue(enemy){
+  return organicCanSever(enemy)&&enemy.hp<=Math.max(1,Math.ceil(enemy.maxHp*.55));
+}
+function rescueHelper(fragment,actors){
+  if(!fragment||fragment.origin!=='tentacle'||fragment.state!=='crawl'||fragment.stateAge<.45)return null;
+  let best=null,bestDist=Infinity;
+  for(const other of actors){
+    if(other===fragment||other.hp<=0||other.fragment||!other.morph
+      ||!['tentacle','vine'].includes(other.morph.shape)
+      ||other.morph.anchor!=='ceiling'||other.x<0)continue;
+    const d=Math.abs(center(fragment).x-center(other).x);
+    if(d>205||d>=bestDist)continue;
+    if(actors.some(a=>a!==fragment&&a.fragment&&a.helper===other
+       &&a.state==='rescue'&&a.hp>0))continue;
+    best=other;bestDist=d;
+  }
+  return best;
+}
+/** Returns the NEXT movement vector in screen coordinates, not world velocity.
+ * Reattachment is a true state transition; it requires a live rescuer and
+ * accessible ceiling, and waits for ship proximity before the surprise drop.
+ */
+function stepOrganicFragment(f,actors,player,environment,dt){
+  const step=bound(Number(dt)||0,0,.06);
+  f.stateAge=(f.stateAge||0)+step;
+  f.ttl=(f.ttl??23)-step;
+  if(f.ttl<=0)return {dx:0,dy:0,expired:true};
+  const floor=Number.isFinite(environment.floor)?environment.floor:620;
+  const ceiling=Number.isFinite(environment.ceiling)?environment.ceiling:-80;
+  const surfaceY=bound(floor-f.sprite.height-5,24,540-f.sprite.height-14);
+  const caveCeiling=ceiling>35 && ceiling<360;
+  const ceilY=bound(ceiling+7,24,540-f.sprite.height-14);
+  const p=center(player),self=center(f);
+  const deltaX=p.x-self.x,deltaY=p.y-self.y;
+  const near=Math.abs(deltaX)<145&&Math.abs(deltaY)<145;
+  if(f.state==='fall'){
+    f.vy=bound((f.vy||0)+350*step,-180,280);
+    if(f.y>=surfaceY-4&&f.vy>=0){
+      f.state='crawl';f.stateAge=0;f.vy=0;
+    }else return {dx:-28*step,dy:f.vy*step};
+  }
+  if(f.state==='crawl'){
+    // Only a cut-off ceiling tentacle may be carried by another ceiling tentacle.
+    const helper=caveCeiling?rescueHelper(f,actors):null;
+    if(helper){
+      f.helper=helper;f.state='rescue';f.stateAge=0;f.vy=0;
+    }else if(near&&f.stateAge>.7){
+      f.state='lunge';f.stateAge=0;f.vy=-210;
+    }else{
+      f.vy=0;
+      return {dx:bound(deltaX,-74*step,74*step)-19*step,
+        dy:bound(surfaceY-f.y,-95*step,95*step)};
+    }
+  }
+  if(f.state==='lunge'){
+    f.vy=bound((f.vy||0)+410*step,-220,260);
+    if(f.stateAge>.66 || f.y>=surfaceY){
+      f.state='fall';f.stateAge=0;
+    }
+    return {dx:bound(deltaX,-165*step,165*step),
+      dy:f.vy*step};
+  }
+  if(f.state==='rescue'){
+    if(!caveCeiling||!f.helper||f.helper.hp<=0||
+       Math.abs(f.helper.x-f.x)>240){
+      f.helper=null;f.state='fall';f.stateAge=0;
+      return {dx:-24*step,dy:0};
+    }
+    // Neighbor physically carries the severed organism to its own ceiling.
+    const hx=f.helper.x+f.helper.sprite.width*.47-f.sprite.width*.5;
+    const dx=bound(hx-f.x,-125*step,125*step);
+    const dy=bound(ceilY-f.y,-165*step,165*step);
+    if(Math.abs(hx-f.x)<7&&Math.abs(ceilY-f.y)<8){
+      f.state='ambush';f.stateAge=0;
+      f.worldAnchorX=environment.scroll+f.x;
+      f.helper=null;
+      return {dx:0,dy:0,reanchored:true};
+    }
+    return {dx,dy,carried:true};
+  }
+  if(f.state==='ambush'){
+    const dx=bound((f.worldAnchorX??environment.scroll+f.x)-environment.scroll-f.x,-24,24);
+    if((Math.abs(deltaX)<130&&p.y>f.y+f.sprite.height*.6)||f.stateAge>13){
+      f.state='drop';f.stateAge=0;f.vy=60;
+      return {dx,dy:2,dropped:true};
+    }
+    return {dx,dy:bound(ceilY-f.y,-45*step,45*step)};
+  }
+  if(f.state==='drop'){
+    f.vy=bound((f.vy||55)+400*step,0,310);
+    if(f.y>=surfaceY-3){
+      f.state='crawl';f.stateAge=0;f.vy=0;
+      return {dx:0,dy:bound(surfaceY-f.y,-12,12)};
+    }
+    return {dx:bound(deltaX,-110*step,110*step),dy:f.vy*step};
+  }
+  return {dx:0,dy:0};
+}
+
 /** Ash Rush — actual extracted frames from Fab's original illustrated boards.
  * Every frame uses the SAME corrected RGBA pixels for the visual and the AND mask.
  */
@@ -1816,7 +1932,136 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
+/** High-detail organic raster with the actual alpha collision silhouette.
+ * Every precomputed pose re-renders thick tapering skin, glossy highlights,
+ * suckers, veins and independent branches. Base disappears behind rock tiles.
+ * One shared Canvas drives rendering AND 2D impact masks (no hidden hitboxes).
+ */
+function paintLivingOrganism(g,m,frame){
+  const w=m.boss?230:158,h=m.boss?244:174;
+  const root=m.shape==='root',sign=root?-1:1;
+  const baseY=root?h-12:12;
+  const pose=appendagePose(m,frame),arms=m.boss?7:5;
+  const palette=(m.index%4);
+  const skin=['#652545','#51223f','#421c42','#692539'][palette];
+  const highlight=['#f4a1b9','#e9a5d2','#ad8cf1','#ffacb3'][palette];
+  const underside=['#250f2b','#1f1333','#1d102a','#301021'][palette];
+  const bright=pose.warning?'#ffe3eb':'#f66aa8';
+  g.save();g.lineCap='round';g.lineJoin='round';
+  // Each branch is its own animated cubic with real tapered width.
+  for(let i=0;i<arms;i++){
+    const a=i-(arms-1)*.5;
+    const bx=w*.5+a*w*(m.boss?.094:.124);
+    const by=baseY;
+    const fork=Math.sin(i*1.68+m.index*.32);
+    const tx=Math.max(17,Math.min(w-17,bx+fork*w*.24+pose.bend*w*.92));
+    const ty=baseY+sign*(h*(.61+(i%3)*.075)*pose.extension);
+    const c1=[bx+pose.bend*w*.20,baseY+sign*h*.23];
+    const c2=[tx-pose.curl*w*.52+fork*w*.12,baseY+sign*h*.50];
+    const width=(m.boss?25:19)-(i%3)*3.2;
+    const trace=(offset=0)=>{
+      g.beginPath();g.moveTo(bx+offset,by);
+      g.bezierCurveTo(c1[0]+offset,c1[1],c2[0]+offset,c2[1],tx+offset,ty);
+    };
+    g.strokeStyle=underside;g.lineWidth=width+8;trace(0);g.stroke();
+    const gloss=g.createLinearGradient(bx-width,by,tx+width,ty);
+    gloss.addColorStop(0,skin);
+    gloss.addColorStop(.27,'#a75683');
+    gloss.addColorStop(.50,underside);
+    gloss.addColorStop(.73,skin);
+    gloss.addColorStop(1,highlight);
+    g.strokeStyle=gloss;g.lineWidth=width+2;trace(0);g.stroke();
+    g.strokeStyle=highlight;g.globalAlpha=.54;g.lineWidth=Math.max(3,width*.17);
+    trace(-width*.16);g.stroke();g.globalAlpha=1;
+    const bezier=t=>{
+      const u=1-t;
+      return {x:u*u*u*bx+3*u*u*t*c1[0]+3*u*t*t*c2[0]+t*t*t*tx,
+        y:u*u*u*by+3*u*u*t*c1[1]+3*u*t*t*c2[1]+t*t*t*ty};
+    };
+    for(let j=1;j<7;j++){
+      const q=j/8,pos=bezier(q),next=bezier(Math.min(.97,q+.015));
+      const angle=Math.atan2(next.y-pos.y,next.x-pos.x);
+      const nx=-Math.sin(angle),ny=Math.cos(angle);
+      if(!root){
+        const sx=pos.x+nx*width*.39,sy=pos.y+ny*width*.39;
+        g.fillStyle=underside;g.beginPath();
+        g.ellipse(sx,sy,Math.max(2,width*.25),Math.max(2,width*.18),angle,0,Math.PI*2);g.fill();
+        g.fillStyle=highlight;g.beginPath();
+        g.ellipse(sx,sy,Math.max(1.5,width*.17),Math.max(1.5,width*.12),angle,0,Math.PI*2);g.fill();
+        g.fillStyle='#3e173a';g.beginPath();g.arc(sx,sy,Math.max(1,width*.065),0,Math.PI*2);g.fill();
+      }else{
+        // Jagged living root thorns point AWAY from the centerline.
+        const out=j%2?-1:1, sx=pos.x+nx*out*width*.44,sy=pos.y+ny*out*width*.44;
+        g.fillStyle='#2b112b';g.beginPath();g.moveTo(sx-4,sy-3);
+        g.lineTo(sx+nx*out*(9+(j%3)*3),sy+ny*out*(9+(j%3)*3));
+        g.lineTo(sx+4,sy+3);g.closePath();g.fill();
+      }
+      // Each organic arm has living pink veins, not static stripes.
+      const inX=pos.x-nx*width*.18,inY=pos.y-ny*width*.18;
+      g.globalAlpha=.6+.12*Math.sin(frame*1.05+i+j);
+      g.fillStyle=bright;g.beginPath();g.arc(inX,inY,1.1+(j%3)*.5,0,Math.PI*2);g.fill();
+      g.globalAlpha=1;
+    }
+    // Hooked tip threatening the passing ship; endpoint follows pose and mask.
+    g.strokeStyle=underside;g.lineWidth=Math.max(4,width*.55);
+    g.beginPath();g.moveTo(tx,ty);
+    g.quadraticCurveTo(tx+fork*12,ty+sign*17,tx-9-fork*5,ty+sign*21);g.stroke();
+    g.strokeStyle=highlight;g.lineWidth=2.2;g.beginPath();
+    g.moveTo(tx,ty);g.quadraticCurveTo(tx+fork*12,ty+sign*17,tx-9-fork*5,ty+sign*21);g.stroke();
+  }
+  // The base resembles swollen rock-grown tissue and hides naturally under
+  // real alpha tiles, instead of looking like a small floating enemy sprite.
+  const nucleus=g.createRadialGradient(w*.44,baseY-sign*5,2,w*.5,baseY,w*.36);
+  nucleus.addColorStop(0,highlight);nucleus.addColorStop(.28,skin);
+  nucleus.addColorStop(.78,underside);nucleus.addColorStop(1,'#170c23');
+  g.fillStyle=nucleus;g.beginPath();
+  g.ellipse(w*.5,baseY,w*.39,m.boss?24:18,0,0,Math.PI*2);g.fill();
+  for(let k=0;k<9;k++){
+    const x=w*(.19+k*.077),y=baseY-sign*(7+(k%3)*4);
+    const core=k%3===0?highlight:'#bb5b9b';
+    g.fillStyle=underside;g.beginPath();g.ellipse(x,y,7+(k%2)*3,5+(k%4),.23,0,Math.PI*2);g.fill();
+    g.fillStyle=core;g.globalAlpha=.75;g.beginPath();
+    g.ellipse(x-1,y-1,3+(k%2),2.3,0,0,Math.PI*2);g.fill();g.globalAlpha=1;
+  }
+  g.fillStyle=bright;g.globalAlpha=pose.warning?.94:.46;g.beginPath();
+  g.ellipse(w*.5,baseY-sign*11,m.boss?12:8,m.boss?7:5,0,0,Math.PI*2);g.fill();
+  g.restore();
+}
+/** Detached organic appendage, separately rasterized, damaged and collision-tested. */
+const fragmentArtCache=new Map();
+function organicFragmentSprite(morph,frame=0){
+  const id=(morph?.id||'organic')+':'+(frame&1);
+  if(fragmentArtCache.has(id))return fragmentArtCache.get(id);
+  if(typeof document==='undefined')throw Error('Canvas required for living organics');
+  const w=69,h=65,c=document.createElement('canvas');c.width=w;c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  const t=frame&1,root=morph?.shape==='root';
+  const glow=root?'#ff5aaf':'#ff9cd0';
+  const base=g.createLinearGradient(5,8,60,60);
+  base.addColorStop(0,'#21102d');base.addColorStop(.35,'#702a64');
+  base.addColorStop(.65,'#b35b9c');base.addColorStop(1,'#241329');
+  g.save();g.lineCap='round';g.lineJoin='round';
+  g.strokeStyle='#21102b';g.lineWidth=21;g.beginPath();
+  g.moveTo(13,48);g.bezierCurveTo(10,10+t*3,60,11+t*4,55,47);g.stroke();
+  g.strokeStyle=base;g.lineWidth=16;g.stroke();
+  g.strokeStyle='#f8a9d3';g.lineWidth=2.9;g.globalAlpha=.65;
+  g.beginPath();g.moveTo(17,43);g.bezierCurveTo(15,18,51,13,51,41);g.stroke();g.globalAlpha=1;
+  for(let j=0;j<5;j++){
+    const x=23+j*7,y=19+Math.sin(j*.9+t*.4)*3;
+    g.fillStyle='#230f2b';g.beginPath();g.ellipse(x,y,4.5,3.4,.4,0,Math.PI*2);g.fill();
+    g.fillStyle=root?'#c970bc':'#ff9ab6';g.beginPath();g.ellipse(x,y,2.5,1.6,.4,0,Math.PI*2);g.fill();
+  }
+  g.fillStyle='#2c1227';g.beginPath();g.ellipse(53,47,8,8,.3,0,Math.PI*2);g.fill();
+  g.fillStyle=glow;g.beginPath();g.ellipse(55,45,4,3,.3,0,Math.PI*2);g.fill();
+  g.restore();
+  const data=g.getImageData(0,0,w,h);
+  const result={width:w,height:h,image:c,mask:maskFromImageData(data,42)};
+  fragmentArtCache.set(id,result);
+  while(fragmentArtCache.size>48)fragmentArtCache.delete(fragmentArtCache.keys().next().value);
+  return result;
+}
 function paintMorph(g,m,frame,phase,turretAngle=null){
+  if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame);return;}
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -2017,6 +2262,7 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
  * embellishment can extend beyond the real collision silhouette.
  */
 function paintSurfaceDetails(g,m,frame,phase){
+  if(isLivingAppendage(m))return; // Already painted veins, suckers and skin in physical alpha.
   const w=m.boss?176:86,h=m.boss?112:62;
   const accent={space:'#70f5ff',mechanical:'#92cfff',aerial:'#ffd88e',
     organic:'#ff8ba9',hybrid:'#d5afff',ground:'#ffd178',defense:'#ffb68b'}[m.family]||'#a8eeff';
@@ -2118,7 +2364,9 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
-  const w=morph.boss?176:86,h=morph.boss?112:62;
+  const living=isLivingAppendage(morph);
+  const w=living?(morph.boss?230:158):(morph.boss?176:86);
+  const h=living?(morph.boss?244:174):(morph.boss?112:62);
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
   // Aerial enemies and ground worms face LEFT, toward the approaching player.
@@ -3413,13 +3661,13 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.mine && !enemy.fragment && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
   if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid'||enemy.kind === 'mine') continue; // Individually mutable alpha; not atlas frames.
+    if (enemy.kind === 'asteroid'||enemy.kind === 'mine'||enemy.fragment) continue; // Individually mutable alpha; not atlas frames.
     if(enemy.morph){
       const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
         isGroundCreature(enemy.morph);
@@ -3819,8 +4067,19 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
   const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
-  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+  let morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
     (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  // A hanging tentacle MUST have an actual ceiling. Surface scenes without
+  // overhangs get a seeded ground-root variant, never an appendage in the sky.
+  const preview=terrainBounds(universe.seed,terrain.scroll+W+160);
+  if(morph?.anchor==='ceiling'&&preview.top<40){
+    const collection=kind==='boss'?BOSS_MORPHS:ENEMY_MORPHS;
+    const grounded=collection.filter(m=>m.shape==='root'&&m.phases.includes(stage.phase));
+    if(grounded.length){
+      const k=Math.floor(keyedFloat(universe.seed,stage.region*100000+spawnCount,2367)*grounded.length);
+      morph=grounded[Math.min(grounded.length-1,k)];
+    }else return false;
+  }
   const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=offscreenSpawnX(W,s.width,70);
   const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
@@ -3831,8 +4090,11 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
+  // A creature without contact with rock is not allowed to float as a decal.
+  if(isLivingAppendage(morph)&&anchorY!==null&&Math.abs(position.y-preferredY)>27)return false;
   const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
-    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+    (isLivingAppendage(morph)?Math.max(5,species?.hp||0):
+      species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2));
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
       // Asteroid species intentionally have no morphology; optional chaining
@@ -3845,12 +4107,46 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     hullPitch:0,cannonAngle:null,biteClock:0,
     // Appendages are fixed to a WORLD-space surface, not sliding across it.
     // They move left only because the universe scrolls under the ship.
-    worldAnchorX:morph&&['root','vine','tentacle'].includes(morph.shape)?
-      terrain.scroll+position.x:null,
+    worldAnchorX:isLivingAppendage(morph)?terrain.scroll+position.x:null,
+    severCount:0,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
+}
+/** Cut-off pieces survive: they can crawl, leap, be carried by a living
+ * ceiling neighbor, reattach and then drop on the player's approach.
+ * Each piece gets its OWN mutable alpha so AND NOT wounds are never shared.
+ */
+function spawnOrganicFragment(parent,impact){
+  if(!parent?.morph||warp||enemies.length>=20||
+      enemies.filter(e=>e.fragment&&e.hp>0).length>=ORGANIC_FRAGMENT_LIMIT)return false;
+  const form=parent.morph,source=organicFragmentSprite(form,Math.floor(parent.age*8)&1);
+  const s=copyDamageSprite(source);
+  const x=clamp(impact.x-s.width*.52,-8,W+125);
+  const y=clamp(impact.y-s.height*.45,24,H-s.height-15);
+  const pos=safeEnemySpawn(terrain,s,x,y,{lookAhead:[0],searchStep:9});
+  if(!pos)return false;
+  enemies.push({kind:'organic-fragment',fragment:true,
+    origin:form.shape==='root'?'root':'tentacle',
+    state:'fall',stateAge:0,ttl:23,helper:null,worldAnchorX:null,
+    sprite:s,x:pos.x,y:pos.y,vx:0,vy:38,age:0,
+    hp:3,maxHp:3,sourceSprite:s,phase:0,species:{weapon:'none'}});
+  particlesAt(impact.x,impact.y,'hull',12);
+  shockwaves.push({x:impact.x,y:impact.y,life:.23,age:0,size:13,color:'#ed65a6'});
+  return true;
+}
+function drawRescueLink(f){
+  if(f.state!=='rescue'||!f.helper||f.helper.hp<=0)return;
+  const h=f.helper;
+  const x0=h.x+h.sprite.width*.52,y0=h.y+h.sprite.height*.77;
+  const x1=f.x+f.sprite.width*.5,y1=f.y+f.sprite.height*.5;
+  ctx.save();ctx.lineCap='round';
+  ctx.globalAlpha=.65;ctx.lineWidth=5;ctx.strokeStyle='#39172f';
+  ctx.beginPath();ctx.moveTo(x0,y0);
+  ctx.bezierCurveTo(x0-12,y0+32,x1+23,y1-33,x1,y1);ctx.stroke();
+  ctx.lineWidth=1.8;ctx.strokeStyle='#ed7fbe';ctx.stroke();
+  ctx.restore();
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
@@ -4012,8 +4308,8 @@ function hitEnemy(enemy,r) {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
-    if(enemy.kind==='asteroid'||enemy.kind==='mine'){
-      burnHoleLimited(enemy.sprite,px,py,enemy.kind==='mine'?2:enemy.robot?3:9,
+    if(enemy.kind==='asteroid'||enemy.kind==='mine'||enemy.fragment){
+      burnHoleLimited(enemy.sprite,px,py,enemy.fragment?3:enemy.kind==='mine'?2:enemy.robot?3:9,
         Number.isFinite(enemy.maxHp)&&enemy.maxHp>0 ? 1-(enemy.hp-1)/enemy.maxHp : 0);
       particlesAt(point.x,point.y,'motor',12);
     }else{
@@ -4044,6 +4340,10 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
+  if(organicSeverDue(enemy)&&point&&spawnOrganicFragment(enemy,point)){
+    enemy.severCount=1;
+    enemy.visualDirty=true;
+  }
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
   if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
   if(enemy.hp<=0){
@@ -4058,7 +4358,7 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
       size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
     sound.play(enemy.robot?'impact':'explosion');
-    dropBonus(enemy);
+    if(!enemy.fragment)dropBonus(enemy);
     if(warp&&enemy.kind==='asteroid')warp.broken++;
     if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
       const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
@@ -4070,7 +4370,7 @@ function hitEnemy(enemy,r) {
         spawnRock(profile,enemy.y+enemy.sprite.height*.5-shard.size*.5+shard.angle*14,enemy.x+15+i*9);
       }
     }
-    reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
+    reward(enemy.fragment?45:enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
     enemies.splice(enemies.indexOf(enemy),1);
@@ -4259,6 +4559,20 @@ function update(dt) {
   }
   for(const enemy of enemies){
     enemy.age+=dt;
+    if(enemy.fragment){
+      const world=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+      const bounds=terrainBounds(universe.seed,Math.max(0,world));
+      const motion=stepOrganicFragment(enemy,enemies,player,{
+        floor:bounds.bottom,ceiling:bounds.top,scroll:terrain.scroll},dt);
+      if(motion.expired){enemy.hp=0;continue;}
+      const nav=advanceEnemyOnTerrain(enemy,terrain,motion.dx,motion.dy,{stepSize:5});
+      if(nav.trapped){enemy.hp=0;continue;}
+      // Crawlers follow the exact surviving solid alpha, not a decorative
+      // floor curve. If a neighboring ceiling rescues them they climb instead.
+      if(enemy.state==='crawl')alignByTerrainAnd(terrain,enemy,'ground',30);
+      if(enemy.x< -enemy.sprite.width)enemy.hp=0;
+      continue;
+    }
     if(enemy.mine){
       const step=mineMotion(enemy,player,dt);
       if(!warp){
@@ -4444,6 +4758,9 @@ function render() {
     const portal=nearbyPortal();
     if(portal)drawHiddenPortal(portal);
     for(const enemy of enemies)if(enemy.column)drawEntity(enemy);
+    // Ground roots and ceiling tentacles are BEHIND the real rocky matte,
+    // so their bases naturally disappear inside the ground or ceiling.
+    for(const enemy of enemies)if(isLivingAppendage(enemy.morph))drawEntity(enemy);
     terrain.draw(ctx, W);
   }
   for(const item of powerups){
@@ -4451,9 +4768,10 @@ function render() {
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)if(warp||!enemy.column){
+  for(const enemy of enemies)if(warp||(!enemy.column&&!isLivingAppendage(enemy.morph))){
     if(enemy.mine)drawRobotMine(enemy);
     else drawEntity(enemy);
+    if(enemy.fragment)drawRescueLink(enemy);
   }
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
