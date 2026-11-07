@@ -424,6 +424,6 @@
 - [x] Passer les vraies silhouettes organiques de six à douze poses alphamasquées, ondes de flexion décalées pour chaque bras, coude et pointe qui évoluent avec une phase propre, tout en gardant le pied presque immobile.
 - [x] Tests : résilience, vraie sélection de l'ancrage géologique et l'appel `spawnEnemy` d'origine, animation déterministe/variété de pose, conservation des règles collision ET des sauvegardes.
 - [x] Préparer Android 0.5.16/code66, HTML offline embarqué strictement identique, GitHub Actions en préversion APK directe.
-- [ ] Vérifier CI finale : tests Node, rebuild HTML identique, Gradle, certificat, SHA256SUMS.txt et asset APK non zippé réellement présent sur Release.
+- [x] GitHub Actions [42400503837](https://github.com/greenpower2669/H-rush/actions/runs/42400503837) : **194/194 tests**, HTML autonome reconstruite sans différences, Gradle Debug 0.5.16/code66, signature/package vérifiés, [APK direct publié](https://github.com/greenpower2669/H-rush/releases/download/v0.5.16-heavy-organics-motion-preview/HRush-Omega-v0.5.16-heavy-organics-motion-debug.apk) (14 019 771 octets lors de la première publication), SHA256SUMS.txt joint. Contrôles visuels Samsung encore requis.
 - [ ] QA Samsung indispensable : vue en jeu des bases invisibles près des parois irrégulières, ondulation naturelle, FPS/RAM en biome dense, résistance réelle des organiques, fragments et secours, absence de régression sur les mines et missiles.
 - [ ] Pas de fusion dans main, ni AAB, sans accord de Fab.
