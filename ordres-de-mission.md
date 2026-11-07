@@ -101,3 +101,7 @@ Le joueur observe des zigzags de tirs irréguliers et demande le retrait de l'au
 
 ## H-RUSH OMEGA 0.5.11 — correctif de commande tactile (6 novembre 2026)
 Retour : pose du second doigt de visée provoque un missile sans double-tap. Corriger précisément ce défaut : toute pose d'un doigt, premier ou second, doit être sans tir missile ; ne lancer que sur deuxième tap volontaire reconnu (court, voisin, même rôle). Le second doigt conserve visée libre à l'appui et au glissement ; long maintien et mouvement ne tirent pas. Tests de régression, compilation APK directe, ne modifier ni sauvegardes ni masques AND, ne pas fusionner dans main sans autorisation.
+
+
+## H-RUSH OMEGA 0.5.12 — rapport crash du 7 novembre 2026
+Mission de correction immédiate après diagnostic téléphone : erreur `null anchor` dans `morphMovement`, déclenchée depuis `spawnEnemy` sur phase spatiale région 2. Localiser le rôle astéroïde sans morphologie ; corriger au niveau choix du mouvement en préservant les règles d'espèces, blinder le mouvement morphologique, reproduire avec tests de la chaîne de spawn, vérifier source et HTML autonome et produire APK direct signé 0.5.12/code 62 seulement après CI. Réduire au minimum les changements gameplay, ne pas modifier les saves ni collision AND ni les commandes de missiles. Conserver mémoire de l'incident et QA longue réelle à faire. Aucun merge dans main sans validation explicite.
