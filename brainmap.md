@@ -81,3 +81,6 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 - `src/two-finger-aim.js` : `acquireTwoFingerTarget` (plafond/sol/air), `twoFingerAimPoint` (corrections X/Y), `twoFingerNoseShot` (vrai nez et vecteur dynamique), `guidedMissileVelocity`, sélection d'un pixel opaque survivant du masque AND.
 - `src/game.js` : second `pointerId` autonome, missile initial, visée continue laser/missile, marqueur de cible visuel, relâchement, angle du projectile ±π sans changer l'inclinaison réelle du vaisseau ; `index.html` / HTML autonome documentent le geste.
 - `tests/two-finger-aim-056.test.js` : 10 tests de comportement et géométrie ; 134/134 tests complets avec run GitHub Actions `42265215991`.
+
+
+- **OMEGA 0.5.15 — `src/living-organics.js`** : FSM bornée des morceaux organiques coupés, secours par un voisin, réancrage et embuscade. `src/bestiary.js` : rendus organiques plus grands et vrai bras manquant dans l'alpha/masque AND. `src/omega-terrain.js` : colonnes rares (3–4 emplacements possibles sur 11 IDs), toutes sauvegardes intactes. Tests `tests/living-colony-065.test.js`, état/QA dans `todo.md`.
