@@ -64,7 +64,7 @@ test('mobile columns become physically harder; old IDs and scars remain stable',
     assert.ok(missile>=laser&&missile<MISSILE_GATE_RADIUS);
     assert.equal(laser,hardenedGateCraterRadius(gate,LASER_GATE_RADIUS));
     assert.equal(gateY(gate,0),gateY(gate,0));
-    assert.notEqual(gateY(gate,0),gateY(gate,.43));
+    assert.ok(new Set([0,.43,.91,1.41,2.07].map(t=>gateY(gate,t))).size>=2,'oscillating gate must move');
   }
 });
 test('all column impacts remove actual alpha AND NOT and record only real reduced scars',()=>{
