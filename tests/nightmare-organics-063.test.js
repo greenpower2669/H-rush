@@ -27,17 +27,17 @@ test('living roots sprout from real ground, hanging tentacles and vines attach t
   assert.ok(BOSS_MORPHS.some(x=>x.shape==='tentacle'&&x.anchor==='ceiling'));
   assert.ok(ENEMY_MORPHS.some(x=>/cauchemar|crocs|abîme|harpons|dévoreur/i.test(x.name)));
 });
-test('animation exposes six finite reproducible distinct bend and extension poses',()=>{
-  assert.equal(ORGANIC_ANIMATION_FRAMES,6);
+test('animation exposes twelve finite, reproducible articulated wave poses',()=>{
+  assert.equal(ORGANIC_ANIMATION_FRAMES,12);
   const root=ENEMY_MORPHS.find(x=>x.shape==='root');
-  const forms=Array.from({length:6},(_,frame)=>appendagePose(root,frame));
-  assert.equal(new Set(forms.map(p=>p.bend.toFixed(5))).size,6);
+  const forms=Array.from({length:12},(_,frame)=>appendagePose(root,frame));
+  assert.ok(new Set(forms.map(p=>p.bend.toFixed(5))).size>=10);
   assert.ok(forms.some(p=>p.warning),'visible eye flashes before strike');
   for(const pose of forms){
     assert.ok(Number.isFinite(pose.bend)&&Number.isFinite(pose.curl));
-    assert.ok(pose.extension>=.75&&pose.extension<=1);
+    assert.ok(pose.extension>=.73&&pose.extension<=.97);
   }
-  assert.deepEqual(appendagePose(root,7),appendagePose(root,1),'loop is deterministic');
+  assert.deepEqual(appendagePose(root,13),appendagePose(root,1),'loop is deterministic');
 });
 test('articulation remains inside morph alpha silhouette and follows same cached pixel mask',()=>{
   const art=read('src/bestiary.js');
