@@ -196,7 +196,7 @@ function updateSpriteAnimations(dt=.016) {
       const organicFrame=isLivingAppendage(enemy.morph)?
         Math.floor(enemy.age*8+enemy.phase*.3)%6:Math.floor(enemy.age*6)&1;
       const base=spriteForMorph(enemy.morph,organicFrame,phase,
-        cannon?cannon.angle-(enemy.hullPitch||0):null);
+        cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArm??-1);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
       if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
         continue; // Avoid per-frame raster mask and damage-cache churn.
@@ -614,7 +614,7 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     // Appendages are fixed to a WORLD-space surface, not sliding across it.
     // They move left only because the universe scrolls under the ship.
     worldAnchorX:isLivingAppendage(morph)?terrain.scroll+position.x:null,
-    severCount:0,
+    severCount:0,severArm:-1,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
@@ -848,6 +848,11 @@ function hitEnemy(enemy,r) {
   enemy.hp--;
   if(organicSeverDue(enemy)&&point&&spawnOrganicFragment(enemy,point)){
     enemy.severCount=1;
+    // With the next animated pose the branch genuinely disappears from
+    // the parent alpha mask. The separated organism has its own AND sprite.
+    const total=enemy.morph.boss?7:5;
+    const localX=point.x-enemy.x;
+    enemy.severArm=Math.max(0,Math.min(total-1,Math.floor(localX/Math.max(1,enemy.sprite.width)*total)));
     enemy.visualDirty=true;
   }
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
