@@ -178,7 +178,136 @@ function oval(g,x,y,rx,ry,color,angle=0){
 /** 20 structural families; each has a distinct outline and two animated states.
  * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
  */
+/** High-detail organic raster with the actual alpha collision silhouette.
+ * Every precomputed pose re-renders thick tapering skin, glossy highlights,
+ * suckers, veins and independent branches. Base disappears behind rock tiles.
+ * One shared Canvas drives rendering AND 2D impact masks (no hidden hitboxes).
+ */
+function paintLivingOrganism(g,m,frame){
+  const w=m.boss?230:158,h=m.boss?244:174;
+  const root=m.shape==='root',sign=root?-1:1;
+  const baseY=root?h-12:12;
+  const pose=appendagePose(m,frame),arms=m.boss?7:5;
+  const palette=(m.index%4);
+  const skin=['#652545','#51223f','#421c42','#692539'][palette];
+  const highlight=['#f4a1b9','#e9a5d2','#ad8cf1','#ffacb3'][palette];
+  const underside=['#250f2b','#1f1333','#1d102a','#301021'][palette];
+  const bright=pose.warning?'#ffe3eb':'#f66aa8';
+  g.save();g.lineCap='round';g.lineJoin='round';
+  // Each branch is its own animated cubic with real tapered width.
+  for(let i=0;i<arms;i++){
+    const a=i-(arms-1)*.5;
+    const bx=w*.5+a*w*(m.boss?.094:.124);
+    const by=baseY;
+    const fork=Math.sin(i*1.68+m.index*.32);
+    const tx=Math.max(17,Math.min(w-17,bx+fork*w*.24+pose.bend*w*.92));
+    const ty=baseY+sign*(h*(.61+(i%3)*.075)*pose.extension);
+    const c1=[bx+pose.bend*w*.20,baseY+sign*h*.23];
+    const c2=[tx-pose.curl*w*.52+fork*w*.12,baseY+sign*h*.50];
+    const width=(m.boss?25:19)-(i%3)*3.2;
+    const trace=(offset=0)=>{
+      g.beginPath();g.moveTo(bx+offset,by);
+      g.bezierCurveTo(c1[0]+offset,c1[1],c2[0]+offset,c2[1],tx+offset,ty);
+    };
+    g.strokeStyle=underside;g.lineWidth=width+8;trace(0);g.stroke();
+    const gloss=g.createLinearGradient(bx-width,by,tx+width,ty);
+    gloss.addColorStop(0,skin);
+    gloss.addColorStop(.27,'#a75683');
+    gloss.addColorStop(.50,underside);
+    gloss.addColorStop(.73,skin);
+    gloss.addColorStop(1,highlight);
+    g.strokeStyle=gloss;g.lineWidth=width+2;trace(0);g.stroke();
+    g.strokeStyle=highlight;g.globalAlpha=.54;g.lineWidth=Math.max(3,width*.17);
+    trace(-width*.16);g.stroke();g.globalAlpha=1;
+    const bezier=t=>{
+      const u=1-t;
+      return {x:u*u*u*bx+3*u*u*t*c1[0]+3*u*t*t*c2[0]+t*t*t*tx,
+        y:u*u*u*by+3*u*u*t*c1[1]+3*u*t*t*c2[1]+t*t*t*ty};
+    };
+    for(let j=1;j<7;j++){
+      const q=j/8,pos=bezier(q),next=bezier(Math.min(.97,q+.015));
+      const angle=Math.atan2(next.y-pos.y,next.x-pos.x);
+      const nx=-Math.sin(angle),ny=Math.cos(angle);
+      if(!root){
+        const sx=pos.x+nx*width*.39,sy=pos.y+ny*width*.39;
+        g.fillStyle=underside;g.beginPath();
+        g.ellipse(sx,sy,Math.max(2,width*.25),Math.max(2,width*.18),angle,0,Math.PI*2);g.fill();
+        g.fillStyle=highlight;g.beginPath();
+        g.ellipse(sx,sy,Math.max(1.5,width*.17),Math.max(1.5,width*.12),angle,0,Math.PI*2);g.fill();
+        g.fillStyle='#3e173a';g.beginPath();g.arc(sx,sy,Math.max(1,width*.065),0,Math.PI*2);g.fill();
+      }else{
+        // Jagged living root thorns point AWAY from the centerline.
+        const out=j%2?-1:1, sx=pos.x+nx*out*width*.44,sy=pos.y+ny*out*width*.44;
+        g.fillStyle='#2b112b';g.beginPath();g.moveTo(sx-4,sy-3);
+        g.lineTo(sx+nx*out*(9+(j%3)*3),sy+ny*out*(9+(j%3)*3));
+        g.lineTo(sx+4,sy+3);g.closePath();g.fill();
+      }
+      // Each organic arm has living pink veins, not static stripes.
+      const inX=pos.x-nx*width*.18,inY=pos.y-ny*width*.18;
+      g.globalAlpha=.6+.12*Math.sin(frame*1.05+i+j);
+      g.fillStyle=bright;g.beginPath();g.arc(inX,inY,1.1+(j%3)*.5,0,Math.PI*2);g.fill();
+      g.globalAlpha=1;
+    }
+    // Hooked tip threatening the passing ship; endpoint follows pose and mask.
+    g.strokeStyle=underside;g.lineWidth=Math.max(4,width*.55);
+    g.beginPath();g.moveTo(tx,ty);
+    g.quadraticCurveTo(tx+fork*12,ty+sign*17,tx-9-fork*5,ty+sign*21);g.stroke();
+    g.strokeStyle=highlight;g.lineWidth=2.2;g.beginPath();
+    g.moveTo(tx,ty);g.quadraticCurveTo(tx+fork*12,ty+sign*17,tx-9-fork*5,ty+sign*21);g.stroke();
+  }
+  // The base resembles swollen rock-grown tissue and hides naturally under
+  // real alpha tiles, instead of looking like a small floating enemy sprite.
+  const nucleus=g.createRadialGradient(w*.44,baseY-sign*5,2,w*.5,baseY,w*.36);
+  nucleus.addColorStop(0,highlight);nucleus.addColorStop(.28,skin);
+  nucleus.addColorStop(.78,underside);nucleus.addColorStop(1,'#170c23');
+  g.fillStyle=nucleus;g.beginPath();
+  g.ellipse(w*.5,baseY,w*.39,m.boss?24:18,0,0,Math.PI*2);g.fill();
+  for(let k=0;k<9;k++){
+    const x=w*(.19+k*.077),y=baseY-sign*(7+(k%3)*4);
+    const core=k%3===0?highlight:'#bb5b9b';
+    g.fillStyle=underside;g.beginPath();g.ellipse(x,y,7+(k%2)*3,5+(k%4),.23,0,Math.PI*2);g.fill();
+    g.fillStyle=core;g.globalAlpha=.75;g.beginPath();
+    g.ellipse(x-1,y-1,3+(k%2),2.3,0,0,Math.PI*2);g.fill();g.globalAlpha=1;
+  }
+  g.fillStyle=bright;g.globalAlpha=pose.warning?.94:.46;g.beginPath();
+  g.ellipse(w*.5,baseY-sign*11,m.boss?12:8,m.boss?7:5,0,0,Math.PI*2);g.fill();
+  g.restore();
+}
+/** Detached organic appendage, separately rasterized, damaged and collision-tested. */
+const fragmentArtCache=new Map();
+export function organicFragmentSprite(morph,frame=0){
+  const id=(morph?.id||'organic')+':'+(frame&1);
+  if(fragmentArtCache.has(id))return fragmentArtCache.get(id);
+  if(typeof document==='undefined')throw Error('Canvas required for living organics');
+  const w=69,h=65,c=document.createElement('canvas');c.width=w;c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  const t=frame&1,root=morph?.shape==='root';
+  const glow=root?'#ff5aaf':'#ff9cd0';
+  const base=g.createLinearGradient(5,8,60,60);
+  base.addColorStop(0,'#21102d');base.addColorStop(.35,'#702a64');
+  base.addColorStop(.65,'#b35b9c');base.addColorStop(1,'#241329');
+  g.save();g.lineCap='round';g.lineJoin='round';
+  g.strokeStyle='#21102b';g.lineWidth=21;g.beginPath();
+  g.moveTo(13,48);g.bezierCurveTo(10,10+t*3,60,11+t*4,55,47);g.stroke();
+  g.strokeStyle=base;g.lineWidth=16;g.stroke();
+  g.strokeStyle='#f8a9d3';g.lineWidth=2.9;g.globalAlpha=.65;
+  g.beginPath();g.moveTo(17,43);g.bezierCurveTo(15,18,51,13,51,41);g.stroke();g.globalAlpha=1;
+  for(let j=0;j<5;j++){
+    const x=23+j*7,y=19+Math.sin(j*.9+t*.4)*3;
+    g.fillStyle='#230f2b';g.beginPath();g.ellipse(x,y,4.5,3.4,.4,0,Math.PI*2);g.fill();
+    g.fillStyle=root?'#c970bc':'#ff9ab6';g.beginPath();g.ellipse(x,y,2.5,1.6,.4,0,Math.PI*2);g.fill();
+  }
+  g.fillStyle='#2c1227';g.beginPath();g.ellipse(53,47,8,8,.3,0,Math.PI*2);g.fill();
+  g.fillStyle=glow;g.beginPath();g.ellipse(55,45,4,3,.3,0,Math.PI*2);g.fill();
+  g.restore();
+  const data=g.getImageData(0,0,w,h);
+  const result={width:w,height:h,image:c,mask:maskFromImageData(data,42)};
+  fragmentArtCache.set(id,result);
+  while(fragmentArtCache.size>48)fragmentArtCache.delete(fragmentArtCache.keys().next().value);
+  return result;
+}
 function paintMorph(g,m,frame,phase,turretAngle=null){
+  if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame);return;}
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -379,6 +508,7 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
  * embellishment can extend beyond the real collision silhouette.
  */
 function paintSurfaceDetails(g,m,frame,phase){
+  if(isLivingAppendage(m))return; // Already painted veins, suckers and skin in physical alpha.
   const w=m.boss?176:86,h=m.boss?112:62;
   const accent={space:'#70f5ff',mechanical:'#92cfff',aerial:'#ffd88e',
     organic:'#ff8ba9',hybrid:'#d5afff',ground:'#ffd178',defense:'#ffb68b'}[m.family]||'#a8eeff';
@@ -480,7 +610,9 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
-  const w=morph.boss?176:86,h=morph.boss?112:62;
+  const living=isLivingAppendage(morph);
+  const w=living?(morph.boss?230:158):(morph.boss?176:86);
+  const h=living?(morph.boss?244:174):(morph.boss?112:62);
   const image=document.createElement('canvas');image.width=w;image.height=h;
   const g=image.getContext('2d',{willReadFrequently:true});
   // Aerial enemies and ground worms face LEFT, toward the approaching player.
