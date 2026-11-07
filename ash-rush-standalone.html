@@ -1623,6 +1623,16 @@ function morphFor(seed,region,phase,encounter,biome='machine'){
 function bossMorphFor(seed,region,phase,encounter,biome='machine'){
   return deterministicPick(seed,region,phase,encounter,biome,BOSS_MORPHS,41);
 }
+/** Resolve enemy movement safely when its species has no visual morphology.
+ * Some ecological roles (notably asteroid) intentionally use mutable raster
+ * sprites instead of ENEMY_MORPHS. For them, preserve the species' movement;
+ * never dereference a missing morphology. Only grounded/ceiling morphs
+ * override the ecological movement mode.
+ */
+function spawnMovement(morph,speciesMovement='weave'){
+  if(!morph || morph.anchor==='air')return speciesMovement;
+  return morphMovement(morph);
+}
 function morphMovement(profile){
   if(profile.anchor==='ceiling')return 'ceiling';
   if(profile.shape==='worm')return 'jump';
@@ -3545,7 +3555,9 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
-      movement:morph?.anchor!=='air'?morphMovement(morph):species.movement}:null;
+      // Asteroid species intentionally have no morphology; optional chaining
+      // on morph?.anchor alone was NOT enough (!'air' evaluates true).
+      movement:spawnMovement(morph,species.movement)}:null;
   enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
     vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
