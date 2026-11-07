@@ -59,8 +59,8 @@ export function gateSpec(seed,region,which){
   const p=Math.round((legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3])*REGION_SIZE/LEGACY_REGION_SIZE);
   const full=which===1; // Full crossing remains destructible by the basic laser.
   const f=keyedFloat(seed,region,40+which),biome=biomeFor(seed,region);
-  const amplitude=full?9+f*12:15+f*19;
-  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':biome.kind==='organic'?'organic':which%3===0?'crystal':'rock');
+  const amplitude=full?15+f*19:34+f*31; // stronger visible up/down travel, still bounded
+  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':['organic','garden'].includes(biome.kind)?'organic':which%3===0?'crystal':'rock');
   const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
   const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
   const anchorTop=which===3||which===5||which===7||which===9;
@@ -75,8 +75,24 @@ export function gateSpec(seed,region,which){
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
     phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
     material:which===1?'metal':which===0?'crystal':which===2?'basalt':
-      biome.kind==='organic'?'organic':biome.kind==='ice'?'crystal':
+      ['organic','garden'].includes(biome.kind)?'organic':biome.kind==='ice'?'crystal':
       which%3===0?'crystal':which%3===1?'metal':'basalt'};
+}
+/** Mobile columns have a hardened physical cross-section. A shot removes a
+ * smaller TRUE alpha disc, rather than merely painting cosmetic cracks.
+ * The actual reduced radius is persisted as a crater in the same gate ID.
+ * Legacy IDs/scars remain compatible, so older saves are never overwritten.
+ */
+export function gateHardness(gate){
+  if(!gate)return 1;
+  if(gate.full)return 1.7;
+  if(gate.shape==='legacy')return 1.85;
+  if(gate.material==='metal')return 3.1;
+  if(gate.material==='organic')return 2.65;
+  return gate.material==='crystal'?2.35:2.8;
+}
+export function hardenedGateCraterRadius(gate,baseRadius){
+  return Math.max(5,Math.round(Math.max(1,Number(baseRadius)||1)/gateHardness(gate)));
 }
 export function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
 /** Staged excavation: basic lasers must work progressively, not open a full gate in one shot. */
@@ -157,6 +173,7 @@ export class OmegaTerrain {
     const grad=g.createLinearGradient(0,0,spec.width,0);
     if(material==='metal'){grad.addColorStop(0,'#677598');grad.addColorStop(.18,'#c0d8e3');grad.addColorStop(.47,'#36446d');grad.addColorStop(.78,'#9e9ac2');grad.addColorStop(1,'#4a4366');}
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
+    else if(material==='organic'){grad.addColorStop(0,'#8b314d');grad.addColorStop(.22,'#e78ba4');grad.addColorStop(.50,'#3c1835');grad.addColorStop(.78,'#9e4668');grad.addColorStop(1,'#f2ab8f');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
     g.fillStyle=grad;
     if(spec.shape==='legacy'){
@@ -182,7 +199,7 @@ export class OmegaTerrain {
       g.closePath();g.fill();
     }
     g.globalCompositeOperation='source-atop';
-    g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
+    g.fillStyle=material==='organic'?'#ff9fc0':material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
     g.globalAlpha=1;g.globalCompositeOperation='source-over';
     const mask=maskFromImageData(g.getImageData(0,0,spec.width,spec.height));
@@ -236,8 +253,10 @@ export class OmegaTerrain {
     let total=0;
     if(hit.kind==='gate'){
       const cx=Math.round(wx-hit.obj.worldX),cy=Math.round(y-hit.screenY);
-      const removed=this.applyDisc(hit.obj,cx,cy,radius);
-      if(removed){record.push(['g:'+hit.obj.id,[cx,cy,radius]]);total+=removed;}
+      // All damage, alpha masks, and saved craters use this same reduced disc.
+      // Unlike an extra invisible HP layer, every visible hole stays physical.
+      const removed=this.applyDisc(hit.obj,cx,cy,hardenedGateCraterRadius(hit.obj,radius));
+      if(removed){record.push(['g:'+hit.obj.id,[cx,cy,hardenedGateCraterRadius(hit.obj,radius)]]);total+=removed;}
     }else{
       const from=Math.max(0,Math.floor((wx-radius)/TILE_SIZE)),to=Math.floor((wx+radius)/TILE_SIZE);
       for(let i=from;i<=to;i++){
