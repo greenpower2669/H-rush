@@ -278,3 +278,98 @@
 - [x] Release GitHub **finale**, non marquée préversion : `v0.5.3` — https://github.com/greenpower2669/H-rush/releases/tag/v0.5.3 ; APK autonome direct https://github.com/greenpower2669/H-rush/releases/download/v0.5.3/HRush-Omega-v0.5.3-atmosphere-translation-debug.apk ; **13 979 807 octets**, SHA-256 `f1065958d3603e637bffa50145ca4f725c25de92acae8023fa0e2d8ad8625825`.
 - [ ] La Release stable de GitHub contient une **APK Debug** et ne possède pas encore de signature de distribution permanente. Exporter l'univers JSON avant une réinstallation si Android refuse une mise à jour en place.
 - [ ] QA sur Samsung : FPS, transitions atmosphériques, animation, rendu des effets, calibration des commandes ; aucun test physique encore confirmé.
+
+## H-RUSH OMEGA 0.5.4 — ordre de correction intégral (6 novembre 2026)
+- [x] Atmosphère de même taille visible après disparition de la terre ; brouillard cohérent après sol/grotte, extinction avant région suivante.
+- [x] Diviser les bonus : 24 s au moins entre apparitions, un seul simultané, chance de base 9,5%, suppression des fragments généreux et du bouclier imposé tous les 11 kills.
+- [x] Cacher le portail warp dans une alcôve de roche, près du vrai sol et derrière les tuiles opaques, tout en gardant un accès collision AND.
+- [x] Réapparaître après le warp en phase spatiale de la région suivante, sauvegarder la distance et les cicatrices, nettoyer l'ancienne rencontre.
+- [x] Les colonnes arrivent entièrement hors écran ; les colonnes et barrières oscillantes passent derrière le relief solide.
+- [x] Écrire des tests de géométrie, plafond de bonus, warp, couches et progression de difficulté.
+- [x] GitHub Actions `42249472579` sur branche 0.5.4 : **116/116 tests**, HTML autonome identique, Gradle APK Debug, versionName 0.5.4/code 54, vérification signature v2, média CC0, publication de la préversion `v0.5.4-pacing-atmosphere-warp-preview`. Asset APK direct vérifié, **13 981 163 octets**, SHA-256 `4af9673ad70ba2fd97d7d6cbdb06046c6dc551496ff3d4630f9d30d160ed8bbd`.
+- [ ] QA Samsung : mesurer fluidité et apparition réelle des portails/obstacles, voir l'atmosphère après le sol, fréquence des bonus, sortie warp sur plusieurs régions, compatibilité de l'installation.
+- [ ] Validation explicite de Fab requise avant fusion `main`. Aucune génération AAB avant commande spécifique.
+
+## OMEGA 0.5.5 — cadres d'atlas, faune, véhicules, racines et boss (6 novembre 2026)
+- [x] Conserver les atlas réels, supprimer les rectangles de fond résiduel par `cleanFrameMatte` et fabriquer le masque AND depuis la même ImageData RGBA.
+- [x] Enrichir les ennemis à 52 rôles, 49 morphologies et 16 profils de boss avec deux états d'animation Canvas et les attaques changeantes selon la phase.
+- [x] Ajouter organismes de plafond (racines/tentacules/lianes), worms avec saut, tourelles/forteresses, blindés et véhicules terrestres, aéronefs et vaisseaux spatiaux.
+- [x] Sélection déterministe par graine/région/biome/phase et cache borné (140), sans toucher aux sauvegardes ni à la difficulté progressive.
+- [x] Tests dédiés aux mats alpha, 52 espèces, couverture des morphologies, variété des boss, animation/AND source ; 124/124 tests réussis sur GitHub Actions `42254515405`.
+- [x] Construire APK direct **OMEGA 0.5.5/code 55** signé Debug et prérelease GitHub ; **13 989 503 octets**, SHA-256 `1cded1715110967f6965eaceaa9b2069440b113a97281b56d0a057a96efc19b9`.
+- [ ] **QA Samsung matérielle indispensable :** confirmer disparition effective du cadre sur la frame de la capture, vérifier 49 silhouettes et 16 boss réellement reconnaissables, animations/root/warp, fluidité et RAM lors de longues sessions. Ajouter une capture comparative du sprite fautif si des fuites restent.
+- [ ] Mesurer les pics de cache Canvas et de copies de cicatrices en sessions d'endurance ; envisager cache de tailles adaptées et amélioration des modèles vectoriels par sprites HD une fois le gameplay validé.
+- [ ] Tester la signature Debug sur mise à jour ; sauvegarder l'univers JSON avant désinstallation.
+- [ ] Faire approuver explicitement une fusion de la PR #8 avant de changer `main` ; protéger la 0.5.3 stable et les Releases 0.5.4/0.5.5.
+
+## H-RUSH OMEGA 0.5.6 — deuxième doigt, tirs nez-vecteur et ajustement tactile (6 novembre 2026)
+- [x] Confirmer les ennemis suspendus et worms de 0.5.5 ; conserver leurs profils et modes d'apparition.
+- [x] Donner au deuxième doigt un verrou indépendant du premier avec missiles à la pose et guidage des lasers/missiles tant que le doigt reste appuyé ; retour au tir normal en relâchant.
+- [x] Permettre une pose **sous** racines/tentacules du plafond, **au-dessus** des worms/tourelles/sol ; correction ±54 px gauche/droite, ennemis volants ±64 px haut/bas.
+- [x] Recalculer la direction depuis le vrai nez incliné après chaque avance/recul ; suivre une cible mouvante, ne pas verrouiller les ennemis morts/hors champ, viser un pixel alpha encore opaque.
+- [x] Rotation sprite + masque AND des projectiles jusqu'à ±π, guidage progressif missile verrouillé, guide visuel non-collisionnel, captures tactiles propres (troisième doigt ignoré, blur/cancel).
+- [x] Guide tactile mis à jour, bundle standalone reconstruit identique aux sources.
+- [x] GitHub Actions `42265215991` **134/134 tests**, APK Debug autonome `0.5.6` / versionCode `56`, package/signature validés, Release préversion publiée et asset direct vérifié : **13 992 583 octets**, SHA-256 `909ff6c14f0815d5ef7435e66ae86b277711fef9e492fa2ab28abef2a238c048`.
+- [ ] QA Samsung : véritable multitouch en paysage, cas premier doigt pilotant + second doigt glissant, verrou sous racine/tentacule, au-dessus du worm sauteur, tir en arrière/avant, guidage missiles, troisième doigt et relâchements rapides, FPS.
+- [ ] Vérifier si changement de certificat Debug impose une réinstallation ; **exporter l'univers JSON avant désinstallation**, ne jamais le faire perdre.
+- [ ] Valider la 0.5.5 et 0.5.6 avant éventuelle fusion des PR #8/#9 vers `main`. Aucune fusion sans autorisation explicite ; aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.8 — double-tap, passage graphique global (6 novembre 2026)
+- [x] Créer une branche dédiée 0.5.8 depuis 0.5.7 sans fusion automatique ; PR #12 en brouillon.
+- [x] Ajouter double tap missile au premier doigt (sans interrompre le pilotage), puis au deuxième ; conserver l'acquisition ciblée et le premier missile immédiat du deuxième doigt ; éviter une deuxième consommation de munition sur ce geste.
+- [x] Bornes d'anti-erreur temporelles/spatiales, vérification du déplacement cumulatif et nettoyage des identifiants de pointer sur blur, reset ou cancel.
+- [x] Revoir les 49 ennemis et 16 boss par familles de matériaux, couleurs cohérentes, détails de coque/cockpit, lumières, textures et orientation des aéronefs vers la gauche ; biseau RGB uniquement, aucune modification d'alpha ou des masques AND.
+- [x] Conserver la visée deuxième doigt 0.5.6, le combat au sol et les vers 0.5.7, les sauvegardes et l'état du gameplay.
+- [x] Actualiser le guide tactile et assembler les sources dans l'HTML autonome identique à la version Android.
+- [x] Ajouter des tests double-tap, anti-drag et invariance alpha du traitement graphique ; adapter deux assertions anciennes sur le sens des vers et le reset des touches.
+- [x] CI validée : GitHub Actions [42272382589](https://github.com/greenpower2669/H-rush/actions/runs/42272382589), **152/152 tests**, bundle autonome reconstruit à l'identique, APK Debug Android 0.5.8/code 58, signature/package/musiques/branding vérifiés. Prérelease [v0.5.8-double-tap-bestiary-preview](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.8-double-tap-bestiary-preview), APK [direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.8-double-tap-bestiary-preview/HRush-Omega-v0.5.8-double-tap-bestiary-debug.apk) : **14 000 499 octets**, SHA-256 `2d01be8dc4f8042272ad2f1ba25b2d07b4af81c81cc1505db09c152ab9f21fd2` (digest d'asset GitHub).
+- [ ] QA Samsung en paysage : tap/double tap des deux doigts, pilotage pendant tir, mouvements vers et depuis l'ennemi, absence de double dépense de munitions, contrôles rapides, absence de faux missiles lors des glissés.
+- [ ] QA visuelle et performances : silhouettes reconnaissables (49 ennemis/16 boss), orientation, contraste, masques et cratères AND exacts, fluidité RAM/FPS et rendu de longues parties. Si le style procédural n'est toujours pas assez riche, planches artistiques HD à étudier avant une version finale.
+- [ ] Exporter l'univers JSON avant toute désinstallation, vérifier la compatibilité du certificat Debug sur appareil, faire valider la PR #12 avant toute fusion vers main. Aucun AAB demandé.
+
+## H-RUSH OMEGA 0.5.9 — stabilité WebView (6 novembre 2026)
+- [x] Examiner les sources 0.5.8 : aucune gestion native du renderer WebView disparu, caches de rotations de sprites blessés potentiellement coûteux et boucle de rendu sans diagnostic d'erreur.
+- [x] `onRenderProcessGone` native : diagnostic local, détachement/destruction de la WebView invalide, redémarrage unique puis écran de reprise manuelle si récidive en 90 secondes.
+- [x] Activer un mode graphique mémoire réduite après terminaison, sans changer la résolution logique des collisions AND.
+- [x] Catch sur `requestAnimationFrame`, panneau d'erreur lisible, diagnostic JS enregistré localement et bouton Diagnostic accessible depuis Univers.
+- [x] Marquage des copies de sprites blessés comme volatiles : 4 rotations en cache au lieu de 32, plus de recréation de raster si frame/bucket/tir inchangés.
+- [x] Tests statiques du mécanisme natif, diagnostic, garde-fous de caches ; HTML autonome synchronisé avec le code.
+- [x] CI GitHub Actions [42276249897](https://github.com/greenpower2669/H-rush/actions/runs/42276249897) réussie, **155/155 tests**, HTML standalone reconstruit à l'identique, Gradle Android Debug 0.5.9/code 59, contrôle de signature, package et ressources. Release préversion publiée ; [APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.9-crash-recovery-preview/HRush-Omega-v0.5.9-crash-recovery-debug.apk) de **14 004 531 octets**, SHA-256 `7d1c4bbe2f4bacf9f64117f0b55ab28fafdc79acba53a71d73597154a174df31` (digest GitHub vérifié). QA matérielle Samsung toujours ouverte.
+- [ ] Essais Samsung : crash pendant combat long, nombreux adversaires blessés, pause/reprise, changement d'application, rotation, vérification des crashes et du mode graphique réduit, collecte éventuelle du diagnostic depuis Univers.
+- [ ] Mesurer FPS/RAM réels sur une session longue, distinguer arrêt de WebView, exception JS et arrêt système complet ; si les crashs persistent, collecter logcat Android et heure/circonstances.
+- [ ] Vérifier mise à jour APK/signature sans désinstallation ni perte de sauvegarde ; exporter l'univers JSON avant manipulation. Aucune fusion `main` et aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.10 — arrêt de l'autofocus implicite (6 novembre 2026)
+- [x] Retour utilisateur : « Les tirs font parfois des sortes de zigzags », retirer l'autofocus par défaut et conserver son activation uniquement en option.
+- [x] Vérifier la cause dans la 0.5.9 : le deuxième doigt acquiert automatiquement les ennemis et les missiles poursuivent les ennemis proches même sans verrou demandé.
+- [x] Préférence persistante locale `ashrush-autofocus-v1` : nouvelle installation et migration = OFF, opt-in uniquement dans 🌌 Univers → Commandes ; expliciter son effet à l'écran.
+- [x] En mode manuel, les lasers sont dirigés vers le deuxième doigt sans verrouillage et les missiles conservent strictement leur vecteur au lancement ; aucun retargeting après la mort d'un ennemi.
+- [x] En mode autofocus demandé explicitement, conserver l'accrochage et le guidage antérieurs, avec navigation et masques de collision AND inchangés.
+- [x] Tests ciblés (préférence, visée libre, correction facultative, verrou devenu caduc, source + standalone) et adaptation des tests historiques de guidage opt-in.
+- [x] Version Android 0.5.10/code 60, HTML autonome synchronisé ; branche dédiée, aucun commit dans main.
+- [x] CI GitHub [42299088386](https://github.com/greenpower2669/H-rush/actions/runs/42299088386) réussie : **161/161 tests**, HTML autonome régénéré sans différence, APK Android Debug signé 0.5.10/code 60 ; [préversion](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.10-manual-aim-preview), [APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.10-manual-aim-preview/HRush-Omega-v0.5.10-manual-aim-debug.apk), 14 005 631 octets, empreinte SHA-256 à vérifier dans le fichier `SHA256SUMS.txt` de la Release.
+- [ ] QA Samsung : tirs au 1er doigt, viser librement au 2e doigt en déplaçant la cible, double-tap missile, tir droit pendant les déplacements, autofocus activé/désactivé, redémarrage avec préférence conservée.
+- [ ] Recueillir vidéo ou diagnostic si les zigzags persistent malgré l'autofocus OFF, comparer le tangage du vaisseau avec le suivi de trajectoire.
+
+## H-RUSH OMEGA 0.5.11 — second doigt sans tir automatique (6 novembre 2026)
+- [x] Retour joueur : « les missiles se lancent sans double-clic, juste quand je mets en place la visée avec le deuxième doigt ».
+- [x] Cause confirmée dans `src/touch-missile.js` 0.5.10 : `down(...,'secondary',...)` renvoyait `true` au premier contact ; `src/game.js` lançait immédiatement un missile dans `pointerdown`.
+- [x] Correction `TouchMissileGestures` : aucun `pointerdown` ne tire ; seul le second `pointerup` d'un double-tap rapide primaire ou secondaire déclenche une unique munition. Le second doigt sert à viser sur appui simple, glissement et maintien.
+- [x] Tests de non-régression : double tap primaire/secondaire, premier contact sans tir, drag/maintien sans tir, indépendance des rôles, annulation et doubles relâchements ignorés.
+- [x] Révision guide tactile ; Android 0.5.11 / code 61, HTML autonome identique aux sources, stabilité Android 0.5.9 et autofocus facultatif 0.5.10 préservés.
+- [x] GitHub Actions [42302055667](https://github.com/greenpower2669/H-rush/actions/runs/42302055667) **163/163 tests**, HTML autonome identique, APK Android signé/package/ressources validés, publication préversion réussie : [APK direct 0.5.11](https://github.com/greenpower2669/H-rush/releases/download/v0.5.11-double-tap-only-preview/HRush-Omega-v0.5.11-double-tap-only-debug.apk). SHA-256 à vérifier via le fichier `SHA256SUMS.txt` joint à la Release (debug non reproductible bit à bit).
+- [ ] QA Samsung en paysage : premier doigt maintenu + deuxième doigt posé puis déplacé, double-tap rapide de chaque doigt, alternance droite/gauche et orientation, retour depuis arrière-plan ; vérifier aucune dépense sur simple pose du deuxième doigt et exactement une dépense par double-tap.
+- [ ] Vérifier compatibilité de la signature de mise à jour sans désinstallation, exporter l'univers JSON au préalable ; ne pas fusionner les PR sans accord explicite ; aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.12 — correctif crash morphologie nulle (7 novembre 2026)
+- [x] Lire le diagnostic réel transmis depuis le téléphone : `TypeError: Cannot read properties of null (reading 'anchor')`, chaîne `morphMovement → spawnEnemy → update → frame`, région 2, phase `space`, 2 ennemis et 17 projectiles.
+- [x] Identifier la condition fautive : `morph?.anchor !== 'air'` donne `true` pour `null` ; les espèces astéroïdes emploient volontairement des sprites physiques sans morphologie, puis ce chemin appelle `morphMovement(null)`.
+- [x] Ajouter `spawnMovement(morph,species.movement)` : conserver le déplacement écologique des espèces sans morphologie et des morphs aériens ; appliquer `morphMovement` uniquement aux morphs ancrés au sol/plafond. Défense supplémentaire pour `morphMovement(null)`.
+- [x] Test d'intégration de `spawnEnemy` avec les véritables espèces astéroïdes en phase `space` région 2 ; tests de toutes les morphologies/biomes/phases sur un ensemble de régions, vérification du bundle autonome ; préserver collisions AND et touchez double-tap de la 0.5.11.
+- [x] Mise à jour version 0.5.12/code 62, source+HTML autonome, workflow de vérification et préversion APK directe depuis une branche dédiée ; aucune fusion dans `main`.
+- [x] CI [42366251548](https://github.com/greenpower2669/H-rush/actions/runs/42366251548) **167/167 tests**, HTML autonome reconstruit sans différence, Gradle Android Debug 0.5.12/code 62, signature/package/ressources validés et [préversion APK directe](https://github.com/greenpower2669/H-rush/releases/download/v0.5.12-null-morph-crashfix-preview/HRush-Omega-v0.5.12-null-morph-crashfix-debug.apk) publiée (14 006 063 octets au premier build). Contrôler le SHA256SUMS.txt joint à la Release pour chaque nouvelle compilation Debug.
+- [ ] QA réelle Samsung : rejouer au moins jusqu'à la région 2 puis poursuivre avec plusieurs apparitions astéroïdes (zone `space`), vérifier absence d'écran d'erreur, durée de partie, stabilité des missiles au double-tap et sauvegarde univers.
+- [ ] Avant toute mise à jour/désinstallation, exporter l'univers JSON ; contrôler compatibilité de signature Debug. Aucune fusion de PR ni AAB sans autorisation.

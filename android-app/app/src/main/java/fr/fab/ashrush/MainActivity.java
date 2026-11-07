@@ -16,12 +16,19 @@ import android.os.Bundle;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.View;
+import android.view.ViewGroup;
+import android.util.Log;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.RenderProcessGoneDetail;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +44,9 @@ public final class MainActivity extends Activity implements SensorEventListener 
     private Sensor gravity;
     private long lastTiltMs;
     private boolean pageLoaded;
+    private long lastRendererExitMs = -1;
+    private int rendererExits = 0;
+    private static final long RENDERER_RETRY_GUARD_MS = 90000;
 
     @Override public void onAccuracyChanged(Sensor sensor, int accuracy) { /* gravity filtering stays in JavaScript */ }
     @Override public void onSensorChanged(SensorEvent event) {
@@ -49,11 +59,18 @@ public final class MainActivity extends Activity implements SensorEventListener 
         final int rotation = getWindowManager().getDefaultDisplay().getRotation();
         final String script = "window.dispatchEvent(new CustomEvent('ashrush:gravity',{detail:{x:"
                 + Float.toString(x) + ",y:" + Float.toString(y) + ",rotation:" + rotation + "}}));";
-        webView.evaluateJavascript(script, null);
+        try { webView.evaluateJavascript(script, null); }
+        catch (RuntimeException e) { Log.w("HRush", "Gravity bridge unavailable", e); }
     }
 
     /** Only the bundled file:///android_asset/ app can invoke this interface. */
     public final class UniverseBridge {
+        @JavascriptInterface public boolean lowMemoryMode() {
+            return getPreferences(MODE_PRIVATE).getBoolean("low_memory", false);
+        }
+        @JavascriptInterface public String lastRendererIssue() {
+            return getPreferences(MODE_PRIVATE).getString("last_renderer_issue", "");
+        }
         @JavascriptInterface public void saveUniverse(String json) {
             if (json == null || json.length() > 3000000 || !json.contains("\"seed\"")) return;
             runOnUiThread(() -> {
@@ -76,6 +93,11 @@ public final class MainActivity extends Activity implements SensorEventListener 
             if (gravity == null) gravity = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        createGameWebView();
+    }
+
+    private void createGameWebView() {
+        pageLoaded = false;
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(5, 10, 30));
         WebSettings config = webView.getSettings();
@@ -86,9 +108,46 @@ public final class MainActivity extends Activity implements SensorEventListener 
         config.setMediaPlaybackRequiresUserGesture(false);
         webView.addJavascriptInterface(new UniverseBridge(), "AshRushAndroid");
         webView.setWebViewClient(new android.webkit.WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) { pageLoaded = true; }
+            @Override public void onPageFinished(WebView view, String url) {
+                if (view == webView && url != null && url.startsWith("file:///android_asset/"))
+                    pageLoaded = true;
+            }
+            @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // Android >=26: leaving this unhandled terminates the ENTIRE native app.
+                // The renderer can be killed by the OS under memory pressure, not just crash.
+                final long now = SystemClock.uptimeMillis();
+                final boolean repeated = lastRendererExitMs >= 0
+                        && now - lastRendererExitMs < RENDERER_RETRY_GUARD_MS;
+                lastRendererExitMs = now;
+                rendererExits++;
+                getPreferences(MODE_PRIVATE).edit().putBoolean("low_memory", true)
+                        .putString("last_renderer_issue",
+                        "WebView renderer " + (detail.didCrash() ? "crash" : "memory-kill")
+                        + " · attempts=" + rendererExits
+                        + " · uptime-ms=" + now).apply();
+                Log.e("HRush", "WebView renderer gone; didCrash=" + detail.didCrash()
+                        + " priority=" + detail.rendererPriorityAtExit()
+                        + " count=" + rendererExits);
+                pageLoaded = false;
+                if (view.getParent() instanceof ViewGroup)
+                    ((ViewGroup) view.getParent()).removeView(view);
+                if (view == webView) webView = null;
+                view.destroy(); // A terminated WebView must never be reused.
+                if (repeated) showRendererRecovery();
+                else {
+                    toast("Moteur graphique redémarré · univers sauvegardé");
+                    createGameWebView();
+                }
+                return true;
+            }
         });
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR)
+                    Log.e("HRush-JS", message.message() + " @ " + message.sourceId()
+                            + ":" + message.lineNumber());
+                return super.onConsoleMessage(message);
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                                         FileChooserParams params) {
                 if (pendingOpen != null) pendingOpen.onReceiveValue(null);
@@ -103,6 +162,30 @@ public final class MainActivity extends Activity implements SensorEventListener 
         setContentView(webView);
         hideSystemBars();
         webView.loadUrl("file:///android_asset/ash-rush-standalone.html");
+    }
+
+    private void showRendererRecovery() {
+        // Avoid a crash/reload loop if the same page repeatedly kills the renderer.
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(44, 56, 44, 24);
+        layout.setBackgroundColor(Color.rgb(5, 10, 30));
+        TextView message = new TextView(this);
+        message.setTextColor(Color.WHITE);
+        message.setTextSize(19);
+        message.setText("H-RUSH : le moteur graphique Android s'est arrêté deux fois. "
+            + "L'univers enregistré est conservé. Appuie sur Réessayer pour relancer le jeu.");
+        layout.addView(message);
+        Button retry = new Button(this);
+        retry.setText("Réessayer");
+        retry.setOnClickListener(v -> {
+            // Manual retry can proceed even after a crash loop.
+            lastRendererExitMs = -1;
+            createGameWebView();
+        });
+        layout.addView(retry);
+        setContentView(layout);
+        hideSystemBars();
     }
 
     @Override protected void onActivityResult(int request, int result, Intent data) {

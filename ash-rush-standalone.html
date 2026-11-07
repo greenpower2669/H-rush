@@ -152,6 +152,14 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #highScore{color:#ffe29c}.end-record{font-weight:900;letter-spacing:.1em;color:#fff0ab;text-shadow:0 0 15px #ffb74a;font-size:clamp(14px,2vw,22px)}
 @media(orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px}.hud small{font-size:7.5px}.hud strong{font-size:10px}}
 
+/* Crash recovery is native/JS offline: diagnostics remain selectable in landscape. */
+#crashPanel .end-content{width:min(94%,640px);padding:14px 10px;box-sizing:border-box;}
+#crashPanel h2{font-size:clamp(22px,4.5vw,40px);}
+#crashPanel p{font-size:clamp(11px,1.6vw,16px);text-align:center;}
+#crashDetails{display:block;box-sizing:border-box;width:100%;max-height:110px;min-height:50px;
+  background:#061626;color:#bbdfff;border:1px solid #507a9a;border-radius:8px;
+  padding:6px;font-family:monospace;font-size:10px;resize:none;}
+
 </style>
   
 </head>
@@ -170,13 +178,21 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.4.8</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.12</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
             <div class="welcome-caption">🌌 UNIVERS PERSONNEL · PILOTAGE TACTILE</div>
             <button id="welcomeStart" class="action-primary">🚀 JOUER</button>
             <p>Pilotage tactile au départ. Choisis Inclinaison ou inverse X / Y dans 🌌 Univers pour adapter les commandes.</p>
+          </div>
+        </section>
+        <section id="crashPanel" class="end-screen" role="alertdialog" aria-modal="true" aria-label="Erreur du jeu" hidden>
+          <div class="end-content">
+            <h2>⚠ H-RUSH</h2>
+            <p id="crashMessage">Le moteur du jeu a rencontré un problème.</p>
+            <textarea id="crashDetails" readonly aria-label="Diagnostic technique à copier" spellcheck="false"></textarea>
+            <button id="crashReload" class="action-primary">↻ Redémarrer le jeu</button>
           </div>
         </section>
         <section id="gameOverPanel" class="end-screen" role="dialog" aria-modal="true" aria-label="Fin de partie" hidden>
@@ -193,7 +209,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         </section>
       </div>
       <div class="toolbar">
-        <div class="toolbar-group"><button id="missileLaunch" title="Missile : deuxième doigt ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
+        <div class="toolbar-group"><button id="missileLaunch" title="Missile : double tap du 1er ou 2e doigt, ou touche M">🚀 Missile</button><button id="tiltToggle" aria-pressed="false" title="Basculer entre pilotage tactile et inclinaison">✋ Tactile</button><button id="soundToggle" aria-pressed="true">🔊 Son</button><label for="soundVolume">Vol.</label><input id="soundVolume" aria-label="Volume des effets sonores" type="range" min="0" max="70" value="28" step="2"><button id="hallButton" aria-label="Hall of Fame personnel">🏆 Records</button><button id="omegaMenu" aria-label="Univers personnel et sauvegarde">🌌 Univers</button><button id="pause">⏸ Pause</button><button id="restart">↻ Rejouer</button></div>
       </div>
       <section id="hallPanel" class="omega-panel hall-panel" hidden aria-label="Hall of Fame personnel" role="dialog" aria-modal="true">
         <div class="omega-heading"><strong>🏆 HALL OF FAME</strong><button id="hallClose" aria-label="Fermer le classement">✕</button></div>
@@ -217,24 +233,28 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
             <label>Décalage Y <input id="touchOffsetY" type="range" min="-90" max="90" value="0" step="5"></label>
             <small id="touchStatus" role="status">Calibrage standard</small>
           </div>
+          <div class="control-subsection"><strong>🎯 Assistance de visée — facultative</strong>
+            <label for="autofocusToggle"><input id="autofocusToggle" type="checkbox"> Autofocus : accrochage automatique des ennemis</label>
+            <small id="autofocusStatus" role="status">Désactivé par défaut : tirs droits et visée libre.</small>
+          </div>
           <div class="control-subsection"><strong>🎮 Inclinaison</strong>
             <button id="tiltCalibrate">⌖ Calibrer le point neutre</button>
             <label>Sensibilité <input id="tiltSensitivity" type="range" min="40" max="180" value="100" step="10"></label>
             <div id="tiltStatus" role="status">En attente du capteur</div>
           </div>
         </fieldset>
-        <div class="omega-buttons"><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
+        <div class="omega-buttons"><button id="omegaDiagnostics">🩺 Diagnostic</button><button id="omegaExport">📥 Exporter JSON</button><button id="omegaImport">📤 Importer JSON</button><button id="omegaPaste">Coller/restaurer le texte</button></div>
         <input id="omegaImportFile" type="file" accept="application/json,.json" hidden aria-label="Importer une sauvegarde OMEGA">
         <textarea id="omegaCopy" hidden aria-label="Texte de sauvegarde à copier ou coller" spellcheck="false"></textarea>
         <div id="omegaMessage" role="status"></div>
       </section>
       <div class="portrait-tip" role="note">📱 Tourne ton téléphone en <strong>paysage</strong> pour piloter.</div>
       <div class="below">
-        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; toucher avec le deuxième doigt pour lancer un missile. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
+        <p class="help"><strong>Ordinateur :</strong> flèches ou ZQSD/WASD pour piloter, espace pour tirer. <strong>Téléphone :</strong> mode tactile par défaut : poser le premier doigt à gauche : le vaisseau reste à sa droite et tire automatiquement ; sur les planètes et à l’intérieur des astéroïdes, les missiles creusent de grandes brèches ; <strong>double-taper avec le premier ou le deuxième doigt pour lancer un missile</strong> (le premier doigt continue de piloter) ; poser le deuxième doigt active uniquement la visée, <strong>sans lancer de missile</strong> ; maintenir puis glisser ce doigt pour viser librement, sans accrochage automatique. Seul un double-tap rapide du premier ou du deuxième doigt lance un missile. Une fois lancés, lasers et missiles continuent en ligne droite. L’<strong>autofocus</strong> (ciblage et guidage automatiques) est facultatif et désactivé par défaut dans 🌌 Univers → Commandes. Relâcher le deuxième doigt pour revenir aux tirs suivant l’inclinaison. Touche M ou Maj. sur clavier. <strong>Astuce :</strong> les tirs rapides sont vérifiés sur leur trajet, pas seulement à l'image finale.</p>
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.4.8 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.12 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -995,13 +1015,14 @@ class OmegaTerrain {
   draw(ctx,viewportWidth){
     const lo=Math.max(0,Math.floor(this.scroll/TILE_SIZE));
     const hi=Math.ceil((this.scroll+viewportWidth)/TILE_SIZE);
-    for(let i=lo;i<=hi;i++){
-      const t=this.tile(i);ctx.drawImage(t.image,Math.round(i*TILE_SIZE-this.scroll),0);
-    }
-    for(const gate of this.visibleGates(this.scroll-80,this.scroll+viewportWidth+80)){
+    // Moving gates appear off-screen and pass BEHIND the actual terrain image.
+    // The geometry and the AND collision of the gates and ground stay unchanged.
+    for(const gate of this.visibleGates(this.scroll-110,this.scroll+viewportWidth+110)){
       const x=Math.round(gate.worldX-this.scroll),y=gateY(gate,this.time);
       ctx.drawImage(gate.image,x,y);
-      // The image and its exact binary mask define all edges. No synthetic rectangular frame.
+    }
+    for(let i=lo;i<=hi;i++){
+      const t=this.tile(i);ctx.drawImage(t.image,Math.round(i*TILE_SIZE-this.scroll),0);
     }
   }
   nextBlockedGate(){
@@ -1140,9 +1161,10 @@ function visualEnvelope(stage) {
   else if(p<tail-440)surface=1-scenicSmooth((p-(e+170))/(tail-440-(e+170)));
   surface=scenicClamp(surface);
   planet=scenicClamp(planet);
+  // The atmosphere outlasts the actual geological silhouette on exit.
   const atmosphere=stage.phase==='atmosphere'
     ? scenicSmooth((p-a)/1100)*(1-.20*scenicSmooth((p-s+480)/480))
-    : stage.phase==='exit'?scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(tail-480))/480))
+    : p>=e ? scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(REGION_SIZE-620))/500))
     : stage.phase==='surface'?.68:0;
   return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
 }
@@ -1163,8 +1185,9 @@ function atmosphereGlobePosition(local,W=960,H=540){
   const offLeft=-outerRadius-24;
   const enterStart=PHASE_START.atmosphere-1500;
   const enterEnd=PHASE_START.surface-450;
-  const leaveStart=PHASE_START.exit-900;
-  const leaveEnd=PHASE_START.spaceTail-140;
+  // The bubble is still present AFTER the ground has disappeared at spaceTail.
+  const leaveStart=PHASE_START.spaceTail-360;
+  const leaveEnd=REGION_SIZE-160;
   let x=offRight;
   if(p>=leaveEnd)x=offLeft;
   else if(p>leaveStart)x=settledX+(offLeft-settledX)*scenicSmooth((p-leaveStart)/(leaveEnd-leaveStart));
@@ -1296,14 +1319,46 @@ const SPECIES = Object.freeze([
   ['Forteresse nomade','manta','slow','burst',9,39,160],
   ['Géant segmenté','asteroid','wave','none',8,61,48],
   ['Spectre énergétique','scout','serpent','rapid',2,124,255],
+
+  ['Rampant du magma','manta','ground','burst',5,42,20],
+  ['Drone de mitraille','scout','weave','rapid',3,130,90],
+  ['Canon enraciné','manta','ceiling','aimed',8,35,180],
+  ['Ver à crête','manta','jump','rapid',6,63,220],
+  ['Rover lanceur','manta','ground','burst',7,46,245],
+  ['Tourelle infrarouge','scout','ground','aimed',7,36,40],
+  ['Garde six-pattes','manta','ground','cross',6,52,310],
+  ['Batterie d’assaut','manta','ground','rapid',9,34,105],
+  ['Vaisseau poissonnier','scout','swoop','single',3,118,145],
+  ['Forteresse corail','manta','ground','burst',10,37,185],
+  ['Spore électrique','scout','swarm','spiral',2,95,310],
+  ['Méduse nacrée','scout','weave','spiral',4,83,155],
+  ['Drone impulsionnel','scout','dart','rapid',3,151,205],
+  ['Ornithoptère à lames','manta','swoop','aimed',4,102,260],
+  ['Citadelle de quartz','manta','ground','cross',11,32,55],
+  ['Araignée balistique','manta','ground','burst',7,58,285],
+  ['Racine de garde','manta','ceiling','cross',8,33,100],
+  ['Liane coupeuse','scout','ceiling','single',5,41,325],
+  ['Golem de spores','manta','ground','aimed',9,46,200],
+  ['Moto antigravité','scout','dart','rapid',3,132,165],
+  ['Chasseur furtif','scout','feint','single',3,161,15],
+  ['Bombardier amphibie','manta','patrol','burst',8,62,65],
+  ['Marcheur de glace','manta','ground','cross',8,53,125],
+  ['Carapace de fer','manta','ground','single',10,39,315],
+  ['Frégate de chasse','manta','weave','rapid',8,77,245],
+  ['Porte-essaim vivant','manta','swarm','rapid',11,58,175],
+  ['Canon de plasma','scout','ground','aimed',6,39,55],
+  ['Intercepteur solaire','scout','dart','rapid',3,170,5],
+  ['Tisseuse cavernicole','manta','ceiling','burst',8,49,285],
+  ['Mante d’obsidienne','manta','jump','aimed',7,62,35],
+  ['Croiseur sentinelle','manta','weave','cross',10,61,80],
+  ['Guêpe bio-mécanique','scout','swarm','rapid',4,142,235],
   ['Boss composite','boss','zigzag','burst',35,30,0]
 ].map(([name,base,movement,weapon,hp,speed,hue],index)=>Object.freeze({name,base,movement,weapon,hp,speed,hue,index})));
 
 function speciesFor(seed,region,encounter) {
-  const offset=Math.floor(keyedFloat(seed,region,95)*SPECIES.length);
-  const idx=(offset+encounter)%SPECIES.length;
-  // Reserve the composite boss for its scheduled wave, not random enemy spawns.
-  return SPECIES[idx===19?18:idx];
+  const normal=SPECIES.length-1; // The last catalog entry is the boss placeholder.
+  const offset=Math.floor(keyedFloat(seed,region,95)*normal);
+  return SPECIES[(offset+encounter)%normal];
 }
 function movementDelta(spec,age,phase,enemyY,playerY,dt) {
   switch(spec.movement){
@@ -1317,6 +1372,11 @@ function movementDelta(spec,age,phase,enemyY,playerY,dt) {
     case 'orbit':return Math.cos(age*2.2+phase)*100*dt;
     case 'weave':return (Math.sin(age*5.8+phase)*47+Math.sin(age*2.3+phase)*28)*dt;
     case 'ambush':return Math.max(-115*dt,Math.min(115*dt,(playerY-enemyY)*1.45*dt));
+    case 'dart':return Math.sin(age*8+phase)*99*dt;
+    case 'swarm':return (Math.cos(age*12+phase)*39+Math.sin(age*5+phase)*43)*dt;
+    case 'jump':return -Math.sin(age*6+phase)*67*dt;
+    case 'ceiling':return Math.sin(age*2.4+phase)*19*dt;
+    case 'ground':return Math.cos(age*2.1+phase)*13*dt;
     default:return 0;
   }
 }
@@ -1328,13 +1388,18 @@ function movementSpeedScale(spec,age,phase){
     case 'feint':return .95+.43*Math.cos(age*2.8+phase);
     case 'orbit':return .87+.21*Math.sin(age*2+phase);
     case 'ambush':return age<1.3?.63:age<2.5?1.6:1.05;
+    case 'dart':return 1.05+.36*Math.cos(age*4+phase);
+    case 'swarm':return 1+.24*Math.sin(age*5.3+phase);
+    case 'jump':return .78+Math.max(0,Math.sin(age*5+phase))*.48;
+    case 'ceiling':return .73;
+    case 'ground':return .87;
     default:return 1;
   }
 }
 
 /** Contextual variants are stable for a given seed, region, encounter and situation.
- * Reuse the same 20 logical archetypes, but mutate combat traits by location.
- * Enemy morphologies are still shared pending dedicated artist sprite sheets.
+ * Expand 20 original logical roles with 32 additional combat roles, adapted to phase.
+ * Independent silhouettes come from the morphology library, not hue substitutions.
  */
 function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal') {
   const identity = regionIdentity(seed,region);
@@ -1349,7 +1414,7 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
   const m=phaseMods[phase] || phaseMods.space;
   const aggressive = condition === 'low-hp' ? .84 : condition === 'shielded' ? 1.08 : 1;
   const variation = .83 + draw*.38;
-  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush'];
+  const moves=[...m.moves,'swoop','feint','orbit','weave','ambush','dart','swarm','jump','ceiling','ground'];
   const movement=draw>.31 ? moves[(identity.faction+encounter+Math.floor(draw*11))%moves.length] : spec.movement;
   const armory=['aimed','cross','spiral',m.weapon];
   const weapon=spec.weapon==='none' ? 'none' : draw>.47 ? armory[(identity.faction+encounter)%armory.length] : spec.weapon;
@@ -1361,7 +1426,7 @@ function adaptSpecies(spec, seed, region, phase, encounter, condition = 'normal'
 }
 
 /** Ash Rush — actual extracted frames from Fab's original illustrated boards.
- * Every Canvas frame is rasterized ONCE; the exact alpha supplies the collision mask.
+ * Every frame uses the SAME corrected RGBA pixels for the visual and the AND mask.
  */
 const ART_FRAMES = Object.freeze({
   player: [[0,0,90,62],[256,0,90,62],[512,0,90,62],[768,0,90,62]],
@@ -1374,33 +1439,527 @@ const ART_FRAMES = Object.freeze({
   shield: [[512,700,46,46]],
 });
 
-function framesFromAtlas(atlas) {
-  const result = {};
-  for (const [family, frames] of Object.entries(ART_FRAMES)) {
-    result[family] = frames.map(([sx,sy,w,h]) => {
-      const image = document.createElement('canvas');image.width=w;image.height=h;
-      const g = image.getContext('2d', {willReadFrequently:true});
+/** Strip a residual background FRAME from a crop, not the creature.
+ * Detect an opaque connected border similar to the four corner/matte colors.
+ * Pixel flood-fill follows only smooth matte colors; it cannot jump an opaque
+ * high-contrast silhouette edge. Fully transparent crops remain unchanged.
+ * Used on Canvas ImageData BEFORE making the collision mask, never after.
+ */
+function cleanFrameMatte(imageData){
+  const {width:w,height:h,data:d}=imageData;
+  const alphaAt=(x,y)=>d[(y*w+x)*4+3];
+  const samples=[[0,0],[w-1,0],[0,h-1],[w-1,h-1]].filter(([x,y])=>alphaAt(x,y)>40);
+  if(samples.length<3)return 0;
+  const matte=samples.map(([x,y])=>{const k=(y*w+x)*4;return [d[k],d[k+1],d[k+2]];});
+  const distance=(k,color)=>Math.abs(d[k]-color[0])+Math.abs(d[k+1]-color[1])+Math.abs(d[k+2]-color[2]);
+  // A rectangular fringe is indicated only when corners AND most edges are opaque.
+  let visibleEdge=0;
+  for(let x=0;x<w;x++){if(alphaAt(x,0)>40)visibleEdge++;if(alphaAt(x,h-1)>40)visibleEdge++;}
+  for(let y=0;y<h;y++){if(alphaAt(0,y)>40)visibleEdge++;if(alphaAt(w-1,y)>40)visibleEdge++;}
+  if(visibleEdge/(2*(w+h))<.64)return 0;
+  const n=w*h,seen=new Uint8Array(n),queue=new Int32Array(n);let write=0,read=0,removed=0;
+  function tryEdge(x,y){
+    const at=y*w+x,k=at*4;
+    if(seen[at]||d[k+3]<=40)return;
+    if(!matte.some(c=>distance(k,c)<=65))return;
+    seen[at]=1;queue[write++]=at;
+  }
+  for(let x=0;x<w;x++){tryEdge(x,0);tryEdge(x,h-1);}
+  for(let y=0;y<h;y++){tryEdge(0,y);tryEdge(w-1,y);}
+  while(read<write){
+    const at=queue[read++],x=at%w,y=(at/w)|0,k=at*4;
+    const original=[d[k],d[k+1],d[k+2]];
+    d[k]=0;d[k+1]=0;d[k+2]=0;d[k+3]=0;removed++;
+    // Refuse to cross a hard contrast edge into a ship or character body.
+    for(const other of [x>0?at-1:-1,x<w-1?at+1:-1,y>0?at-w:-1,y<h-1?at+w:-1]){
+      if(other<0||seen[other])continue;
+      const b=other*4;
+      if(d[b+3]<=40){seen[other]=1;continue;}
+      const delta=Math.abs(d[b]-original[0])+Math.abs(d[b+1]-original[1])+Math.abs(d[b+2]-original[2]);
+      if(delta>43||!matte.some(c=>distance(b,c)<125))continue;
+      seen[other]=1;queue[write++]=other;
+    }
+  }
+  return removed;
+}
+
+function framesFromAtlas(atlas){
+  const result={};
+  for(const [family,frames] of Object.entries(ART_FRAMES)){
+    result[family]=frames.map(([sx,sy,w,h])=>{
+      const image=document.createElement('canvas');image.width=w;image.height=h;
+      const g=image.getContext('2d',{willReadFrequently:true});
+      g.imageSmoothingEnabled=false; // No sampling from adjacent tiles.
       g.drawImage(atlas,sx,sy,w,h,0,0,w,h);
-      const mask = maskFromImageData(g.getImageData(0,0,w,h),42);
-      return { image,mask,width:w,height:h };
+      const pixels=g.getImageData(0,0,w,h);
+      if(cleanFrameMatte(pixels)>0)g.putImageData(pixels,0,0);
+      const mask=maskFromImageData(pixels,42);
+      return {image,mask,width:w,height:h};
     });
   }
   return result;
 }
 
-async function loadGameArt() {
-  if (typeof Image === 'undefined') return null;
-  const image = new Image();
-  image.decoding = 'async';
-  image.src = typeof window !== 'undefined' && window.__ASH_RUSH_ATLAS__ || 'assets/sprites/atlas.png';
-  try {
+async function loadGameArt(){
+  if(typeof Image==='undefined')return null;
+  const image=new Image();
+  image.decoding='async';
+  image.src=typeof window!=='undefined'&&window.__ASH_RUSH_ATLAS__||'assets/sprites/atlas.png';
+  try{
     await image.decode();
-    if (image.naturalWidth !== 1024 || image.naturalHeight !== 1120) throw new Error('Unexpected atlas geometry');
+    if(image.naturalWidth!==1024||image.naturalHeight!==1120)throw Error('Unexpected atlas geometry');
     return framesFromAtlas(image);
-  } catch {
-    // Offline standalone HTML opened without an atlas retains reliable vector fallback.
+  }catch{
+    // Offline HTML without atlas uses vector fallback; collision remains exact.
     return null;
   }
+}
+
+/** H-RUSH OMEGA 0.5.5 — coherent procedural 2D silhouettes, not hue-shifted atlas copies.
+ * Seed, region and encounter determine identity; per-frame RGBA gives the exact
+ * collision AND mask. No assets downloaded; all models work offline on Android.
+ */
+const NORMAL_DEFS=[
+  ['Éclaireur stellaire','fighter','space exit','space'],
+  ['Chasseur à impulsions','interceptor','space exit','space'],
+  ['Corvette lunaire','frigate','space exit','space'],
+  ['Frégate des anneaux','frigate','space exit','space'],
+  ['Porte-nefs orbital','carrier','space exit','space'],
+  ['Satellite prédateur','satellite','space exit','mechanical'],
+  ['Croiseur spectral','eye','space exit','organic'],
+  ['Disque gravitationnel','disc','space exit','mechanical'],
+  ['Drone météore','drone','space atmosphere exit','mechanical'],
+  ['Piqueur ionique','interceptor','space atmosphere exit','space'],
+  ['Raie des nuages','manta','atmosphere surface','aerial'],
+  ['Bombardier corail','bomber','atmosphere surface','aerial'],
+  ['Glisseur aérodynamique','glider','atmosphere surface','aerial'],
+  ['Ornithoptère mécanoïde','ornithopter','atmosphere surface','hybrid'],
+  ['Chasseur cyclone','fighter','atmosphere surface','aerial'],
+  ['Aérocrabe','crab','atmosphere surface','organic'],
+  ['Libellule de plasma','ornithopter','atmosphere surface','organic'],
+  ['Sonde lévitante','eye','atmosphere surface','mechanical'],
+  ['Rotor de défense','drone','atmosphere surface','mechanical'],
+  ['Bombardier cuirassé','bomber','atmosphere surface','mechanical'],
+  ['Racines fouetteuses','root','surface interior','organic'],
+  ['Liane vivante','vine','surface interior','organic'],
+  ['Tentacule cavernicole','tentacle','surface interior','organic'],
+  ['Tentacule phosphore','tentacle','surface interior','organic'],
+  ['Ver bondissant','worm','surface interior','organic'],
+  ['Ver à épines','worm','surface interior','organic'],
+  ['Chasseur rampante','crawler','surface interior','organic'],
+  ['Mante de terre','beetle','surface interior','organic'],
+  ['Scarabée cuirassé','beetle','surface interior','organic'],
+  ['Méduse du gouffre','jelly','interior surface','organic'],
+  ['Spore explosive','spore','interior surface','organic'],
+  ['Golem biomech','biomech','interior surface','hybrid'],
+  ['Tourelle rocheuse','turret','surface interior','defense'],
+  ['Tourelle à faisceau','turret','surface interior','defense'],
+  ['Tour de canon','tower','surface interior','defense'],
+  ['Rempart autonome','fortress','surface interior','defense'],
+  ['Bastion mobile','fortress','surface interior','mechanical'],
+  ['Char à chenilles','tank','surface interior','ground'],
+  ['Char insectoïde','crab','surface interior','hybrid'],
+  ['Rover d’assaut','rover','surface interior','ground'],
+  ['Véhicule perceur','crawler','surface interior','ground'],
+  ['Marcheur à six pattes','walker','surface interior','ground'],
+  ['Marcheur à canons','walker','surface interior','mechanical'],
+  ['Araignée mécanique','spider','surface interior','mechanical'],
+  ['Araignée organique','spider','surface interior','organic'],
+  ['Drone d’extraction','rover','surface interior','mechanical'],
+  ['Fleur carnivore','flower','surface interior','organic'],
+  ['Batterie mycélienne','flower','surface interior','organic'],
+  ['Canon racinaire','root','surface interior','organic']
+];
+const BOSS_DEFS=[
+  ['Titan des racines','root','surface interior','organic'],
+  ['Hydre à tentacules','tentacle','surface interior','organic'],
+  ['Ver-monde bondissant','worm','surface interior','organic'],
+  ['Arbre guerrier','flower','surface interior','organic'],
+  ['Bastion d’obsidienne','fortress','surface interior','defense'],
+  ['Forteresse quadrupède','walker','surface interior','mechanical'],
+  ['Train blindé vivant','tank','surface interior','hybrid'],
+  ['Reine arachnide','spider','surface interior','organic'],
+  ['Cuirassé du vide','frigate','space exit','space'],
+  ['Porte-essaim orbital','carrier','space exit','space'],
+  ['Dragon du plasma','manta','atmosphere space','organic'],
+  ['Fléau aérien','bomber','atmosphere surface','aerial'],
+  ['Œil cosmique','eye','space atmosphere interior','organic'],
+  ['Station exterminatrice','satellite','space exit','mechanical'],
+  ['Crabe colossal','crab','surface interior','hybrid'],
+  ['Colosse biomécanique','biomech','interior surface','hybrid']
+];
+const ceilingShapes=new Set(['root','vine','tentacle']);
+const groundShapes=new Set(['worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
+function compile(def,index,boss){
+  const [name,shape,phases,family]=def;
+  return Object.freeze({id:(boss?'b':'e')+index,index,name,shape,family,boss,
+    phases:Object.freeze(phases.split(' ')),
+    anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
+    hue:(index*47+(boss?14:177))%360});
+}
+const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
+const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
+const affinity=Object.freeze({
+  organic:['organic','garden','ocean','volcanic'],
+  hybrid:['organic','crystal','machine','ruins'],
+  mechanical:['machine','ruins','ice','storm'],
+  ground:['desert','volcanic','ice','ruins'],
+  defense:['machine','ruins','volcanic','crystal'],
+  aerial:['ocean','storm','nebula','garden'],
+  space:['nebula','storm','asteroid','crystal']
+});
+function deterministicPick(seed,region,phase,encounter,biome,source,salt){
+  const candidates=source.filter(x=>x.phases.includes(phase));
+  const liked=candidates.filter(x=>affinity[x.family]?.includes(biome));
+  const favor=keyedFloat(seed,region*101+encounter,1301+salt)<.67&&liked.length>=2;
+  const pool=favor?liked:candidates;
+  if(!pool.length)throw Error('No enemy morphology for phase '+phase);
+  const roll=keyedFloat(seed,region*100000+encounter,1399+salt);
+  return pool[Math.min(pool.length-1,Math.floor(roll*pool.length))];
+}
+function morphFor(seed,region,phase,encounter,biome='machine'){
+  return deterministicPick(seed,region,phase,encounter,biome,ENEMY_MORPHS,0);
+}
+function bossMorphFor(seed,region,phase,encounter,biome='machine'){
+  return deterministicPick(seed,region,phase,encounter,biome,BOSS_MORPHS,41);
+}
+/** Resolve enemy movement safely when its species has no visual morphology.
+ * Some ecological roles (notably asteroid) intentionally use mutable raster
+ * sprites instead of ENEMY_MORPHS. For them, preserve the species' movement;
+ * never dereference a missing morphology. Only grounded/ceiling morphs
+ * override the ecological movement mode.
+ */
+function spawnMovement(morph,speciesMovement='weave'){
+  if(!morph || morph.anchor==='air')return speciesMovement;
+  return morphMovement(morph);
+}
+function morphMovement(profile){
+  // Defense in depth: future callers must not stop the animation loop just
+  // because a procedurally spawned enemy has no dedicated morphology.
+  if(!profile)return 'weave';
+  if(profile.anchor==='ceiling')return 'ceiling';
+  if(profile.shape==='worm')return 'jump';
+  if(profile.anchor==='ground')return profile.shape==='rover'||profile.shape==='tank'?'patrol':'ground';
+  if(['fighter','interceptor','glider','ornithopter','manta'].includes(profile.shape))return 'swoop';
+  return 'weave';
+}
+function bossWeapons(profile,phase){
+  const sequences={
+    organic:['aimed','spiral','cross','rapid'],
+    mechanical:['burst','cross','aimed','rapid'],
+    ground:['burst','aimed','cross','spiral'],
+    defense:['cross','burst','rapid','aimed'],
+    aerial:['rapid','spiral','aimed','cross'],
+    space:['rapid','aimed','burst','spiral'],
+    hybrid:['aimed','cross','spiral','rapid']
+  };
+  return sequences[profile.family][Math.max(0,Math.floor(phase))%4];
+}
+const bestiaryClamp=(x,min,max)=>Math.max(min,Math.min(max,x));
+const spriteCache=new Map();
+const MAX_BESTIARY_CACHE=140;
+function strokeShape(g,points,color,fill=true){
+  g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
+  if(fill){g.fillStyle=color;g.fill();}else{g.strokeStyle=color;g.stroke();}
+}
+function oval(g,x,y,rx,ry,color,angle=0){
+  g.fillStyle=color;g.beginPath();g.ellipse(x,y,rx,ry,angle,0,Math.PI*2);g.fill();
+}
+/** 20 structural families; each has a distinct outline and two animated states.
+ * All drawing is relative to its sprite, so the PNG crop cannot bleed into it.
+ */
+function paintMorph(g,m,frame,phase,turretAngle=null){
+  const w=m.boss?176:86,h=m.boss?112:62;
+  const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
+  const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
+  // Limited palette per material prevents the old rainbow hue-shifted toy look.
+  // Local variations keep species recognisable within a faction.
+  const baseHue={space:213,mechanical:202,aerial:189,organic:320,
+    hybrid:275,ground:35,defense:13}[m.family]??215;
+  const hue=(baseHue+(m.index*13)%31-15+damagePhase*9+360)%360;
+  const accentHue=(hue+([175,44,107,138,91][m.index%5]))%360;
+  const hull=`hsl(${hue} 49% ${m.boss?29:35}%)`;
+  const lit=`hsl(${accentHue} 96% 72%)`;
+  const dark=`hsl(${hue} 68% 12%)`;
+  const metal=`hsl(${hue} 24% 77%)`;
+  g.save();g.translate(w/2,h/2);g.scale(w*.43,h*.40);
+  g.lineJoin='round';g.lineCap='round';g.lineWidth=.055;
+  const shape=m.shape;
+  switch(shape){
+    case 'fighter':
+    case 'interceptor':
+      strokeShape(g,[[-.93,-.07],[-.26,-.19],[.27,-.85],[.72,-.72],[.66,-.12],[.95,0],[.64,.20],[.72,.7],[.26,.83],[-.26,.18]],hull);
+      strokeShape(g,[[-.35,0],[.22,-.32],[.68,0],[.22,.32]],lit);
+      if(shape==='interceptor')strokeShape(g,[[-.9,-.1],[-.47,-.42],[-.14,-.74],[-.28,0],[-.14,.74],[-.47,.42]],metal);
+      oval(g,.26,0,.18,.11,dark);
+      break;
+    case 'frigate':
+    case 'carrier':
+      strokeShape(g,[[-.95,-.25],[-.48,-.52],[.36,-.53],[.97,-.1],[.97,.11],[.36,.53],[-.48,.52],[-.95,.24]],hull);
+      strokeShape(g,[[-.7,-.17],[.24,-.25],[.6,0],[.24,.24],[-.7,.18]],metal);
+      for(let i=-1;i<=1;i++)oval(g,i*.35,-.47,.12,.065,lit);
+      if(shape==='carrier'){for(let i=0;i<3;i++){oval(g,-.55+i*.47,.48,.11,.13,dark);oval(g,-.55+i*.47,.48,.05,.07,lit);}}
+      else {strokeShape(g,[[-.5,-.52],[.1,-.88],[.45,-.51],[.2,.0],[-.5,.52],[.1,.88],[.45,.51]],dark);}
+      break;
+    case 'satellite':
+    case 'disc':
+      oval(g,0,0,.65,.67,hull);
+      oval(g,0,0,.42,.32,dark);
+      for(let i=0;i<4;i++){const a=i*Math.PI/2;oval(g,Math.cos(a)*.81,Math.sin(a)*.82,.17,.12,metal,a);}
+      oval(g,0,0,.22,.23,lit);
+      if(shape==='satellite'){strokeShape(g,[[-.75,-.25],[-1,-.5],[-1,.42],[-.7,.20]],metal);strokeShape(g,[[.75,-.25],[1,-.5],[1,.42],[.7,.20]],metal);}
+      else {oval(g,0,0,.94,.12,lit);}
+      break;
+    case 'drone':
+      oval(g,0,0,.51,.38,hull);
+      for(let t of [-.75,.75]){oval(g,t,-.33,.22,.1,metal);oval(g,t,.33,.22,.1,metal);oval(g,t,-.33,.10,.035,lit);}
+      oval(g,.2,0,.21,.16,lit);break;
+    case 'bomber':
+      strokeShape(g,[[-.95,-.13],[-.4,-.35],[.1,-.48],[.89,-.14],[.97,.08],[.09,.42],[-.4,.35],[-.95,.16]],hull);
+      strokeShape(g,[[-.24,-.2],[-.66,-.93],[.07,-.74],[.28,-.23],[.28,.23],[.07,.74],[-.66,.93]],metal);
+      for(let k of [-.4,.4])oval(g,.04,k,.19,.10,dark);break;
+    case 'glider':
+    case 'manta':
+    case 'ornithopter':
+      strokeShape(g,[[-.96,-.08],[-.6,-.45-sway],[.01,-.16],[.62,-.85-sway],[.94,-.8],[.49,0],[.94,.8],[.62,.85+sway],[.01,.16],[-.6,.45+sway]],hull);
+      strokeShape(g,[[-.57,-.17],[.28,-.18],[.7,-.55],[.4,0],[.7,.55],[.28,.18],[-.57,.17]],lit);
+      if(shape==='ornithopter'){for(let k of [-1,1]){g.strokeStyle=metal;g.lineWidth=.08;g.beginPath();g.moveTo(-.3,0);g.lineTo(.18,k*.8);g.lineTo(.75,k*.92);g.stroke();}}
+      if(shape==='manta'){oval(g,.32,0,.18,.23,lit);oval(g,.42,-.13,.07,.04,dark);oval(g,.42,.13,.07,.04,dark);}
+      break;
+    case 'rover':
+    case 'tank':
+      strokeShape(g,[[-.94,-.3],[-.52,-.55],[.48,-.55],[.88,-.35],[.95,.16],[.72,.45],[-.8,.45]],hull);
+      strokeShape(g,[[-.45,-.36],[.25,-.36],[.5,-.05],[-.56,.04]],metal);
+      for(let k of [-.65,.55]){oval(g,k,.54,.29,.21,dark);oval(g,k,.54,.16,.11,lit);}
+      if(shape==='tank'){if(turretAngle===null){g.fillStyle=metal;g.fillRect(.18,-.6,.68,.12);}oval(g,.18,-.58,.19,.15,hull);}
+      else {strokeShape(g,[[.2,-.5],[.75,-.95],[.92,-.92]],metal,false);}
+      break;
+    case 'walker':
+      strokeShape(g,[[-.72,-.42],[-.2,-.72],[.58,-.55],[.88,-.2],[.62,.17],[-.67,.19]],hull);
+      for(const k of [-.53,0,.55]){g.strokeStyle=metal;g.lineWidth=.11;g.beginPath();g.moveTo(k,.05);g.lineTo(k+.15,.48+sway);g.lineTo(k-.1,.88);g.stroke();}
+      oval(g,.28,-.32,.22,.12,lit);break;
+    case 'turret':
+    case 'tower':
+      strokeShape(g,[[-.78,.86],[-.67,-.1],[-.4,-.38],[.48,-.38],[.77,-.05],[.78,.86]],hull);
+      oval(g,0,-.2,.42,.25,metal);
+      if(turretAngle===null){g.fillStyle=lit;g.fillRect(-.1,-.7,.75,.14);}
+      if(shape==='tower'){g.fillStyle=dark;g.fillRect(-.45,-.84,.13,.68);g.fillRect(.24,-.84,.13,.68);}
+      else {for(let i=0;i<3;i++)oval(g,-.46+i*.45,.35,.06,.14,lit);}
+      break;
+    case 'fortress':
+      strokeShape(g,[[-.98,.65],[-.85,-.4],[-.4,-.7],[.42,-.7],[.87,-.36],[.98,.65]],hull);
+      for(let k of [-.62,0,.62]){oval(g,k,-.49,.14,.17,metal);oval(g,k,-.51,.07,.07,lit);}
+      strokeShape(g,[[-.9,.47],[-.45,.30],[.54,.30],[.93,.47],[.78,.82],[-.73,.82]],dark);
+      break;
+    case 'root':
+    case 'vine':
+    case 'tentacle':
+      oval(g,-.2,-.76,.47,.22,hull);
+      for(let i=0;i<5;i++){
+        const x=-.75+i*.32;
+        g.beginPath();g.moveTo(x,-.87);
+        g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.15,x+.20,.84);
+        g.lineWidth=.20-(i%2)*.035;g.strokeStyle=hull;g.stroke();
+        g.beginPath();g.moveTo(x,-.84);g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.14,x+.20,.84);
+        g.lineWidth=.045;g.strokeStyle=lit;g.stroke();
+      }
+      if(shape==='tentacle')for(let i=0;i<4;i++)oval(g,-.5+i*.25,.15+.15*(i%2),.065,.048,metal);
+      if(shape==='vine')for(let i=0;i<4;i++)oval(g,-.6+i*.37,.17,.18,.09,lit,.65+i*.3);
+      break;
+    case 'worm':
+    case 'crawler':
+      for(let i=0;i<6;i++){
+        const cx=.70-i*.29,cy=.25+Math.sin(i*.9+frame*1.6)*.15;
+        oval(g,cx,cy,.29-i*.02,.33-i*.02,i%2?hull:metal,-.15);
+        oval(g,cx,cy-.2,.06,.06,lit);
+      }
+      oval(g,.78,.19,.16,.16,dark);
+      oval(g,.82,.14,.075,.05,lit);
+      if(shape==='crawler'){for(let i=0;i<5;i++){g.strokeStyle=dark;g.lineWidth=.09;g.beginPath();g.moveTo(.5-i*.3,.5);g.lineTo(.4-i*.3,.8);g.stroke();}}
+      else {strokeShape(g,[[.55,-.12],[.76,-.34],[.92,-.12]],lit);}
+      break;
+    case 'spider':
+    case 'crab':
+      oval(g,0,0,.46,.34,hull);
+      oval(g,.34,-.06,.25,.23,metal);
+      for(let i=0;i<4;i++){const ky=-.66+i*.44;g.strokeStyle=hull;g.lineWidth=.10;
+        for(let sign of [-1,1]){g.beginPath();g.moveTo(sign*.22,ky*.4);g.lineTo(sign*(.7+sway),ky*.92);g.lineTo(sign*.98,ky);g.stroke();}}
+      if(shape==='crab'){for(let sign of [-1,1]){oval(g,sign*.9,-.38,.17,.18,lit);}}
+      else {oval(g,.4,-.09,.08,.07,lit);oval(g,.4,.12,.08,.07,lit);}
+      break;
+    case 'beetle':
+      oval(g,0,0,.75,.61,hull);oval(g,-.1,0,.56,.48,metal);
+      g.strokeStyle=dark;g.lineWidth=.06;g.beginPath();g.moveTo(-.02,-.47);g.lineTo(-.02,.48);g.stroke();
+      for(let i of [-.52,.52])oval(g,i,.5,.18,.09,dark);oval(g,.53,-.03,.2,.15,lit);
+      break;
+    case 'jelly':
+    case 'spore':
+      oval(g,0,-.26,.72,.6,hull);
+      oval(g,.17,-.38,.4,.32,lit);
+      if(shape==='jelly')for(let i=0;i<6;i++){g.strokeStyle=i%2?metal:lit;g.lineWidth=.07;
+        g.beginPath();g.moveTo(-.55+i*.22,.0);g.bezierCurveTo(-.35+i*.2,.25,-.7+i*.25,.6+sway,-.50+i*.26,.85);g.stroke();}
+      else for(let i=0;i<8;i++){const a=i*Math.PI/4;oval(g,Math.cos(a)*.77,Math.sin(a)*.57,.12,.11,metal,a);}
+      break;
+    case 'flower':
+      for(let i=0;i<8;i++){const a=i*Math.PI/4;oval(g,Math.cos(a)*.48,Math.sin(a)*.5,.35,.18,hull,a);}
+      oval(g,0,0,.46,.47,metal);oval(g,.12,0,.26,.29,dark);oval(g,.24,0,.10,.14,lit);
+      break;
+    case 'eye':
+    case 'biomech':
+      if(shape==='biomech'){strokeShape(g,[[-.92,-.58],[-.34,-.18],[.3,-.79],[.89,-.27],[.68,.4],[.03,.83],[-.57,.43]],hull);
+        strokeShape(g,[[-.38,-.03],[.28,-.52],[.7,.03],[.28,.58]],metal);
+      }else {oval(g,0,0,.83,.65,hull);oval(g,.08,0,.59,.43,metal);}
+      oval(g,.26,0,.29,.3,dark);oval(g,.34,0,.11,.16,lit);
+      break;
+  }
+  if(m.boss){
+    // Boss anatomy carries extra armored gun pods; the central silhouette remains
+    // the profile's own shape, not an interchangeable old scout/manta template.
+    for(let k of [-1,1]){
+      oval(g,-.46,k*.52,.19,.17,dark);
+      oval(g,-.43,k*.53,.09,.09,damagePhase>1?'#fff4b6':lit);
+    }
+    if(damagePhase>0){g.strokeStyle=lit;g.lineWidth=.025+damagePhase*.02;
+      g.beginPath();g.ellipse(0,0,.65+damagePhase*.07,.7,0,.2,Math.PI*1.4);g.stroke();}
+  }
+  g.restore();
+  // A mechanical turret pivots independently of the body. Its actual opaque
+  // barrel is in the source RGBA before extracting the collision AND mask.
+  if(turretAngle!==null&&['tank','turret','tower','fortress','rover'].includes(shape)){
+    const px=w*.5,py=h*.47-5;
+    g.save();g.translate(px,py);g.rotate(turretAngle);
+    g.lineCap='round';g.strokeStyle=dark;g.lineWidth=m.boss?10:9;
+    g.beginPath();g.moveTo(0,0);g.lineTo(25,0);g.stroke();
+    g.strokeStyle=metal;g.lineWidth=m.boss?6:5;
+    g.beginPath();g.moveTo(3,0);g.lineTo(25,0);g.stroke();
+    oval(g,25,0,3.8,3.5,lit);
+    g.restore();
+    oval(g,px,py,m.boss?10:8,m.boss?10:8,hull);
+    oval(g,px,py,3,3,lit);
+  }
+}
+/** Shared high-contrast art direction: armor relief, anatomy, cockpit glass,
+ * rivets, engines and luminous veins. SOURCE-ATOP guarantees no painted
+ * embellishment can extend beyond the real collision silhouette.
+ */
+function paintSurfaceDetails(g,m,frame,phase){
+  const w=m.boss?176:86,h=m.boss?112:62;
+  const accent={space:'#70f5ff',mechanical:'#92cfff',aerial:'#ffd88e',
+    organic:'#ff8ba9',hybrid:'#d5afff',ground:'#ffd178',defense:'#ffb68b'}[m.family]||'#a8eeff';
+  g.save();
+  g.globalCompositeOperation='source-atop';
+  const alloy=g.createLinearGradient(0,1,w*.20,h);
+  alloy.addColorStop(0,'rgba(255,255,255,.42)');
+  alloy.addColorStop(.28,'rgba(255,255,255,.05)');
+  alloy.addColorStop(.56,'rgba(8,12,30,.12)');
+  alloy.addColorStop(1,'rgba(2,5,21,.53)');
+  g.fillStyle=alloy;g.fillRect(0,0,w,h);
+  const halo=g.createRadialGradient(w*.38,h*.28,0,w*.38,h*.28,w*.55);
+  halo.addColorStop(0,'rgba(255,255,255,.13)');
+  halo.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=halo;g.fillRect(0,0,w,h);
+  g.translate(w*.5,h*.5);g.scale(w*.43,h*.40);
+  g.lineCap='round';g.lineJoin='round';
+  const organic=m.family==='organic'||m.family==='hybrid';
+  const ground=m.anchor==='ground',ceiling=m.anchor==='ceiling';
+  const flying=m.anchor==='air';
+  const pulse=.76+.24*((frame&1)?1:0);
+  g.strokeStyle=accent;g.fillStyle=accent;
+  g.globalAlpha=.66*pulse;g.lineWidth=.036;
+  if(ceiling){
+    for(let i=-2;i<=2;i++){
+      const x=i*.28;
+      g.beginPath();g.moveTo(x,-.74);g.bezierCurveTo(x+.20,-.33,x-.18,.13,x+.16,.67);g.stroke();
+      oval(g,x-.03,-.55,.048,.06,accent);
+    }
+  }else if(organic){
+    for(let i=0;i<5;i++){
+      const x=-.66+i*.30;
+      g.beginPath();g.moveTo(x,-.37);g.quadraticCurveTo(x+.20,-.05,x+.31,.35);g.stroke();
+      oval(g,x,-.28,.065,.040,accent);
+    }
+  }else if(flying){
+    // Visible wings, engine ports and cockpit ribs—not flat geometric stickers.
+    for(const side of [-1,1]){
+      g.beginPath();g.moveTo(-.63,side*.12);g.lineTo(-.12,side*.22);
+      g.lineTo(.40,side*.51);g.stroke();
+      g.beginPath();g.moveTo(-.44,side*.15);g.lineTo(-.18,side*.31);g.stroke();
+      oval(g,-.63,side*.17,.10,.065,accent);
+    }
+    oval(g,.27,0,.19,.105,'#e4fdff');
+    g.globalAlpha=.27;oval(g,.32,-.038,.10,.042,'#fff');
+  }else if(ground){
+    for(let i=0;i<5;i++){
+      const x=-.72+i*.34;
+      g.fillRect(x,-.14,.045,.32);
+      oval(g,x+.03,.37,.065,.045,accent);
+    }
+    g.beginPath();g.moveTo(-.71,-.31);g.lineTo(.64,-.31);g.stroke();
+  }else {
+    for(let i=-2;i<=2;i++){
+      const x=i*.23;
+      g.beginPath();g.moveTo(x,-.55);g.lineTo(x+.12,-.13);g.stroke();
+      oval(g,x,.37,.06,.06,accent);
+    }
+  }
+  if(m.boss){
+    g.globalAlpha=.88;g.lineWidth=.048;
+    for(let side of [-1,1]){
+      g.beginPath();g.moveTo(-.88,side*.26);g.lineTo(-.30,side*.49);
+      g.lineTo(.43,side*.65);g.stroke();
+    }
+    const step=Math.max(0,Math.min(3,Math.floor(phase)));
+    for(let i=0;i<=step;i++)oval(g,-.2+i*.16,-.01,.045,.05,'#fff4bd');
+  }
+  g.restore();
+}
+/** Deterministic 1px bevel + micrograin; RGB only, alpha NEVER changes.
+ * Pixel-edge shading remains consistent with each destructive AND/AND-NOT mask.
+ */
+function bevelMorphPixels(data,m){
+  const {width:w,height:h,data:d}=data;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const k=(y*w+x)*4;
+    if(d[k+3]<42)continue;
+    const top=d[k-w*4+3],left=d[k-4+3],right=d[k+4+3],bottom=d[k+w*4+3];
+    const light=(top<42?25:0)+(left<42?18:0);
+    const shade=(right<42?20:0)+(bottom<42?25:0);
+    const grain=((x*29+y*41+m.index*71)%11)-5;
+    const v=light-shade+grain;
+    d[k]=Math.max(0,Math.min(255,d[k]+v));
+    d[k+1]=Math.max(0,Math.min(255,d[k+1]+v));
+    d[k+2]=Math.max(0,Math.min(255,d[k+2]+v));
+  }
+}
+
+/** Sprite cache is bounded; frame and phase are part of the immutable source key.
+ * Each wounded enemy clones its own edited pixels via damage.js.
+ */
+function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
+  if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
+  const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
+  const resolvedAngle=turretBucket===null?null:turretBucket*.16;
+  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
+  if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
+  if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
+  const w=morph.boss?176:86,h=morph.boss?112:62;
+  const image=document.createElement('canvas');image.width=w;image.height=h;
+  const g=image.getContext('2d',{willReadFrequently:true});
+  // Aerial enemies and ground worms face LEFT, toward the approaching player.
+  // Raster, detailed paint, orientation, and AND mask all share one transform.
+  if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
+    g.translate(w,0);g.scale(-1,1);
+  }
+  paintMorph(g,morph,frame,phase,resolvedAngle);
+  paintSurfaceDetails(g,morph,frame,phase);
+  g.setTransform(1,0,0,1,0,0);
+  const data=g.getImageData(0,0,w,h);
+  bevelMorphPixels(data,morph); // RGB only: preserve exact opaque bits.
+  g.putImageData(data,0,0);
+  const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
+  spriteCache.set(key,s);
+  while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
+  return s;
 }
 
 /**
@@ -1646,6 +2205,48 @@ class TouchCalibration {
   }
 }
 
+/** OMEGA 0.5.11: two short taps by EITHER steering or targeting finger fire once.
+ * A single secondary touch exclusively sets the manual aiming pointer; no shot.
+ * Pointer IDs are transient on Android; gestures pair by role, not pointerId.
+ * All times are monotonic PointerEvent.timeStamp milliseconds.
+ */
+const DOUBLE_TAP_WINDOW_MS=320;
+const MAX_TAP_MS=230;
+const MAX_TAP_TRAVEL=28;
+const MAX_DOUBLE_TAP_DISTANCE=72;
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+class TouchMissileGestures{
+  constructor(){this.reset();}
+  reset(){this.active=new Map();this.previous={primary:null,secondary:null};}
+  /** Register a touch. Pointer-down NEVER fires a missile. */
+  down(id,role,point,time){
+    if(!validPoint(point)||!Number.isFinite(time)||this.active.has(id))return false;
+    if(role!=='primary'&&role!=='secondary')return false;
+    const previous=this.previous[role];
+    const paired=!!previous&&time>=previous.time&&time-previous.time<=DOUBLE_TAP_WINDOW_MS&&
+      distance(previous.point,point)<=MAX_DOUBLE_TAP_DISTANCE;
+    this.active.set(id,{role,start:{...point},last:{...point},time,paired,maxTravel:0});
+    if(previous&&(!paired||time-previous.time>DOUBLE_TAP_WINDOW_MS))this.previous[role]=null;
+    // All launches happen on the second short tap RELEASE, in either role.
+    return false;
+  }
+  move(id,point){const a=this.active.get(id);if(a&&validPoint(point)){a.last={...point};a.maxTravel=Math.max(a.maxTravel,distance(a.start,point));}}
+  /** Returns true after the second completed tap of EITHER finger role. */
+  up(id,point,time,cancelled=false){
+    const a=this.active.get(id);if(!a)return false;
+    this.active.delete(id);
+    const end=validPoint(point)?point:a.last;
+    const quick=!cancelled&&Number.isFinite(time)&&time>=a.time&&
+      time-a.time<=MAX_TAP_MS&&a.maxTravel<=MAX_TAP_TRAVEL&&distance(a.start,end)<=MAX_TAP_TRAVEL;
+    if(!quick){this.previous[a.role]=null;return false;}
+    if(a.paired){this.previous[a.role]=null;return true;}
+    this.previous[a.role]={point:{...end},time};
+    return false;
+  }
+  cancel(id){return this.up(id,null,0,true);}
+}
+
 /** Enemy navigation against the actual terrain 2D AND masks, never a graphical approximation.
  * Functions accept any terrain with collideEntity(entity), to permit deterministic oracles.
  */
@@ -1825,6 +2426,16 @@ class TiltController {
 /** Twenty distinct collectible silhouettes, rasterized and collision-tested from identical alpha. */
 const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart']);
 const BONUS_VARIANTS = 4;
+const BONUS_MIN_INTERVAL_SECONDS=24;
+const BONUS_MAX_SIMULTANEOUS=1;
+/** Sparse bonus drops. HP and difficulty director are unaffected. */
+function bonusDropAllowed({elapsed=0,sinceLast=Infinity,active=0,kind='scout',
+  rockType='',warp=false,hearts=5,roll=1}={}){
+  if(warp||elapsed<22||sinceLast<BONUS_MIN_INTERVAL_SECONDS||active>=BONUS_MAX_SIMULTANEOUS)return false;
+  if(rockType==='fragment'||rockType==='warp'||rockType==='rain')return false;
+  const chance=kind==='boss'?.32:hearts<=2?.15:.095;
+  return Number.isFinite(roll)&&roll>=0&&roll<chance;
+}
 const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a']});
 const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+'};
 function bonusVariant(seed,region,index,type) {
@@ -1885,7 +2496,7 @@ function copyDamageSprite(source){
   const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
   image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
   const m=source.mask;
-  return {...source,image,initialFilled:source.initialFilled??m.filled,
+  return {...source,image,volatileDamage:true,initialFilled:source.initialFilled??m.filled,
     mask:{...m,rows:new Uint32Array(m.rows),
       xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
 }
@@ -1966,6 +2577,16 @@ function burnHoleLimited(sprite,localX,localY,radius,healthLoss=0){
   paintHeat(sprite,cx,cy,chosen||Math.max(2,Math.round(radius)),heat);
   return {removed,radius:chosen,fraction,heat};
 }
+/** Dynamic turret angles create many possible source frames, so bound EACH
+ * enemy's private cutout cache. Reconstruct evicted frames from historical scars.
+ */
+const MAX_ENEMY_DAMAGE_FRAMES=12;
+function rememberDamageFrame(enemy,source,edited){
+  if(enemy.damageFrames.has(source))enemy.damageFrames.delete(source);
+  enemy.damageFrames.set(source,edited);
+  while(enemy.damageFrames.size>MAX_ENEMY_DAMAGE_FRAMES)
+    enemy.damageFrames.delete(enemy.damageFrames.keys().next().value);
+}
 /** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
@@ -1975,8 +2596,8 @@ function switchDamagedFrame(enemy,source){
   if(!edited){
     edited=copyDamageSprite(source);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(source,edited);
   }
+  rememberDamageFrame(enemy,source,edited);
   enemy.sprite=edited;
   return edited;
 }
@@ -1995,7 +2616,7 @@ function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
     for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(enemy.sourceSprite,edited);
+    rememberDamageFrame(enemy,enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;
@@ -2064,8 +2685,22 @@ function portalPosition(seed,region){
   if(!Number.isInteger(region)||region<0)return null;
   if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
   const wx=region*REGION_SIZE+6750+Math.floor(keyedFloat(seed,region,810)*435);
-  const y=136+Math.floor(keyedFloat(seed,region,811)*92);
+  // The portal's actual alpha ring is accessible, just above nearby solid rock.
+  let floor=Infinity;
+  for(let dx=0;dx<=58;dx+=6)floor=Math.min(floor,terrainBounds(seed,wx+dx).bottom);
+  const y=Math.floor(floor-58-9);
   return {worldX:wx,y,region};
+}
+/** Warp is a shortcut to the NEXT region's outer space, not back onto planet rock. */
+function warpExitWorld(region){
+  if(!Number.isSafeInteger(region)||region<0)throw RangeError('Invalid region');
+  const pos=(region+1)*REGION_SIZE+96;
+  if(!Number.isSafeInteger(pos))throw RangeError('Warp travel overflow');
+  return pos;
+}
+/** Spawn the complete obstruction outside the viewport before any movement. */
+function offscreenSpawnX(viewportWidth,bodyWidth,margin=64){
+  return Math.max(0,viewportWidth)+Math.max(0,bodyWidth)+Math.max(24,margin);
 }
 /** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */
 function asteroidWeather(seed,region,seconds,phase){
@@ -2169,6 +2804,298 @@ function sentinelSteer(enemyY,targetY,age,phase,dt){
   return hoverClamp(target,-73,73)*hoverClamp(dt,0,.05);
 }
 
+/** OMEGA 0.5.6 — second-finger aiming separate from first-finger steering.
+ * All directions originate at the actual pitched nose; no synthetic hit test.
+ * Near ceiling enemies: finger can be BELOW the enemy, with horizontal trim.
+ * Near ground enemies: finger can be ABOVE the enemy, with horizontal trim.
+ * Air targets: center acquisition and vertical trim. Shapes and HP still
+ * collide via the unchanged binary A & B sprite mask.
+ */
+const aimClamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+/** Optional, local-only assistance. Missing and legacy settings always mean OFF. */
+const AUTOFOCUS_STORAGE_KEY='ashrush-autofocus-v1';
+function readAutofocus(storage){
+  try{return storage?.getItem(AUTOFOCUS_STORAGE_KEY)==='on';}catch{return false;}
+}
+function saveAutofocus(storage,enabled){
+  const on=enabled===true;
+  try{storage?.setItem(AUTOFOCUS_STORAGE_KEY,on?'on':'off');}catch{}
+  return on;
+}
+const ANCHORED_X_TOLERANCE=112;
+const CEILING_BELOW_TOLERANCE=255;
+const GROUND_ABOVE_TOLERANCE=255;
+const AIR_Y_TOLERANCE=110;
+const ANCHORED_X_TRIM=54;
+const AIR_Y_TRIM=64;
+
+function enemyAimClass(enemy){
+  const anchor=enemy?.morph?.anchor;
+  return anchor==='ceiling'?'ceiling':anchor==='ground'?'ground':'air';
+}
+const alphaCenterCache=new WeakMap();
+/** Aim at a REAL surviving opaque pixel closest to the sprite's center, instead
+ * of an empty hole between root tentacles or in a scarred boss's armor.
+ * The cache is per-mask and is rechecked after real AND-NOT damage.
+ */
+function enemyAimCenter(enemy){
+  if(!enemy?.sprite)return null;
+  const w=Number(enemy.sprite.width)||0,h=Number(enemy.sprite.height)||0;
+  const originX=Number(enemy.x)||0,originY=Number(enemy.y)||0;
+  const mask=enemy.sprite.mask;
+  if(mask?.filled>0&&mask.rows){
+    let pixel=alphaCenterCache.get(mask);
+    if(!pixel||!hasPixel(mask,pixel.x,pixel.y)){
+      const midX=Math.floor(w*.5),midY=Math.floor(h*.5);
+      if(hasPixel(mask,midX,midY))pixel={x:midX,y:midY};
+      else {
+        let best=Infinity;
+        for(let y=0;y<mask.height;y++)for(let x=0;x<mask.width;x++){
+          const dist=(x-midX)**2+(y-midY)**2;
+          if(dist<best&&hasPixel(mask,x,y)){pixel={x,y};best=dist;}
+        }
+      }
+      if(pixel)alphaCenterCache.set(mask,pixel);
+    }
+    if(pixel)return {x:originX+pixel.x,y:originY+pixel.y};
+  }
+  return {x:originX+w*.5,y:originY+h*.5};
+}
+/** Acquires the enemy nearest to the supporting touch; never selects offscreen foes.
+ * For a ceiling target the fingertip may lie far BELOW the sprite, and vice versa
+ * for floor targets: testing the actual enemy rectangle would reject such taps.
+ */
+function acquireTwoFingerTarget(enemies,point,W=960,H=540){
+  if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||!Array.isArray(enemies))return null;
+  let chosen=null,best=Infinity;
+  for(const enemy of enemies){
+    if(!enemy||enemy.hp<=0||!enemy.sprite)continue;
+    const c=enemyAimCenter(enemy);
+    if(c.x<0||c.x>W||c.y<0||c.y>H)continue;
+    const dx=Math.abs(point.x-c.x),dy=point.y-c.y;
+    const kind=enemyAimClass(enemy);
+    let score=Infinity;
+    if(kind==='ceiling'&&dx<=ANCHORED_X_TOLERANCE&&dy>=-48&&dy<=CEILING_BELOW_TOLERANCE)
+      score=dx/ANCHORED_X_TOLERANCE*.7+Math.max(0,dy)/CEILING_BELOW_TOLERANCE*.30;
+    else if(kind==='ground'&&dx<=ANCHORED_X_TOLERANCE&&dy>=-GROUND_ABOVE_TOLERANCE&&dy<=48)
+      score=dx/ANCHORED_X_TOLERANCE*.7+Math.max(0,-dy)/GROUND_ABOVE_TOLERANCE*.30;
+    else if(kind==='air'&&dx<=148&&Math.abs(dy)<=AIR_Y_TOLERANCE)
+      score=dx/148*.5+Math.abs(dy)/AIR_Y_TOLERANCE*.5;
+    if(score<best){best=score;chosen=enemy;}
+  }
+  return chosen;
+}
+/** When optional autofocus is ON, a locked target is sampled on EVERY shot; moving the ship
+ * forward/backward thus changes the angle exactly as the player requested.
+ */
+function twoFingerAimPoint(state,enemies,W=960,H=540,autofocus=false){
+  if(!state?.current)return null;
+  const point=state.current;
+  // Manual aim must never snap to an enemy, even if an old pointer state has
+  // a cached target. The second fingertip is the exact intentional aim point.
+  if(!autofocus)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
+  const target=state.target&&state.target.hp>0&&enemies.includes(state.target)?
+    state.target:acquireTwoFingerTarget(enemies,point,W,H);
+  if(!target)return {x:aimClamp(point.x,0,W),y:aimClamp(point.y,0,H),target:null,kind:'free'};
+  const center=enemyAimCenter(target),kind=enemyAimClass(target);
+  const start=state.start||point;
+  if(kind==='ceiling'||kind==='ground'){
+    return {x:center.x+aimClamp(point.x-start.x,-ANCHORED_X_TRIM,ANCHORED_X_TRIM),
+      y:center.y,target,kind};
+  }
+  return {x:center.x,
+    y:center.y+aimClamp(point.y-start.y,-AIR_Y_TRIM,AIR_Y_TRIM),target,kind};
+}
+/** Laser / missile direction and projectile image must both use this angle.
+ * Optional point absent: preserve 0.5.1 helicopter nose pitching exactly.
+ */
+function twoFingerNoseShot(cx,cy,width,pitch,speed,lane=0,point=null){
+  const nose=aimFromNose(cx,cy,width,pitch,speed,lane);
+  if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y))return nose;
+  const dx=point.x-nose.x,dy=point.y-nose.y;
+  if(Math.hypot(dx,dy)<4)return nose;
+  const angle=Math.atan2(dy,dx)+lane*.042;
+  return {...nose,angle,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed};
+}
+/** Smooth physically-based homing only for explicitly locked missiles. */
+function guidedMissileVelocity(missile,target,dt,speed=345){
+  const c=enemyAimCenter(target);
+  if(!c)return {vx:missile.vx,vy:missile.vy};
+  const angle=Math.atan2(c.y-(missile.y+missile.sprite.height*.5),
+    c.x-(missile.x+missile.sprite.width*.5));
+  const old=Math.atan2(missile.vy,missile.vx);
+  let delta=((angle-old+Math.PI*3)%(Math.PI*2))-Math.PI;
+  delta=aimClamp(delta,-2.3*Math.max(0,dt),2.3*Math.max(0,dt));
+  const next=old+delta;
+  return {vx:Math.cos(next)*speed,vy:Math.sin(next)*speed};
+}
+/** Only opt-in missiles can adjust their heading after launch. Without it,
+ * every frame preserves both velocity components (no implicit nearest-foe
+ * targeting, even after the original lock dies).
+ * Kept as a pure function so manual straight-line behavior is unit-tested.
+ */
+function missileAutofocusVelocity(missile,enemies,dt,enabled=false){
+  if(!enabled)return {vx:missile.vx,vy:missile.vy};
+  const candidates=Array.isArray(enemies)?enemies:[];
+  const locked=missile.lockTarget&&missile.lockTarget.hp>0&&candidates.includes(missile.lockTarget)
+    ? missile.lockTarget : null;
+  if(locked)return guidedMissileVelocity(missile,locked,dt);
+  let target=null,best=Infinity;
+  for(const enemy of candidates){
+    if(!enemy||enemy.hp<=0||!enemy.sprite)continue;
+    const dist=(enemy.x-missile.x)**2+(enemy.y-missile.y)**2;
+    if(dist<best){best=dist;target=enemy;}
+  }
+  if(!target)return {vx:missile.vx,vy:missile.vy};
+  const dy=target.y+target.sprite.height*.5-missile.y;
+  return {vx:missile.vx,
+    vy:aimClamp(missile.vy+aimClamp(dy*3-missile.vy,-800*Math.max(0,dt),800*Math.max(0,dt)),-235,235)};
+}
+
+/** OMEGA 0.5.7 — terrain-bound enemies.
+ * Ground contact, surface pitch, worm excavation and ballistic turret fire all
+ * share the SAME opaque-pixel AND terrain oracle used by combat. Never use
+ * a bounding rectangle or a synthetic physics ground for damage/collision.
+ */
+const groundClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const GROUND_MAX_PITCH=.30;
+const WORM_BITE_RADIUS=8;
+const WORM_BITE_INTERVAL=.43;
+const BALLISTIC_GRAVITY=315;
+const SHELL_SPEED_X=225;
+const turretShapes=new Set(['tank','turret','tower','fortress','rover']);
+function isBallisticTurret(morph){
+  return !!morph&&turretShapes.has(morph.shape);
+}
+function isGroundCreature(morph){
+  return morph?.anchor==='ground'||morph?.anchor==='ceiling';
+}
+function isBitingWorm(morph){
+  return morph?.shape==='worm';
+}
+/** Exact first opaque terrain pixel in this screen column, honoring persisted
+ * AND-NOT crater masks. Geometry-only terrainBounds may NOT be substituted.
+ */
+function solidBelow(terrain,screenX,startY,range=155){
+  if(!terrain?.tile||!Number.isFinite(screenX))return null;
+  const worldX=Math.floor(terrain.scroll+screenX);
+  if(worldX<0)return null;
+  const index=Math.floor(worldX/TILE_SIZE),tile=terrain.tile(index);
+  if(!tile?.mask)return null;
+  const px=worldX-index*TILE_SIZE;
+  const from=groundClamp(Math.floor(startY),0,539);
+  const end=groundClamp(Math.ceil(startY+range),0,539);
+  for(let y=from;y<=end;y++)if(hasPixel(tile.mask,px,y))return y;
+  return null;
+}
+/** Chassis inclination is derived from actual uncut rock left/right of the
+ * moving wheels; the rendered, rotated alpha is itself used by the AND engine.
+ */
+function groundPitchByAnd(terrain,enemy,previous=0,dt=.033){
+  const width=enemy.sprite.width;
+  const cx=enemy.x+width*.5;
+  const foot=enemy.y+enemy.sprite.height*.77;
+  const dx=Math.min(25,width*.28);
+  const left=solidBelow(terrain,cx-dx,foot-22);
+  const right=solidBelow(terrain,cx+dx,foot-22);
+  if(left===null||right===null)return previous*(1-Math.min(1,dt*2));
+  const slope=groundClamp(Math.atan2(right-left,dx*2),-GROUND_MAX_PITCH,GROUND_MAX_PITCH);
+  const alpha=1-Math.exp(-groundClamp(dt,0,.05)*6.5);
+  return previous+(slope-previous)*alpha;
+}
+/** Find the LAST non-overlapping Y before the rotated entity's actual opaque
+ * pixels touch opaque terrain pixels. Movement/animations may change its
+ * dimensions and orientation; no bounding-box approximation is allowed.
+ */
+function alignByTerrainAnd(terrain,entity,anchor='ground',maxTravel=95){
+  if(!terrain?.collideEntity||!entity?.sprite?.mask)return {supported:false,moved:0};
+  const original=entity.y;
+  const sign=anchor==='ceiling'?-1:1;
+  const minY=12,maxY=Math.max(minY,540-entity.sprite.height-12);
+  const test=y=>terrain.collideEntity({sprite:entity.sprite,x:entity.x,y})!==null;
+  if(test(original))return {supported:false,moved:0,embedded:true};
+  let best=original,supported=false;
+  for(let traveled=3;traveled<=Math.min(maxTravel,160);traveled+=3){
+    const y=groundClamp(original+sign*traveled,minY,maxY);
+    if(Math.abs(y-best)<.01)break;
+    if(test(y)){
+      supported=true;
+      // Refine at integer-pixel resolution with the actual AND mask.
+      let lo=best,hi=y;
+      for(let j=0;j<4;j++){
+        const next=lo+sign;
+        if(Math.abs(next-hi)<.01||test(next))break;
+        lo=next;
+      }
+      best=lo;
+      break;
+    }
+    best=y;
+  }
+  // In a crater the ground may be farther away than this frame's search
+  // distance. Drop toward it rather than leaving the unit floating.
+  entity.y=best;
+  if(test(entity.y)){entity.y=original;return {supported:false,moved:0,embedded:true};}
+  return {supported,moved:entity.y-original};
+}
+/** Separate visible turret barrel and ballistic projectile must share the same
+ * angle. Shell position integrates y + vy*t + g*t²/2 in downward screen Y.
+ */
+function ballisticSolution(enemy,player,gravity=BALLISTIC_GRAVITY){
+  const w=enemy.sprite.width,h=enemy.sprite.height;
+  const pitch=Number.isFinite(enemy.hullPitch)?enemy.hullPitch:0;
+  const baseH=enemy.morph?.boss?112:62;
+  const pivotOffset=baseH*.47-5-baseH*.5;
+  const origin={x:enemy.x+w*.5-Math.sin(pitch)*pivotOffset,
+    y:enemy.y+h*.5+Math.cos(pitch)*pivotOffset};
+  const end={x:player.x+player.sprite.width*.5,
+    y:player.y+player.sprite.height*.5};
+  const dx=end.x-origin.x,dy=end.y-origin.y;
+  const flight=groundClamp(Math.abs(dx)/SHELL_SPEED_X,.35,2.65);
+  const baseVx=dx/flight,baseVy=(dy-.5*gravity*flight*flight)/flight;
+  let angle=Math.atan2(baseVy,baseVx),muzzle=null;
+  // Two short corrections compensate for a barrel starting ahead of its pivot.
+  for(let i=0;i<2;i++){
+    muzzle={x:origin.x+Math.cos(angle)*24,y:origin.y+Math.sin(angle)*24};
+    angle=Math.atan2((end.y-muzzle.y-.5*gravity*flight*flight)/flight,
+      (end.x-muzzle.x)/flight);
+  }
+  muzzle={x:origin.x+Math.cos(angle)*24,y:origin.y+Math.sin(angle)*24};
+  const vx=(end.x-muzzle.x)/flight,vy=(end.y-muzzle.y-.5*gravity*flight*flight)/flight;
+  return {x:muzzle.x,y:muzzle.y,vx,vy,
+    gravity,angle:Math.atan2(vy,vx),flight,origin,target:end};
+}
+const biteMask=createMask(9,9,(x,y)=>(x-4)**2+(y-4)**2<=16);
+const biteSprite={mask:biteMask,width:9,height:9};
+/** A worm actually GNAWS surviving rock, not a visual dust puff.
+ * The same tile/gate hit is carved with AND NOT and recorded in universe scars.
+ */
+function gnawTerrainByAnd(enemy,terrain){
+  if(!enemy?.sprite||!terrain?.collideEntity||!terrain?.carveImpact)return null;
+  const mask=enemy.sprite.mask;
+  const headX=Math.round(enemy.vx<0?mask.width*.17:mask.width*.83);
+  let foot=-1;
+  // Approximate the visible head's lowest surviving alpha, not the square
+  // bounding box of a tilted sprite with transparent corners.
+  for(let y=mask.height-1;y>=0&&foot<0;y--)
+    for(let x=Math.max(0,headX-8);x<=Math.min(mask.width-1,headX+8);x++)
+      if(hasPixel(mask,x,y)){foot=y;break;}
+  if(foot<0)return null;
+  const mouthX=enemy.x+headX+(enemy.vx<0?-11:2);
+  const mouthY=enemy.y+foot-3;
+  const probe={sprite:biteSprite,x:mouthX,y:mouthY};
+  let hit=terrain.collideEntity(probe);
+  if(!hit||hit.kind!=='tile'){
+    probe.y+=12;
+    hit=terrain.collideEntity(probe);
+  }
+  if(!hit||hit.kind!=='tile')return null;
+  const point=terrain.firstWorldImpact(hit);
+  if(!point)return null;
+  const removed=terrain.carveImpact(hit,point,WORM_BITE_RADIUS);
+  return removed>0?{...point,removed,radius:WORM_BITE_RADIUS}:null;
+}
+
 const W = 960, H = 540, TAU = Math.PI * 2;
 const sound = createSoundEngine();
 const music = createMusicEngine();
@@ -2177,6 +3104,10 @@ const storage = (() => {try {return globalThis.localStorage;} catch {return null
 const universe = new OmegaUniverse(storage);
 const tilt = new TiltController(storage);
 const touch = new TouchCalibration(storage);
+const SAFE_GRAPHICS = (()=>{try{return !!window.AshRushAndroid?.lowMemoryMode?.();}catch{return false;}})();
+const RUNTIME_ERROR_KEY = 'ashrush-runtime-error-v1';
+const touchMissiles = new TouchMissileGestures();
+let autofocusEnabled=readAutofocus(storage); // OFF on fresh and legacy installations
 let calibratingTouch=false;
 const bonusSprites = createBonusSprites();
 let bonusSerial = 0, welcoming = true;
@@ -2192,7 +3123,7 @@ const $ = selector => document.querySelector(selector);
 let scale = 1;
 function resize() {
   // Conservative DPR limits fill-rate and heat on high-density phones.
-  const dpr = Math.min(window.devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, SAFE_GRAPHICS ? 1 : matchMedia('(pointer:coarse)').matches ? 1.25 : 1.5);
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   scale = dpr;
@@ -2278,7 +3209,9 @@ const ships = {
  */
 const pitchSpriteCache=new WeakMap();
 function pitchSprite(base,angle){
-  const bucket=Math.round(Math.max(-1.25,Math.min(1.25,angle))/.05);
+  // Lasers and missiles can now rotate toward a second-finger target above,
+  // below or even behind the muzzle; player's own pitch stays ±0.31 rad.
+  const bucket=Math.round(Math.max(-Math.PI,Math.min(Math.PI,angle))/.05);
   let cache=pitchSpriteCache.get(base);
   if(!cache){cache=new Map();pitchSpriteCache.set(base,cache);}
   if(cache.has(bucket))return cache.get(bucket);
@@ -2289,7 +3222,10 @@ function pitchSprite(base,angle){
   g.drawImage(base.image,-base.width/2,-base.height/2);
   g.setTransform(1,0,0,1,0,0);
   const result={image:c,mask:maskFromImageData(g.getImageData(0,0,size,size)),width:size,height:size};
-  if(cache.size>32)cache.delete(cache.keys().next().value);
+  // Damage canvases are cloned per hit/enemy; 32 rotated canvases per clone
+  // multiplied by 12 damaged frames and many enemies can exhaust WebView RAM.
+  const cap=base.volatileDamage?4:20;
+  while(cache.size>=cap)cache.delete(cache.keys().next().value);
   cache.set(bucket,result);
   return result;
 }
@@ -2301,18 +3237,49 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid') switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
-function updateSpriteAnimations() {
-  if (!artFrames) return;
+function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
-  player.baseSprite = artFrames.player[frame % artFrames.player.length];
+  if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each destructible rock has its own mutable mask.
-    const frames = artFrames[enemy.kind];
-    if (frames) switchDamagedFrame(enemy,frames[Math.floor(enemy.age * 9) % frames.length]);
+    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if(enemy.morph){
+      const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
+        isGroundCreature(enemy.morph);
+      if(grounded){
+        enemy.hullPitch=enemy.morph.anchor==='ground'?
+          groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
+          Math.sin(enemy.age*1.5+enemy.phase)*.085;
+      }else enemy.hullPitch=0;
+      // Articulate the REAL barrel and build its AND mask before hull rotation.
+      const cannon=grounded&&isBallisticTurret(enemy.morph)?
+        ballisticSolution(enemy,player):null;
+      enemy.cannonAngle=cannon?.angle??null;
+      const phase=enemy.kind==='boss'?enemy.bossPhase:0;
+      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+        cannon?cannon.angle-(enemy.hullPitch||0):null);
+      const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
+      if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
+        continue; // Avoid per-frame raster mask and damage-cache churn.
+      const centerX=enemy.x+enemy.sprite.width*.5;
+      const centerY=enemy.y+enemy.sprite.height*.5;
+      switchDamagedFrame(enemy,base);
+      if(grounded&&Math.abs(enemy.hullPitch)>.026)
+        enemy.sprite=pitchSprite(enemy.sprite,enemy.hullPitch);
+      // The bitmap may become a square when tilted. Preserve world-space center.
+      enemy.x=centerX-enemy.sprite.width*.5;
+      enemy.y=centerY-enemy.sprite.height*.5;
+      enemy.lastVisualSource=base;
+      enemy.lastVisualPitch=pitchBucket;
+      enemy.visualDirty=false;
+    }else if(artFrames){
+      const frames=artFrames[enemy.kind];
+      if(frames)switchDamagedFrame(enemy,frames[Math.floor(enemy.age*9)%frames.length]);
+    }
   }
-  for(const rocket of missiles) rocket.baseSprite = artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
+  if(artFrames)for(const rocket of missiles)
+    rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
   if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
@@ -2321,6 +3288,7 @@ const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
 const keys = new Set();
 let dragging = false, pointer = {x:0,y:0}, mainPointerId = null;
+let secondFingerAim=null; // {id,start,current,target}; primary pointer ALWAYS steers.
 let paused = false, gameOver = false;
 let player, enemies, bullets, enemyShots, missiles, particles, powerups, decals, shockwaves;
 let lastHudSecond = -1;
@@ -2329,12 +3297,13 @@ let announce = '', latestImpact = null;
 let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall = false;
 let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
+let lastBonusSpawn=-Infinity;
 
 function reset(fromCheckpoint = false) {
   player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
-  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};
+  hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};lastBonusSpawn=-Infinity;
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -2343,7 +3312,7 @@ function reset(fromCheckpoint = false) {
   $('#gameOverPanel').hidden=true;
   $('#hallPanel').hidden=true;
   $('#omegaPanel').hidden=true;
-  dragging=false;mainPointerId=null;keys.clear();bonusSerial=0;calibratingTouch=false;
+  dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();keys.clear();bonusSerial=0;calibratingTouch=false;
   lastWorldPhase=null;lastWarnedGate=null;stageHudClock=0;
   grid.clear();
   score=0;wave=1+stageAt(terrain.scroll).region;elapsed=0;lastHudSecond=-1;spawnClock=0;spawnCount=0;bossActive=false;kills=0;fireClock=0;invulnerable=0;
@@ -2467,15 +3436,15 @@ function sentinelSprite(size,seed){
   s.mask=maskFromImageData(g.getImageData(0,0,w,w));
   return s;
 }
-function spawnRock(profile,y,x=W+12){
+function spawnRock(profile,y,x=null){
   if(enemies.length>=17)return false;
   const robot=profile.kind==='sentry';
   const stats=robot?sentinelStats(profile.size,profile.threat):null;
   const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
-  const posY=clamp(y,16,H-s.height-16),posX=x;
+  const posY=clamp(y,16,H-s.height-16),posX=x??offscreenSpawnX(W,s.width);
   if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
   const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
-  enemies.push({kind:'asteroid',robot,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
+  enemies.push({kind:'asteroid',robot,column:profile.column===true,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
     species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
     vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
     hp,maxHp:hp,phase:rand(0,TAU),fire:robot?rand(.7,1.6):99,age:0,hue:0,blockedTime:0,drillCooldown:0});
@@ -2506,13 +3475,23 @@ function enterWarp(portal){
 }
 function leaveWarp(){
   if(!warp)return;
-  const broken=warp.broken;
+  const broken=warp.broken,fromRegion=warp.region;
   warp=null;terrain.active=true;bossActive=false;
   enemies=[];enemyShots=[];bullets=[];missiles=[];powerups=[];
-  spawnClock=2;invulnerable=1.2;
+  hoverClouds=[];hoverClock=0;
+  // Preserve scarred planet data, but resume in the NEXT region's real space phase.
+  terrain.scroll=warpExitWorld(fromRegion);
+  terrain.lastStage=stageAt(terrain.scroll+W*.5);
+  terrain.pendingTime=0;
+  universe.advance(terrain.scroll);
+  terrain.flush();
+  lastWarnedGate=null;lastWorldPhase='space';wave=terrain.lastStage.region+1;
+  player.x=clamp(player.x,12,W-player.sprite.width-15);
+  player.y=clamp(player.y,50,H-player.sprite.height-50);
+  spawnClock=2.7;invulnerable=2.3;
   reward(350+broken*45);
-  msg('✨ RETOUR DANS TON UNIVERS · BONUS WARP +'+(350+broken*45),3.5);
-  updateHud();
+  msg('🌌 RETOUR DANS L’ESPACE · RÉGION '+(fromRegion+2)+' · BONUS WARP +'+(350+broken*45),3.8);
+  music.scene('space');updateHud();
 }
 function drawWarpBackground(){
   ctx.fillStyle='#06031e';ctx.fillRect(0,0,W,H);
@@ -2532,12 +3511,27 @@ function drawWarpBackground(){
   ctx.restore();ctx.globalAlpha=1;
 }
 function drawHiddenPortal(o){
-  const dist=Math.hypot(o.x+29-player.x-37,o.y+29-player.y-23);
-  const reveal=clamp((220-dist)/170,0,1);
-  ctx.save();ctx.globalAlpha=.14+.76*reveal;
-  const pulse=1+.09*Math.sin(elapsed*4);
-  ctx.translate(o.x+29,o.y+29);ctx.scale(pulse,pulse);
+  const dist=Math.hypot(o.x+29-player.x-player.sprite.width*.5,o.y+29-player.y-player.sprite.height*.5);
+  const reveal=clamp((190-dist)/160,0,1);
+  const biome=biomeFor(universe.seed,o.region);
+  ctx.save();ctx.translate(o.x+29,o.y+29);
+  // A naturally carved alien alcove, rather than a bright ring floating in the sky.
+  ctx.globalAlpha=.37+.45*reveal;
+  ctx.fillStyle=biome.rock;
+  ctx.beginPath();ctx.ellipse(0,4,32,35,0,0,TAU);ctx.fill();
+  ctx.fillStyle='#080e1a';ctx.globalAlpha=.64+.25*reveal;
+  ctx.beginPath();ctx.ellipse(0,0,23,27,0,0,TAU);ctx.fill();
+  ctx.strokeStyle=biome.far;ctx.lineWidth=6;ctx.globalAlpha=.85;
+  ctx.beginPath();ctx.arc(0,2,29,.9,5.5);ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha=.06+.40*reveal;
+  ctx.rotate(.018*Math.sin(elapsed*2.6));
   ctx.drawImage(o.sprite.image,-29,-29);
+  ctx.restore();
+  ctx.globalAlpha=.17+.39*reveal;ctx.strokeStyle=biome.glow;ctx.lineWidth=1.2;
+  for(const [x,y] of [[-22,-8],[19,14],[-14,21]]){
+    ctx.beginPath();ctx.moveTo(x-3,y-4);ctx.lineTo(x+3,y);ctx.lineTo(x-1,y+5);ctx.stroke();
+  }
   ctx.restore();
 }
 function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
@@ -2547,17 +3541,34 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     const p=sentinelRock(rock,Math.min(5,species?.hp/3||0));
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
-  const s=kind==='asteroid'?mutableAsteroid():ships[kind];
-  const spawnX=W+12;
-  const preferredY=clamp(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18),24,H-s.height-16);
-  // Probe the real AND mask across the incoming corridor; a solid gate postpones spawns.
+  const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
+  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+    (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
+  const spawnX=offscreenSpawnX(W,s.width,70);
+  const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
+  const anchor=morph?.anchor;
+  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+    anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
+  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
-  if (!position) return false;
-  const hp=species?.hp??(kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):kind==='asteroid'?5:kind==='manta'?3:2);
-  enemies.push({kind,species,sprite:s,x:position.x,y:position.y,vy:kind==='manta'?rand(-40,40):0,
-    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),hp,maxHp:hp,
-    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:species?.hue??0,
-    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,sourceSprite:s,scars:[],damageFrames:new Map()});
+  if(!position)return false;
+  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
+    movement:morphMovement(morph),fireRate:1}:species?{...species,
+      // Asteroid species intentionally have no morphology; optional chaining
+      // on morph?.anchor alone was NOT enough (!'air' evaluates true).
+      movement:spawnMovement(morph,species.movement)}:null;
+  enemies.push({kind,species:combat,morph,sprite:s,x:position.x,y:position.y,
+    vx:kind==='boss'?-28:species?-species.speed:rand(-115,-55),vy:0,hp,maxHp:hp,
+    phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
+    blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
+    hullPitch:0,cannonAngle:null,biteClock:0,
+    sourceSprite:s,scars:[],damageFrames:new Map()});
+  const spawned=enemies[enemies.length-1];
+  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
@@ -2630,11 +3641,16 @@ function renderHoverPlume(){
   }
   ctx.restore();
 }
+function activeSecondFingerAim(){
+  return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
+}
 function firePlayer() {
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim(); // recompute from the MOVING nose for every shot
   for(let j=0;j<player.fireLevel;j++){
     const lane=j-(player.fireLevel-1)/2;
-    const a=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780,lane);
+    const a=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,780,lane,aim);
     const beam=pitchSprite(ships.laser,a.angle);
     bullets.push({sprite:beam,x:a.x-beam.width*.35,y:a.y-beam.height*.5,vx:a.vx,vy:a.vy});
   }
@@ -2647,32 +3663,54 @@ function launchMissile() {
   sound.unlock();sound.play('missile');
   player.ammo--; updateHud();
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const aim=activeSecondFingerAim();
   for(let i=0;i<player.missileLevel;i++){
     const lane=i-(player.missileLevel-1)/2;
-    const shot=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,345,lane);
+    const shot=twoFingerNoseShot(cx,cy,(player.baseSprite||ships.player).width,
+      player.pitch,345,lane,aim);
     const shape=pitchSprite(ships.missile,shot.angle);
     missiles.push({kind:'missile',baseSprite:ships.missile,sprite:shape,x:shot.x-shape.width*.5,
-      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0});
+      y:shot.y-shape.height*.5,vx:shot.vx,vy:shot.vy,age:0,
+      autoGuide:autofocusEnabled,lockTarget:autofocusEnabled?(aim?.target||null):null});
   }
 }
 function spawnBonus(type,x,y,vx=-90) {
+  if(warp||powerups.length>=BONUS_MAX_SIMULTANEOUS)return false;
   const choice=BONUS_TYPES.includes(type)?type:'shield';
   const variant=bonusVariant(universe.seed,stageAt(terrain.scroll).region,bonusSerial++,choice);
   powerups.push({type:choice,variant,sprite:bonusSprites[choice][variant],x,y,vx,hp:1});
+  lastBonusSpawn=elapsed;
+  return true;
 }
 function dropBonus(enemy) {
-  const type=pickBonusType();
-  spawnBonus(type,enemy.x,enemy.y);
+  const eligible=bonusDropAllowed({elapsed,sinceLast:elapsed-lastBonusSpawn,active:powerups.length,
+    kind:enemy.kind,rockType:enemy.rockType,warp:!!warp,hearts:player.hp,roll:Math.random()});
+  return eligible&&spawnBonus(pickBonusType(),enemy.x,enemy.y);
 }
 function fireEnemy(enemy) {
   if(enemyShots.length>=135)return;
+  if(!warp&&isBallisticTurret(enemy.morph)&&gravityFlight(terrain.lastStage.phase)){
+    const path=ballisticSolution(enemy,player);
+    const shell=pitchSprite(ships.hostileLaser,path.angle);
+    enemyShots.push({kind:'shell',baseSprite:ships.hostileLaser,
+      sprite:shell,x:path.x-shell.width*.5,y:path.y-shell.height*.5,
+      vx:path.vx,vy:path.vy,gravity:path.gravity});
+    particlesAt(path.x,path.y,'motor',3);
+    return;
+  }
   const weapon=enemy.species?.weapon||'single';
-  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
+  const burst=enemy.kind==='boss'?Math.min(5,2+enemy.bossPhase):
+    weapon==='burst'||weapon==='cross'?3:weapon==='spiral'?2:1;
   const dx=Math.max(125,enemy.x-player.x),dy=(player.y+player.sprite.height*.5)-(enemy.y+enemy.sprite.height*.48);
   const aimed=clamp(dy/dx*225,-190,190);
   for(let i=0;i<burst&&enemyShots.length<140;i++){
     const spread=i-(burst-1)/2;
-    const vy=enemy.kind==='boss'?spread*94+rand(-40,40):weapon==='aimed'?aimed:
+    const vy=enemy.kind==='boss'?
+      weapon==='aimed'?aimed+spread*39:
+      weapon==='spiral'?Math.sin(enemy.age*5.8+enemy.phase+i*1.18)*155:
+      weapon==='cross'?spread*130:weapon==='rapid'?aimed*.64+spread*70:
+      spread*94+rand(-40,40):
+      weapon==='aimed'?aimed:
       weapon==='cross'?spread*124:weapon==='spiral'?Math.sin(enemy.age*5+enemy.phase+i*Math.PI)*125:
       spread*95+rand(-25,25);
     enemyShots.push({sprite:ships.hostileLaser,x:enemy.x-12,y:enemy.y+enemy.sprite.height*.48,
@@ -2701,7 +3739,25 @@ function hitEnemy(enemy,r) {
       // Small transparent impact holes, with incandescent lips; every atlas frame
       // receives the same intrinsic cuts, unlike the old transient-only decal.
       const radius=enemy.kind==='boss'?6:enemy.kind==='manta'?4:3;
-      addEnemyBurn(enemy,px,py,radius);
+      const angle=Math.round((enemy.hullPitch||0)/.05)*.05;
+      const base=enemy.sourceSprite||enemy.sprite;
+      const renderWidth=enemy.sprite.width,renderHeight=enemy.sprite.height;
+      // Inverse of the EXACT quantized raster rotation: physical impact pixels
+      // are mapped back onto the unrotated mutable atlas frame before AND NOT.
+      const dx=px-renderWidth*.5,dy=py-renderHeight*.5;
+      const localX=Math.cos(angle)*dx+Math.sin(angle)*dy+base.width*.5;
+      const localY=-Math.sin(angle)*dx+Math.cos(angle)*dy+base.height*.5;
+      const centerX=enemy.x+renderWidth*.5,centerY=enemy.y+renderHeight*.5;
+      addEnemyBurn(enemy,localX,localY,radius);
+      enemy.visualDirty=true;
+      // Wounds alter source alpha, so the pitch raster cache MUST be invalidated.
+      if(enemy.damageFrames)for(const damaged of enemy.damageFrames.values())
+        pitchSpriteCache.delete(damaged);
+      if(Math.abs(angle)>.026){
+        enemy.sprite=pitchSprite(enemy.sprite,angle);
+        enemy.x=centerX-enemy.sprite.width*.5;
+        enemy.y=centerY-enemy.sprite.height*.5;
+      }
       particlesAt(point.x,point.y,'motor',7);
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
@@ -2715,7 +3771,7 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
       size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
     sound.play(enemy.robot?'impact':'explosion');
-    if(enemy.kind==='asteroid' && (enemy.rockType!=='rain'&&enemy.rockType!=='warp'||Math.random()<.14))dropBonus(enemy);
+    dropBonus(enemy);
     if(warp&&enemy.kind==='asteroid')warp.broken++;
     if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
       const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
@@ -2730,14 +3786,21 @@ function hitEnemy(enemy,r) {
     reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
-    else if(kills%11===0)spawnBonus('shield',enemy.x,enemy.y,-85);
     enemies.splice(enemies.indexOf(enemy),1);
     updateHud();
   }else if(enemy.kind==='boss')reward(5);
 }
 
 function advanceProjectile(b, dt, targets, friendly) {
-  const dx=b.vx*dt,dy=b.vy*dt;
+  const dx=b.vx*dt,dy=(b.vy+(b.gravity||0)*dt*.5)*dt;
+  if(b.gravity){
+    b.vy+=b.gravity*dt;
+    // The spinning shell's alpha AND mask must follow the physical arc.
+    const rotated=pitchSprite(b.baseSprite||ships.hostileLaser,Math.atan2(b.vy,b.vx));
+    b.x+=(b.sprite.width-rotated.width)*.5;
+    b.y+=(b.sprite.height-rotated.height)*.5;
+    b.sprite=rotated;
+  }
   // Broadphase query once along the swept projectile rectangle, not for each step.
   const nearby = friendly ? grid.query(
     Math.min(b.x,b.x+dx)-5,Math.min(b.y,b.y+dy)-5,
@@ -2780,9 +3843,13 @@ function advanceProjectile(b, dt, targets, friendly) {
 }
 function advanceMissile(b,dt) {
   b.age+=dt;
-  const target=enemies.filter(e=>e.hp>0).sort((a,c)=>(a.x-b.x)**2+(a.y-b.y)**2-( (c.x-b.x)**2+(c.y-b.y)**2))[0];
-  if(target){const dy=target.y+target.sprite.height*.5-b.y;
-    b.vy=clamp(b.vy+clamp(dy*3-b.vy,-800*dt,800*dt),-235,235);}
+  // No implicit missile homing: manual shots preserve their initial heading.
+  // The option is captured at launch, so changing settings never bends a
+  // missile that is already in flight.
+  if(b.autoGuide===true){
+    const steer=missileAutofocusVelocity(b,enemies,dt,true);
+    b.vx=steer.vx;b.vy=steer.vy;
+  }
   const source=b.baseSprite||ships.missile;
   const shape=pitchSprite(source,Math.atan2(b.vy,b.vx));
   b.x+=(b.sprite.width-shape.width)*.5;b.y+=(b.sprite.height-shape.height)*.5;b.sprite=shape;
@@ -2806,7 +3873,7 @@ function update(dt) {
   if(stageHudClock<=0){stageHudClock=.3;updateHud();}
   const block=terrain.nextBlockedGate();
   if(block&&block.id!==lastWarnedGate&&block.worldX-terrain.scroll<1220){lastWarnedGate=block.id;msg('⚠ PAROI FERMÉE ! CREUSE AU LASER POUR PASSER',3.2);}
-  updateSpriteAnimations();
+  updateSpriteAnimations(dt);
   if(announcementTime>0)announcementTime-=dt;
   invulnerable=Math.max(0,invulnerable-dt);
   if(!warp){
@@ -2864,7 +3931,7 @@ function update(dt) {
       const bossWave=spawnCount>0&&spawnCount%profile.bossEvery===0;
       if(bossWave){
         if(spawnEnemy('boss',null,0,profile.bossPhases)){
-          bossActive=true;msg('⚠ VAISSEAU AMIRAL ⚠',3);
+          bossActive=true;msg('⚠ '+enemies[enemies.length-1]?.morph?.name.toUpperCase()+' ⚠',3);
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
@@ -2873,8 +3940,9 @@ function update(dt) {
         let placed=0;
         for(const rock of rocks){
           if(enemies.length>=profile.maxActive+3)break;
-          const candidate=gravitational?sentinelRock(rock,profile.threat):rock;
-          placed+=Number(spawnRock(candidate,rock.y,W+12+placed*15));
+          const base=gravitational?sentinelRock(rock,profile.threat):rock;
+          const candidate={...base,column:true};
+          placed+=Number(spawnRock(candidate,rock.y,offscreenSpawnX(W,candidate.size,90)+placed*26));
         }
         if(placed){msg(gravitational?'🤖 COLONNE DE SENTINELLES — TROUVE LA BRÈCHE':'☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
         else spawnClock=.48;
@@ -2906,7 +3974,11 @@ function update(dt) {
     enemy.age+=dt;
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
-      if(next>enemy.bossPhase){enemy.bossPhase=next;msg('⚠ AMIRAL — PHASE '+(next+1),2.2);}
+      if(next>enemy.bossPhase){
+        enemy.bossPhase=next;
+        if(enemy.morph)enemy.species.weapon=bossWeapons(enemy.morph,next);
+        msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
+      }
       enemy.vx=-(28+enemy.bossPhase*6);
     }
     const robot=enemy.robot===true;
@@ -2914,8 +3986,18 @@ function update(dt) {
     const g=warp?0:debrisGravity(stage.phase,biomeFor(universe.seed,stage.region));
     const motion=rock?moveDebris(enemy,dt,g):null;
     if(rock){enemy.vx=motion.vx;enemy.vy=motion.vy;}
+    const shape=enemy.morph;
+    const worldX=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+    const bounds=shape?.anchor!=='air'&&shape?terrainBounds(universe.seed,Math.max(0,worldX)):null;
+    const upperTarget=shape?.anchor==='ceiling'?Math.max(24,bounds.top+6):null;
+    const jumpHeight=shape?.shape==='worm'?Math.pow(Math.max(0,Math.sin(enemy.age*5+enemy.phase)),2)*79:0;
+    const lowerTarget=shape?.anchor==='ground'?
+      Math.min(H-enemy.sprite.height-16,bounds.bottom-enemy.sprite.height-7-jumpHeight):null;
+    const targetY=upperTarget??lowerTarget;
+    const anchorMove=targetY===null?null:clamp(targetY-enemy.y,-155*dt,155*dt);
     const moveY=robot?sentinelSteer(enemy.y+enemy.sprite.height*.5,player.y+player.sprite.height*.5,enemy.age,enemy.phase,dt):
-      rock?motion.y-enemy.y:enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
+      rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
+      enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
     const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
@@ -2923,7 +4005,14 @@ function update(dt) {
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
     if(warp){enemy.x+=moveX;enemy.y=clamp(enemy.y+moveY,16,H-enemy.sprite.height-16);}
     if(navigation.trapped){
-      enemy.hp=0; // A fully enclosed object is removed instead of being drawn inside the wall.
+      // An embedded worm must bite itself out of rock, not vanish on the first
+      // apparent rectangle contact. All excavation uses the true tile AND mask.
+      if(!warp&&isBitingWorm(shape)&&enemy.biteClock<=0){
+        const bite=gnawTerrainByAnd(enemy,terrain);
+        enemy.biteClock=WORM_BITE_INTERVAL;
+        if(bite){particlesAt(bite.screenX,bite.y,'motor',7);enemy.blockedTime=0;continue;}
+      }
+      enemy.hp=0; // A genuinely unresolvable object is removed, not embedded.
       if(enemy.kind==='boss') {bossActive=false;msg('BOSS COINCÉ PAR LE RELIEF',1.8);}
       continue;
     }
@@ -2938,7 +4027,7 @@ function update(dt) {
           if(dug){particlesAt(p.screenX,p.y,'motor',16);sound.play('impact');}
         }
         enemy.drillCooldown=.36;
-      } else if(enemy.kind!=='boss'&&enemy.blockedTime>.65){
+      } else if(enemy.kind!=='boss'&&enemy.blockedTime>(isGroundCreature(shape)?3:.65)){
         enemy.hp=0;
         particlesAt(enemy.x+enemy.sprite.width*.5,enemy.y+enemy.sprite.height*.5,'hull',15);
         sound.play('impact');
@@ -2946,11 +4035,28 @@ function update(dt) {
       }
     }else enemy.blockedTime=0;
     enemy.y=clamp(enemy.y,24,H-enemy.sprite.height-14);
+    if(!warp&&shape&&isGroundCreature(shape)){
+      // Unlike the old terrainBounds approximation, the final Y is resolved by
+      // translated, ROTATED sprite alpha AND actual cratered tile pixels.
+      if(shape.shape!=='worm'||jumpHeight<11)
+        alignByTerrainAnd(terrain,enemy,shape.anchor,46);
+      if(isBitingWorm(shape)){
+        enemy.biteClock=(enemy.biteClock??0)-dt;
+        if(enemy.biteClock<=0){
+          const bite=gnawTerrainByAnd(enemy,terrain);
+          if(bite){
+            particlesAt(bite.screenX,bite.y,'motor',7);
+            shockwaves.push({x:bite.screenX,y:bite.y,life:.22,age:0,size:11,color:'#b9ffaf'});
+          }
+          enemy.biteClock=WORM_BITE_INTERVAL;
+        }
+      }
+    }
     if(rock&&!warp&&g>0&&enemy.y>=H-enemy.sprite.height-16&&enemy.vy>0)enemy.vy=-enemy.vy*.34;
     enemy.fire-=dt;
     if(enemy.fire<=0&&(enemy.kind!=='asteroid'||robot)&&enemy.x<W-50){
       if(enemy.species?.name==='Réparateur alien') {const ally=enemies.find(e=>e!==enemy&&e.hp>0&&e.hp<e.maxHp);if(ally)ally.hp++;}
-      else if(enemy.species?.weapon!=='none')fireEnemy(enemy);
+      else if(enemy.species?.weapon!=='none'||isBallisticTurret(enemy.morph))fireEnemy(enemy);
       enemy.fire=(robot?rand(1.1,1.85):enemy.kind==='boss'?rand(.36,.7)*Math.max(.65,1-enemy.bossPhase*.13):enemy.species?.weapon==='rapid'?rand(.5,1.05):rand(1.4,3))*(enemy.species?.fireRate??1);
     }
     if(enemy.x < -enemy.sprite.width) { enemy.hp=0; if(enemy.kind==='boss') { bossActive=false; wave++;msg('BOSS ÉCHAPPÉ — VAGUE SUIVANTE',2);updateHud(); } }
@@ -3015,7 +4121,8 @@ function drawBackground() {
 function drawEntity(o,opacity=1){
   const x=Math.round(o.x),y=Math.round(o.y);
   ctx.save();ctx.globalAlpha=opacity;
-  if(o.hue)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
+  // Curated morphology palettes must not be destroyed by a second full-hull hue rotation.
+  if(o.hue&&!o.morph)ctx.filter=`hue-rotate(${o.hue}deg) saturate(1.14)`;
   ctx.drawImage(o.sprite.image,x,y);
 
   ctx.restore();
@@ -3023,15 +4130,19 @@ function drawEntity(o,opacity=1){
 function render() {
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBackground();
-  if(!warp)terrain.draw(ctx, W);
-  const portal=nearbyPortal();
-  if(portal)drawHiddenPortal(portal);
+  if(!warp){
+    // Hidden portals and moving columns belong BEHIND the true rock/soil alpha tiles.
+    const portal=nearbyPortal();
+    if(portal)drawHiddenPortal(portal);
+    for(const enemy of enemies)if(enemy.column)drawEntity(enemy);
+    terrain.draw(ctx, W);
+  }
   for(const item of powerups){
     // 24 actual distinct alpha shapes; optional pulse changes only opacity, not geometry/mask.
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)drawEntity(enemy);
+  for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
@@ -3068,18 +4179,70 @@ function render() {
     ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
   }
   ctx.restore();
+  if(secondFingerAim){
+    const aim=activeSecondFingerAim();
+    if(aim){
+      const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+      const nose=aimFromNose(cx,cy,(player.baseSprite||ships.player).width,player.pitch,780);
+      // Visual targeting feedback only; collision remains exact binary alpha AND.
+      ctx.save();ctx.globalAlpha=.67;ctx.strokeStyle=aim.target?'#8efedd':'#9dbaff';
+      ctx.lineWidth=1.3;ctx.setLineDash([5,9]);
+      ctx.beginPath();ctx.moveTo(nose.x,nose.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();
+      ctx.setLineDash([]);ctx.lineWidth=1.7;
+      ctx.beginPath();ctx.arc(aim.x,aim.y,11,0,TAU);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(aim.x-17,aim.y);ctx.lineTo(aim.x-8,aim.y);
+      ctx.moveTo(aim.x+8,aim.y);ctx.lineTo(aim.x+17,aim.y);
+      ctx.moveTo(aim.x,aim.y-17);ctx.lineTo(aim.x,aim.y-8);
+      ctx.moveTo(aim.x,aim.y+8);ctx.lineTo(aim.x,aim.y+17);ctx.stroke();ctx.restore();
+    }
+  }
   if(warp){ctx.fillStyle='#110d2cbb';ctx.fillRect(300,12,360,23);ctx.fillStyle='#c4faff';ctx.font='bold 15px sans-serif';ctx.fillText('🌀 WARP BONUS  ·  '+Math.ceil(warp.remaining)+' s  ·  '+warp.broken+' roches',317,29);}
   const boss=enemies.find(e=>e.kind==='boss');
   if(boss){ctx.fillStyle='#24163cbf';ctx.fillRect(318,15,324,13);ctx.fillStyle='#ff5d94';ctx.fillRect(321,18,318*boss.hp/boss.maxHp,7);}
   $('#announcement').textContent=announcementTime>0?announce:'';
 }
+// A thrown exception inside requestAnimationFrame previously stopped the game
+// forever without leaving any diagnostic on the offline Android installation.
+let fatalFrameError=false;
+function recordRuntimeError(error,origin){
+  const msgText=String(error?.stack||error?.message||error||'Erreur inconnue').slice(0,2400);
+  const diagnostic={at:new Date().toISOString(),origin,detail:msgText,
+    stage:terrain.lastStage?.phase||'unknown',region:terrain.lastStage?.region??-1,
+    enemies:enemies?.length??0,projectiles:(bullets?.length||0)+(enemyShots?.length||0),
+    safeGraphics:SAFE_GRAPHICS};
+  try{storage?.setItem(RUNTIME_ERROR_KEY,JSON.stringify(diagnostic));}catch{}
+  console.error('H-RUSH diagnostic',diagnostic);
+  return diagnostic;
+}
+window.addEventListener('error',event=>recordRuntimeError(event.error||event.message,'window'));
+function stopBrokenFrame(error){
+  if(fatalFrameError)return;
+  fatalFrameError=true;paused=true;
+  const diagnostic=recordRuntimeError(error,'animation');
+  try{terrain.flush();}catch{}
+  const panel=$('#crashPanel');
+  if(panel){
+    $('#crashMessage').textContent='Le jeu a rencontré une erreur, mais ton univers a été conservé.';
+    $('#crashDetails').value=JSON.stringify(diagnostic,null,2);
+    panel.hidden=false;
+  }
+}
 let lastTime=performance.now();
 function frame(now){
+  if(fatalFrameError)return;
   const dt=Math.max(0,Math.min((now-lastTime)/1000,.033));lastTime=now;
-  if(!paused&&!gameOver) update(dt);
-  music.setPaused(paused);music.tick(dt);
-  render();
-  requestAnimationFrame(frame);
+  try{
+    if(!paused&&!gameOver) update(dt);
+    music.setPaused(paused);music.tick(dt);
+    render();
+    requestAnimationFrame(frame);
+  }catch(error){stopBrokenFrame(error);}
+}
+function updateAutofocusUi(){
+  $('#autofocusToggle').checked=autofocusEnabled;
+  $('#autofocusStatus').textContent=autofocusEnabled
+    ? 'Activé : les ennemis peuvent être accrochés, les missiles corrigent leur trajectoire.'
+    : 'Désactivé (conseillé) : tirs droits, visée libre au deuxième doigt, sans poursuite automatique.';
 }
 function updateTiltUi() {
   const active=tilt.getVector();
@@ -3101,6 +4264,14 @@ window.addEventListener('ashrush:gravity',event=>{
 });
 $('#tiltToggle').addEventListener('click',()=>{tilt.setEnabled(!tilt.enabled);updateTiltUi();});
 $('#controlMode').addEventListener('change',e=>{tilt.setMode(e.target.value);updateTiltUi();});
+$('#autofocusToggle').addEventListener('change',e=>{
+  autofocusEnabled=saveAutofocus(storage,e.target.checked);
+  if(secondFingerAim){
+    secondFingerAim.target=autofocusEnabled
+      ? acquireTwoFingerTarget(enemies,secondFingerAim.current,W,H) : null;
+  }
+  updateAutofocusUi();
+});
 $('#tiltCalibrate').addEventListener('click',()=>{
   const ok=tilt.calibrate();updateTiltUi();
   $('#tiltStatus').textContent=ok?'Position neutre recalibrée':'En attente des données du capteur';
@@ -3114,7 +4285,7 @@ $('#touchOffsetX').addEventListener('input',e=>{touch.setOffsets(Number(e.target
 $('#touchOffsetY').addEventListener('input',e=>{touch.setOffsets(touch.offsetX,Number(e.target.value));updateTiltUi();});
 $('#touchReset').addEventListener('click',()=>{touch.reset();updateTiltUi();$('#touchStatus').textContent='Calibrage tactile standard restauré';});
 $('#touchCalibrate').addEventListener('click',()=>{
-  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;
+  tilt.setMode('touch');updateTiltUi();calibratingTouch=true;touchMissiles.reset();
   $('#omegaPanel').hidden=true;paused=false;
   msg('⌖ CALIBRAGE : POSE TON DOIGT À TON ENDROIT HABITUEL',8);
 });
@@ -3133,10 +4304,35 @@ canvas.addEventListener('pointerdown',e=>{if(gameOver)return;sound.unlock();musi
     touch.calibrate(point,W,H,player.sprite.width,player.sprite.height,{invertX:tilt.invertX,invertY:tilt.invertY});
     updateTiltUi();msg('✅ CALIBRAGE TACTILE MÉMORISÉ',2);e.preventDefault();return;
   }
-  if(mainPointerId!==null&&e.pointerId!==mainPointerId){launchMissile();e.preventDefault();return;}
-  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);canvas.setPointerCapture(e.pointerId);e.preventDefault();});
-canvas.addEventListener('pointermove',e=>{if(dragging&&e.pointerId===mainPointerId)pointer=pointFromEvent(e);});
-for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}});
+  if(mainPointerId!==null&&e.pointerId!==mainPointerId){
+    // The second touch ACQUIRES the target below the ceiling or above the floor.
+    // Extra fingers are ignored: no accidental missile flood.
+    if(!secondFingerAim){
+      const point=pointFromEvent(e);
+      secondFingerAim={id:e.pointerId,start:point,current:point,
+        target:autofocusEnabled?acquireTwoFingerTarget(enemies,point,W,H):null};
+      canvas.setPointerCapture(e.pointerId);
+      touchMissiles.down(e.pointerId,'secondary',point,e.timeStamp); // aim only; first tap NEVER launches
+    }
+    e.preventDefault();return;
+  }
+  mainPointerId=e.pointerId;dragging=true;pointer=pointFromEvent(e);
+  touchMissiles.down(e.pointerId,'primary',pointer,e.timeStamp);
+  canvas.setPointerCapture(e.pointerId);e.preventDefault();});
+canvas.addEventListener('pointermove',e=>{
+  const point=pointFromEvent(e);
+  touchMissiles.move(e.pointerId,point);
+  if(dragging&&e.pointerId===mainPointerId)pointer=point;
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim.current=point;
+});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{
+  // A short double-tap (either finger) fires exactly once on the second release.
+  // A single secondary touch only changes aim, even when repositioned.
+  const fire=touchMissiles.up(e.pointerId,pointFromEvent(e),e.timeStamp,event!=='pointerup');
+  if(fire)launchMissile();
+  if(secondFingerAim?.id===e.pointerId)secondFingerAim=null;
+  if(e.pointerId===mainPointerId){dragging=false;mainPointerId=null;}
+});
 window.addEventListener('keydown',e=>{
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
   keys.add(e.key);
@@ -3149,7 +4345,7 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>keys.delete(e.key));
-window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;terrain.flush();});
+window.addEventListener('blur',()=>{keys.clear();dragging=false;mainPointerId=null;secondFingerAim=null;touchMissiles.reset();terrain.flush();});
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){terrain.flush();if(!paused&&!gameOver){paused=true;$('#pause').textContent='▶ Reprendre';}} });
 $('#pause').addEventListener('click',()=>{if(gameOver)return;paused=!paused;$('#pause').textContent=paused?'▶ Reprendre':'⏸ Pause';});
 $('#restart').addEventListener('click',()=>{sound.unlock();music.unlock();reset(gameOver);});
@@ -3167,12 +4363,22 @@ $('#omegaExport').addEventListener('click',()=>{const json=universe.exportText()
 $('#omegaImport').addEventListener('click',()=>$('#omegaImportFile').click());
 $('#omegaImportFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{universe.restoreText(await file.text());$('#omegaMessage').textContent='Univers restauré. Rechargement…';window.location.reload();}catch(err){$('#omegaMessage').textContent='Échec de restauration : '+err.message;}finally{e.target.value='';}});
 $('#omegaPaste').addEventListener('click',()=>{try{universe.restoreText($('#omegaCopy').value);window.location.reload();}catch(err){$('#omegaMessage').textContent='Sauvegarde invalide : '+err.message;}});
+$('#omegaDiagnostics').addEventListener('click',()=>{
+  let saved='Aucun incident JavaScript enregistré';
+  try{saved=storage?.getItem(RUNTIME_ERROR_KEY)||saved;}catch{}
+  let native='';
+  try{native=window.AshRushAndroid?.lastRendererIssue?.()||'';}catch{}
+  $('#omegaCopy').value=saved+(native?'\nAndroid : '+native:'');
+  $('#omegaCopy').hidden=false;
+  $('#omegaMessage').textContent='Diagnostic local affiché : tu peux sélectionner et copier ce texte.';
+});
+$('#crashReload').addEventListener('click',()=>window.location.reload());
 $('#missileLaunch').addEventListener('click',()=>{sound.unlock();launchMissile();});
 $('#soundToggle').addEventListener('click',()=>{music.setEnabled(!sound.enabled);sound.setEnabled(!sound.enabled);if(sound.enabled)music.unlock();$('#soundToggle').textContent=sound.enabled?'🔊 Son':'🔇 Muet';$('#soundToggle').setAttribute('aria-pressed',String(sound.enabled));});
 $('#soundVolume').addEventListener('input',e=>{sound.setVolume(Number(e.target.value)/100);music.setVolume(Number(e.target.value)/100);});
 window.addEventListener('pointerdown',()=>{sound.unlock();music.unlock();},{once:true});
 
-reset();updateTiltUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
+reset();updateTiltUi();updateAutofocusUi();loadGameArt().then(useArt);requestAnimationFrame(frame);
 
 </script>
 </body>
