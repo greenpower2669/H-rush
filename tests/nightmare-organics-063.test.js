@@ -41,7 +41,7 @@ test('animation exposes six finite reproducible distinct bend and extension pose
 });
 test('articulation remains inside morph alpha silhouette and follows same cached pixel mask',()=>{
   const art=read('src/bestiary.js');
-  for(const pattern of ['poseFrame=isLivingAppendage(morph)', 'paintMorph(g,morph,poseFrame,phase,resolvedAngle)',
+  for(const pattern of ['poseFrame=isLivingAppendage(morph)', 'paintMorph(g,morph,poseFrame,phase,resolvedAngle,cut)',
     'maskFromImageData(data,42)', 'const ty=baseY+sign*', 'oval(g,tx,ty',
     'g.bezierCurveTo(', "const baseY=fromGround?.91:-.91"]){
     assert.ok(art.includes(pattern),pattern);
