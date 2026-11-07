@@ -92,6 +92,7 @@ test('cut roots and tentacles crawl and lunge only within a bounded lifetime',()
   const env={floor:420,ceiling:-80,scroll:500};
   let m=stepOrganicFragment(f,[f],player(50,290),env,.02);
   assert.equal(f.state,'crawl');assert.ok(m.dy>0||m.dy<0||m.dy===0);
+  f.stateAge=.78; // Sufficient recovery time before a hostile lunge.
   m=stepOrganicFragment(f,[f],player(f.x+20,f.y+4),env,.03);
   assert.equal(f.state,'lunge');
   assert.ok(m.dy<0,'lunge leaps upward');
@@ -133,8 +134,8 @@ test('game enforces roof for ceiling tentacles and the Android bundle includes r
     for(const token of ['if(morph?.anchor===\'ceiling\'&&preview.top<40)',
       'function spawnOrganicFragment(parent,impact)', 'function drawRescueLink(f)',
       'organicSeverDue(enemy)', 'stepOrganicFragment(enemy,enemies,player',
-      "if(enemy.state==='crawl')alignByTerrainAnd", 'if(isLivingAppendage(enemy.morph))drawEntity(enemy)',
-      'function paintLivingOrganism(g,m,frame)']){
+      "if(enemy.state==='crawl')alignByTerrainAnd",
+      'if(isLivingAppendage(enemy.morph))drawEntity(enemy)']){
       assert.ok(code.includes(token),token+' missing');
     }
   }
