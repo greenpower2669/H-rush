@@ -13,6 +13,7 @@ import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, al
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
+import { mineSpec, mineBeacon, mineMotion, mineNearPlayer, mineFused } from './robot-mines.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
@@ -171,7 +172,7 @@ function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
   if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid') continue; // Each rock has its own alpha mask.
+    if (enemy.kind === 'asteroid'||enemy.kind === 'mine') continue; // Individually mutable alpha; not atlas frames.
     if(enemy.morph){
       const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
         isGroundCreature(enemy.morph);
@@ -371,6 +372,96 @@ function sentinelSprite(size,seed){
   g.restore();
   s.mask=maskFromImageData(g.getImageData(0,0,w,w));
   return s;
+}
+/** Small individually destructible mechanical mines (no shared bitmap damage).
+ * Warning is redundant: light intensity, blinking cadence and physical tremor.
+ */
+function robotMineSprite(spec){
+  const w=38+spec.tier*2,c=w*.5;
+  return sprite(w,w,g=>{
+    g.save();g.translate(c,c);
+    // External teeth/bolts are part of the exact alpha hull, not fake hitboxes.
+    for(let i=0;i<8;i++){
+      const a=i*TAU/8;
+      g.save();g.rotate(a);
+      path(g,'#424959',[[-3,-12],[-4,-w*.46],[0,-w*.5],[4,-w*.46],[3,-12]]);
+      g.restore();
+    }
+    const metal=g.createRadialGradient(-5,-6,2,0,0,w*.44);
+    metal.addColorStop(0,'#b9c4da');metal.addColorStop(.45,'#46536b');metal.addColorStop(1,'#1b233a');
+    g.fillStyle=metal;g.beginPath();g.arc(0,0,w*.39,0,TAU);g.fill();
+    g.strokeStyle='#d1dbe5';g.lineWidth=2;
+    g.beginPath();g.arc(0,0,w*.33,0,TAU);g.stroke();
+    g.strokeStyle='#131d2e';g.lineWidth=3;
+    g.beginPath();g.arc(0,0,w*.24,0,TAU);g.stroke();
+    g.fillStyle=spec.color;
+    g.beginPath();g.arc(0,0,5+spec.tier*.65,0,TAU);g.fill();
+    g.fillStyle='#ffffff';
+    g.beginPath();g.arc(-2,-2,2,0,TAU);g.fill();
+    for(let i=0;i<4;i++){
+      const a=i*TAU/4,rx=Math.cos(a)*w*.305,ry=Math.sin(a)*w*.305;
+      g.fillStyle='#172638';g.beginPath();g.arc(rx,ry,3,0,TAU);g.fill();
+      g.fillStyle=spec.color;g.beginPath();g.arc(rx,ry,1.5,0,TAU);g.fill();
+    }
+    g.restore();
+  });
+}
+const mineBlastCache=new Map();
+function mineBlastSprite(radius){
+  if(mineBlastCache.has(radius))return mineBlastCache.get(radius);
+  const d=radius*2;
+  const s=sprite(d,d,g=>{g.fillStyle='#fff';
+    g.beginPath();g.arc(radius,radius,radius,0,TAU);g.fill();});
+  mineBlastCache.set(radius,s); // four finite sizes, no per-frame allocations
+  return s;
+}
+function spawnRobotMine(stage){
+  if(warp||enemies.filter(e=>e.mine&&e.hp>0).length>=3)return false;
+  const spec=mineSpec(universe.seed,stage.region,spawnCount,stage.phase);
+  const s=robotMineSprite(spec),x=offscreenSpawnX(W,s.width,80);
+  const choice=keyedFloat(universe.seed,stage.region*100000+spawnCount,2167);
+  const preferred=clamp(player.y+player.sprite.height*.5-s.height*.5+
+    (choice-.5)*230,24,H-s.height-24);
+  const pos=safeEnemySpawn(terrain,s,x,preferred);
+  if(!pos)return false;
+  enemies.push({kind:'mine',mine:true,robot:true,spec,
+    sprite:s,x:pos.x,y:pos.y,vx:-spec.speed,vy:0,
+    hp:spec.hp,maxHp:spec.hp,age:0,phase:spec.pulseOffset,fire:Infinity,
+    fuse:null,exploded:false,species:{weapon:'none',movement:'slow'}});
+  return true;
+}
+function detonateRobotMine(enemy){
+  if(!enemy?.mine||enemy.exploded)return false;
+  enemy.exploded=true;enemy.hp=0;
+  const p=enemy.spec,r=p.blastRadius;
+  const cx=enemy.x+enemy.sprite.width*.5,cy=enemy.y+enemy.sprite.height*.5;
+  particlesAt(cx,cy,'motor',24+p.tier*10);
+  shockwaves.push({x:cx,y:cy,age:0,life:.44+p.tier*.13,
+    size:r,color:p.color});
+  spawnSpriteExplosion(cx,cy,.70+p.tier*.26);
+  sound.play('explosion');
+  // The radial blast is a real alpha circle AND the player's raster silhouette.
+  // It is not a rectangle hitbox or an unbounded instant kill.
+  const blast=mineBlastSprite(r);
+  const contact=collide(blast.mask,cx-r,cy-r,
+    player.sprite.mask,player.x,player.y,METHODS.BITMASK);
+  if(contact.hit)playerDamage(contact);
+  return true;
+}
+function drawRobotMine(enemy){
+  const p=enemy.spec,beacon=mineBeacon(enemy,enemy.age);
+  const cx=enemy.x+enemy.sprite.width*.5,cy=enemy.y+enemy.sprite.height*.5;
+  ctx.save();
+  // Luminosity, blinking and size of the halo increase with danger.
+  ctx.globalAlpha=.07+.43*beacon.brightness;
+  ctx.fillStyle=p.color;ctx.beginPath();
+  ctx.arc(cx,cy,13+p.tier*6,0,TAU);ctx.fill();
+  ctx.globalAlpha=1;
+  ctx.drawImage(enemy.sprite.image,Math.round(enemy.x),Math.round(enemy.y));
+  ctx.globalAlpha=.16+.84*beacon.brightness;
+  ctx.fillStyle=p.color;
+  ctx.beginPath();ctx.arc(cx,cy,3.8+p.tier*.6,0,TAU);ctx.fill();
+  ctx.restore();
 }
 function spawnRock(profile,y,x=null){
   if(enemies.length>=17)return false;
@@ -674,8 +765,8 @@ function hitEnemy(enemy,r) {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
-    if(enemy.kind==='asteroid'){
-      burnHoleLimited(enemy.sprite,px,py,enemy.robot?3:9,
+    if(enemy.kind==='asteroid'||enemy.kind==='mine'){
+      burnHoleLimited(enemy.sprite,px,py,enemy.kind==='mine'?2:enemy.robot?3:9,
         Number.isFinite(enemy.maxHp)&&enemy.maxHp>0 ? 1-(enemy.hp-1)/enemy.maxHp : 0);
       particlesAt(point.x,point.y,'motor',12);
     }else{
@@ -709,6 +800,12 @@ function hitEnemy(enemy,r) {
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
   if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
   if(enemy.hp<=0){
+    if(enemy.mine){
+      detonateRobotMine(enemy);
+      reward(180+enemy.spec.tier*90);kills++;
+      const at=enemies.indexOf(enemy);if(at>=0)enemies.splice(at,1);
+      updateHud();return;
+    }
     const epicentre=point||{x:enemy.x+enemy.sprite.width/2,y:enemy.y+enemy.sprite.height/2};
     particlesAt(epicentre.x,epicentre.y,enemy.robot?'motor':'hull',enemy.robot?32:enemy.kind==='boss'?75:32);
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
@@ -878,17 +975,17 @@ function update(dt) {
           spawnCount++;spawnClock=4.5;
         }else spawnClock=.42;
       }else if(spawnCount>0&&spawnCount%11===0){
-        const rocks=obstructionColumn(universe.seed,stage.region,spawnCount,player.y+player.sprite.height*.5);
-        const gravitational=gravityFlight(stage.phase);
-        let placed=0;
-        for(const rock of rocks){
-          if(enemies.length>=profile.maxActive+3)break;
-          const base=gravitational?sentinelRock(rock,profile.threat):rock;
-          const candidate={...base,column:true};
-          placed+=Number(spawnRock(candidate,rock.y,offscreenSpawnX(W,candidate.size,90)+placed*26));
-        }
-        if(placed){msg(gravitational?'🤖 COLONNE DE SENTINELLES — TROUVE LA BRÈCHE':'☄️ COLONNE D’ASTÉROÏDES — TROUVE LA BRÈCHE',2.6);spawnCount++;spawnClock=3.7;}
-        else spawnClock=.48;
+        // No disembodied asteroid "columns" in open space or on planets:
+        // real moving columns only exist as grounded terrain gates.
+        // Replace this encounter slot with a compact armored robotic mine.
+        if(spawnRobotMine(stage)){
+          msg('⚠ MINE ROBOTIQUE — SIGNAL LUMINEUX DE DANGER',2.5);
+          spawnCount++;spawnClock=Math.max(1.3,profile.spawnInterval*1.4);
+        }else spawnClock=.48;
+      }else if(spawnCount%7===3&&enemies.filter(e=>e.mine&&e.hp>0).length<3){
+        if(spawnRobotMine(stage)){
+          spawnCount++;spawnClock=Math.max(1.2,profile.spawnInterval*1.2);
+        }else spawnClock=.48;
       }else if(asteroidWeather(universe.seed,stage.region,elapsed,stage.phase).active&&spawnCount%2===0){
         const kind=asteroidWeather(universe.seed,stage.region,elapsed,stage.phase).kind;
         const raw=asteroidSpec(universe.seed,stage.region,rockSerial++,'rain');
@@ -915,6 +1012,17 @@ function update(dt) {
   }
   for(const enemy of enemies){
     enemy.age+=dt;
+    if(enemy.mine){
+      const step=mineMotion(enemy,player,dt);
+      if(!warp){
+        const nav=advanceEnemyOnTerrain(enemy,terrain,step.dx,step.dy);
+        if(nav.trapped){enemy.hp=0;continue;}
+      }else {enemy.x+=step.dx;enemy.y+=step.dy;}
+      enemy.y=clamp(enemy.y,20,H-enemy.sprite.height-20);
+      if(mineFused(enemy,player,dt))detonateRobotMine(enemy);
+      if(enemy.x< -enemy.sprite.width)enemy.hp=0;
+      continue; // Mines use countdown/explosion, NEVER generic enemy projectiles.
+    }
     if(enemy.kind==='boss'){
       const next=bossPhaseAt(enemy.hp,enemy.maxHp,enemy.bossPhases);
       if(next>enemy.bossPhase){
@@ -1015,7 +1123,15 @@ function update(dt) {
   // Ship-to-ship and asteroid contact, with a short damage invulnerability period.
   if(invulnerable<=0) for(const enemy of enemies) {
     const r=check(enemy,player);
-    if(r.hit){playerDamage(r);if(enemy.kind!=='boss'&&!enemy.robot){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}break;}
+    if(r.hit){
+      if(enemy.mine){
+        detonateRobotMine(enemy); // Contact triggers the real AND blast.
+      }else{
+        playerDamage(r);
+        if(enemy.kind!=='boss'&&!enemy.robot){enemy.hp=0;particlesAt(enemy.x+26,enemy.y+20,'hull',22);}
+      }
+      break;
+    }
   }
   if (!gameOver && !warp && invulnerable<=0) {
     const collision = terrain.collideEntity(player);
@@ -1088,7 +1204,10 @@ function render() {
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)if(warp||!enemy.column)drawEntity(enemy);
+  for(const enemy of enemies)if(warp||!enemy.column){
+    if(enemy.mine)drawRobotMine(enemy);
+    else drawEntity(enemy);
+  }
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
