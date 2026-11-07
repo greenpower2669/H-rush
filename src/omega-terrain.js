@@ -72,7 +72,11 @@ export function gateSpec(seed,region,which){
   const eligible=(mid.phase==='surface'||mid.phase==='interior');
   const floorSupported=[mid,left,right].every(v=>v.bottom<WORLD_H-28);
   const ceilingSupported=[mid,left,right].every(v=>v.top>36);
-  const enabled=eligible&&(floorSupported||ceilingSupported);
+  // Organic scenery now carries most of the threat. Keep the eleven
+  // historical identities and persistent scars, but render only 3–4 rooted
+  // columns per region instead of 11. Full corridor gates are rare.
+  const sparse=which===0||which===5||which===8||(which===1&&region%3===0);
+  const enabled=eligible&&sparse&&(floorSupported||ceilingSupported);
   const preferCeiling=which===3||which===5||which===7||which===9;
   const anchorTop=ceilingSupported&&(preferCeiling||!floorSupported);
   const anchor=anchorTop?'ceiling':'ground';
