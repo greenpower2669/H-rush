@@ -387,3 +387,17 @@
 - [ ] QA Samsung : racines qui s'ancrent bien dans le sol, tentacules partant du plafond et sans sprites flottants, variantes et signaux d'attaque, perforation progressive des colonnes et sauvegarde des trous, longues scènes sans hausse de RAM ni plantage.
 - [ ] Équilibrer la vitesse d'oscillation et la difficulté en jouant, éviter passages réellement impossibles ; conserver le double-tap missile, autofocus facultatif, gameplay sans crash `null morph` et collision AND.
 - [ ] Ne pas fusionner dans `main` sans validation explicite. Ne pas publier d'AAB.
+
+
+## H-RUSH OMEGA 0.5.14 — colonnes enfouies et mines robotiques explosives (7 novembre 2026)
+- [x] Branche autonome depuis OMEGA 0.5.13, préservation de `main`, des nouvelles racines/tentacules et du correctif `null morph`.
+- [x] `gateSpec` génère des colonnes mobiles uniquement en phases `surface` et `interior` avec authentique terrain sous ou sur leur point d'ancrage ; altitude calculée sur trois échantillons de terrain, haut/bas enterrés à l'amplitude extrême, supports décoratifs roche/métal/cristal/organique et collisions AND intactes. Les IDs de cicatrices existantes restent inchangés ; anciennes variantes de barrières de 0/1/2 gardent dimensions originales.
+- [x] Supprimer les colonnes de rochers/sentinelles flottants, remplacées par des mines robotisées. Conserver les météores naturels individuels dans l'espace.
+- [x] Créer `src/robot-mines.js` : quatre puissances (blanc, jaune, orange, rouge), HP élevé, flash/luminosité/vibration croissants, temporisation après détection, dérive/traque/forme cauchemardesque, tir et collision de coque en alpha AND.
+- [x] Intégrer `spawnRobotMine`, raster mécanique original par mine (aucune image endommagée partagée), mouvement borné, explosion par destruction/contact/proximité ; dommage par disque alpha AND contre le vrai vaisseau ; cache de quatre disques d'explosion et 3 mines simultanées max, sans projectiles ennemis génériques.
+- [x] Écrire des tests sur le terrain/ancrages, les niveaux de danger, le compte à rebours de proximité, la mobilité, la présence du code dans l'HTML Android et l'absence de colonnes rocheuses spatiales.
+- [x] Bascule de version 0.5.14/versionCode 64, fabrication HTML offline synchronisée avec les sources, workflow APK directe.
+- [ ] Confirmer 100 % de la CI : tests Node, build de l'HTML identique, vérification Gradle/signature/ressources, publication d'une Release et lien APK direct.
+- [ ] Essais Samsung : mines visible en phases spatiales, blanc/jaune/orange/rouge et avertissement lisible, collision/contact/proximité, explosion, aucun tir d'ennemi accidentel, difficulté/taux de rencontres et performances.
+- [ ] Essais des colonnes sur terrain planétaire/cavernes et anciens univers sauvegardés : jamais d'extrémité d'ancrage flottante lors des oscillations, décor cohérent, cratères persistants et passages équitables après destruction.
+- [ ] Fusion de la PR en attente d'autorisation, pas d'AAB.
