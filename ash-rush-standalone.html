@@ -4577,6 +4577,7 @@ function update(dt) {
       // Crawlers follow the exact surviving solid alpha, not a decorative
       // floor curve. If a neighboring ceiling rescues them they climb instead.
       if(enemy.state==='crawl')alignByTerrainAnd(terrain,enemy,'ground',30);
+      if(enemy.state==='ambush')alignByTerrainAnd(terrain,enemy,'ceiling',65);
       if(enemy.x< -enemy.sprite.width)enemy.hp=0;
       continue;
     }
