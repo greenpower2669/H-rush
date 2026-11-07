@@ -15,7 +15,7 @@ test('large bestiary uses separate morphology, real named enemies and boss silho
   assert.equal(new Set(all.map(s=>s.name)).size,all.length);
   assert.ok(new Set(all.map(s=>s.shape)).size>=20);
   assert.ok(new Set(all.map(s=>s.family)).size>=7);
-  assert.ok(all.some(x=>x.shape==='root'&&x.anchor==='ceiling'));
+  assert.ok(all.some(x=>x.shape==='root'&&x.anchor==='ground'));
   assert.ok(all.some(x=>x.shape==='tentacle'&&x.anchor==='ceiling'));
   assert.ok(all.some(x=>x.shape==='worm'&&x.anchor==='ground'));
   assert.ok(all.some(x=>x.shape==='tank'&&x.anchor==='ground'));
@@ -43,11 +43,13 @@ test('every biome and phase has seed-deterministic suitable forms and bosses',()
   assert.ok(forms.size>=40,'most of the enemy library must actually be reachable');
   assert.ok(bosses.size>=12,'bosses must not all collapse to one old shape');
 });
-test('root ceiling, ground rover and jumping worms have distinct behaviors',()=>{
+test('root from ground, tentacle from ceiling, rover and jumping worms have distinct behaviors',()=>{
   const root=ENEMY_MORPHS.find(x=>x.shape==='root');
   const worm=ENEMY_MORPHS.find(x=>x.shape==='worm');
   const rover=ENEMY_MORPHS.find(x=>x.shape==='rover');
-  assert.equal(morphMovement(root),'ceiling');
+  assert.equal(morphMovement(root),'ground');
+ const tentacle=ENEMY_MORPHS.find(x=>x.shape==='tentacle');
+ assert.equal(morphMovement(tentacle),'ceiling');
   assert.equal(morphMovement(worm),'jump');
   assert.equal(morphMovement(rover),'patrol');
   for(const mode of ['jump','ground','ceiling','swarm','dart']){
