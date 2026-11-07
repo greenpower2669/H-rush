@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106, fix/omega-061-secondary-double-tap-only-20261106, fix/omega-062-null-morph-spawn-20261107, feature/omega-063-nightmare-organics-fortified-gates-20261107, feature/omega-064-anchored-columns-robot-mines-20261107, feature/omega-065-living-colony-rescue-ambush-20261107]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106, fix/omega-061-secondary-double-tap-only-20261106, fix/omega-062-null-morph-spawn-20261107, feature/omega-063-nightmare-organics-fortified-gates-20261107, feature/omega-064-anchored-columns-robot-mines-20261107, feature/omega-065-living-colony-rescue-ambush-20261107, fix/omega-066-heavy-organics-hidden-roots-20261107]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -94,6 +94,11 @@ jobs:
           assert 'function gateHardness(gate)' in html
           assert 'function drawRobotMine(enemy)' in html
           assert 'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
+          assert 'function organicArmWave(morph,frame,arm)' in html
+          assert 'function organicDurability(morph,baselineHp=1)' in html
+          assert 'function organicSurfaceY(morph,bounds,height)' in html
+          assert 'const baseY=root?h+18:-18' in html
+          assert 'Math.floor(enemy.age*11+enemy.phase*.3)%12' in html
           assert 'function organicFragmentSprite(morph,frame=0)' in html
           assert 'function stepOrganicFragment(f,actors,player,environment,dt)' in html
           assert 'function spawnOrganicFragment(parent,impact)' in html
@@ -167,11 +172,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
+          APK=HRush-Omega-v0.5.16-heavy-organics-motion-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='65' versionName='0.5.15'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='66' versionName='0.5.16'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -184,7 +189,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.15-living-colony-ambush-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.16-heavy-organics-motion-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -213,6 +218,9 @@ jobs:
             assert b'function gateHardness(gate)' in html
             assert b'function drawRobotMine(enemy)' in html
             assert b'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
+            assert b'function organicArmWave(morph,frame,arm)' in html
+            assert b'function organicDurability(morph,baselineHp=1)' in html
+            assert b'function organicSurfaceY(morph,bounds,height)' in html
             assert b'function stepOrganicFragment(f,actors,player,environment,dt)' in html
             assert b'function mineSpec(seed,region,encounter' in html
             assert b'function detonateRobotMine(enemy)' in html
@@ -237,7 +245,7 @@ jobs:
       - name: Publier uniquement APK direct sur GitHub Releases
         # Only the named first-party crash-fix PR may publish a preview after all checks.
         # Untrusted forks and unrelated pull requests retain read-only QA.
-        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/omega-065-living-colony-rescue-ambush-20261107') }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/omega-066-heavy-organics-hidden-roots-20261107') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -246,19 +254,19 @@ jobs:
           set -euo pipefail
           # A final tagged Release on main; keep separate feature previews intact.
           if [ "$GITHUB_REF_NAME" = "main" ]; then
-            TAG=v0.5.15
+            TAG=v0.5.16
             RELEASE_FLAGS=()
           else
-            TAG=v0.5.15-living-colony-ambush-preview
+            TAG=v0.5.16-heavy-organics-motion-preview
             RELEASE_FLAGS=(--prerelease)
           fi
-          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
+          APK=HRush-Omega-v0.5.16-heavy-organics-motion-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.15 - colonie organique, fragments rampants et embuscades" \
-              --notes "H-RUSH OMEGA 0.5.15 : nouvelles racines charnues et tentacules geants en Canvas detaille (ventouses, veines, eclats, relief, rendu alpha ET collision AND identiques), attaches reels sous la roche. Les morceaux coupes restent des ennemis : rampent, bondissent ; un tentacule voisin vivant peut aider un fragment a regagner un plafond reel, puis celui-ci attend le vaisseau pour se laisser tomber en embuscade. Machine a etats bornes, jusqu'a six fragments actifs, 23 secondes, aucune fuite de cache. Colonnes mobiles reduites de 11 a 3-4 par region en conservant les IDs/crateres historiques. v0.5.14 mines, v0.5.12 crash et v0.5.11 missiles double-tap conserves. APK debug autonome direct, export JSON conseille ; validation appareil Samsung requise." \
+              --title "H-RUSH OMEGA 0.5.16 - tentacules blindes, attaches rocheuses et mouvement souple" \
+              --notes "H-RUSH OMEGA 0.5.16 : tentacules et racines beaucoup plus resistants (tentacules 145 a 220 PV, racines 85 a 150 PV, boss organiques jusqu'a 450 PV), points de naissance corporels caches derriere la paroi rocheuse : suppression des bourrelets flottants et position directe sur le plafond ou le sol reel. Animation 12 poses au lieu de 6, oscillations amples et independantes par tentacule et ondulation progressive du pied vers la pointe. Memes pixels alpha et collision AND, colonie de sauvetage, fragments rampants, mines robotiques et commandes missiles double-tap preserves. APK debug autonome direct ; verification visuelle et FPS sur Samsung encore necessaires." \
               "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
