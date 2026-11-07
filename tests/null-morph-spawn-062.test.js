@@ -56,7 +56,7 @@ test('spawnEnemy actually handles morph-less asteroid species without crashing t
     asteroidSpec:()=>{throw Error('unexpected ground mode')},
     sentinelRock:()=>{throw Error('unexpected ground mode')},
     spawnRock:()=>{throw Error('unexpected ground mode')},
-    rockSerial:0,spawnCount:8,H:540,W:960
+    rockSerial:0,spawnCount:8,H:540,W:960,TAU:Math.PI*2
   };
   const spawnEnemy=runInNewContext(game.slice(start,end)+'\nspawnEnemy;',context);
   for(const asteroid of SPECIES.filter(s=>s.base==='asteroid')){
