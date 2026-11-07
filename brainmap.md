@@ -84,3 +84,6 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 
 
 - **OMEGA 0.5.15 — `src/living-organics.js`** : FSM bornée des morceaux organiques coupés, secours par un voisin, réancrage et embuscade. `src/bestiary.js` : rendus organiques plus grands et vrai bras manquant dans l'alpha/masque AND. `src/omega-terrain.js` : colonnes rares (3–4 emplacements possibles sur 11 IDs), toutes sauvegardes intactes. Tests `tests/living-colony-065.test.js`, état/QA dans `todo.md`.
+
+
+- **OMEGA 0.5.16 — organismes ancrés très résistants** : `src/living-organics.js` (`organicDurability`, `organicSurfaceY`) ; `src/bestiary.js` (12 poses organiques, `organicArmWave`, bulbes sous le bord rocheux) ; `src/game.js` (ancrage fixe sans éviction par sa propre roche). `tests/heavy-organic-066.test.js`, suivi QA dans `todo.md`.
