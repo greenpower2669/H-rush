@@ -44,13 +44,14 @@ export function mineBeacon(mine,time=0){
 export function mineMotion(mine,player,dt){
   const spec=mine.spec||mine;
   const t=Math.max(0,Number(dt)||0),age=mine.age||0;
+  const offset=spec.pulseOffset||0;
   const warning=mineBeacon(mine,age);
-  const oscillation=Math.sin(age*(2.6+spec.tier*.4)+spec.pulseOffset);
+  const oscillation=Math.sin(age*(2.6+spec.tier*.4)+offset);
   const drift=spec.archetype==='stationnaire'?.54:spec.archetype==='traqueuse'?1.25:1;
   const toward=spec.archetype==='traqueuse' && player ?
     clampMine((player.y+player.sprite.height*.5)-(mine.y+mine.sprite.height*.5),-90,90)*.22*t:0;
-  return {dx:-spec.speed*drift*t+(Math.sin(age*27+spec.pulseOffset)-Math.sin((age-t)*27+spec.pulseOffset))*warning.shake,
-    dy:oscillation*15*t+toward+(Math.sin(age*31+spec.pulseOffset)-Math.sin((age-t)*31+spec.pulseOffset))*warning.shake*.68};
+  return {dx:-spec.speed*drift*t+(Math.sin(age*27+offset)-Math.sin((age-t)*27+offset))*warning.shake,
+    dy:oscillation*15*t+toward+(Math.sin(age*31+offset)-Math.sin((age-t)*31+offset))*warning.shake*.68};
 }
 export function mineNearPlayer(mine,player){
   if(!mine||!player)return false;
