@@ -80,7 +80,7 @@ test('world-space anchoring and living alpha animation run in the same game/Andr
   const game=read('src/game.js'),html=read('ash-rush-standalone.html');
   for(const token of ['worldAnchorX:isLivingAppendage(morph)', 'terrain.scroll+position.x:null',
     'enemy.worldAnchorX-terrain.scroll-enemy.x', 'isLivingAppendage(enemy.morph)',
-    'Math.floor(enemy.age*8+enemy.phase*.3)%6', 'spawnMovement(morph,species.movement)']){
+    'Math.floor(enemy.age*11+enemy.phase*.3)%12', 'spawnMovement(morph,species.movement)']){
     assert.ok(game.includes(token),token);
     assert.ok(html.includes(token),token+' bundled');
   }
