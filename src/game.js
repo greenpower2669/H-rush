@@ -8,7 +8,7 @@ import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { morphFor, bossMorphFor, spriteForMorph, morphMovement, spawnMovement, bossWeapons } from './bestiary.js';
+import { morphFor, bossMorphFor, spriteForMorph, morphMovement, spawnMovement, isLivingAppendage, bossWeapons } from './bestiary.js';
 import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
@@ -185,7 +185,11 @@ function updateSpriteAnimations(dt=.016) {
         ballisticSolution(enemy,player):null;
       enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+      // Six real articulated alpha masks for living roots and hanging tentacles.
+      // Other enemies retain their cheaper two-frame animation.
+      const organicFrame=isLivingAppendage(enemy.morph)?
+        Math.floor(enemy.age*8+enemy.phase*.3)%6:Math.floor(enemy.age*6)&1;
+      const base=spriteForMorph(enemy.morph,organicFrame,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
       if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
@@ -371,7 +375,10 @@ function spawnRock(profile,y,x=null){
   const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
   const posY=clamp(y,16,H-s.height-16),posX=x??offscreenSpawnX(W,s.width);
   if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
-  const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
+  // Obstruction-column formations are deliberate durable cover, not the
+  // fragility of passing space pebbles. HP is bounded to protect game pacing.
+  const hp=Math.min(95,Math.ceil((robot?stats.hp:Math.max(1,Math.ceil(profile.size/18)))*
+    (profile.column===true?3.2:1)));
   enemies.push({kind:'asteroid',robot,column:profile.column===true,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
     species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
     vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
@@ -494,6 +501,10 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
     blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
     hullPitch:0,cannonAngle:null,biteClock:0,
+    // Appendages are fixed to a WORLD-space surface, not sliding across it.
+    // They move left only because the universe scrolls under the ship.
+    worldAnchorX:morph&&['root','vine','tentacle'].includes(morph.shape)?
+      terrain.scroll+position.x:null,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
@@ -927,7 +938,10 @@ function update(dt) {
       rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
       enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
-    const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
+    const moveX=rock?motion.x-enemy.x:
+      enemy.worldAnchorX!==null&&Number.isFinite(enemy.worldAnchorX)?
+        enemy.worldAnchorX-terrain.scroll-enemy.x:
+        enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
     const navigation=warp?{trapped:false,blocked:false}:
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
