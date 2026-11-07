@@ -178,7 +178,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.15</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.16</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -254,7 +254,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <p class="fineprint">Les masques suivent l'alpha des sprites à leur résolution logique ; la densité de pixels de l'écran ne change pas la précision de collision. Mesures indicatives et locales à cet appareil.</p>
       </div>
     </main>
-    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.15 — licence MIT · 2026</footer>
+    <footer>Conception de l'algorithme : Fabrice Gourdant · Prototype OMEGA 0.5.16 — licence MIT · 2026</footer>
   </div>
 <script>
 'use strict';
@@ -1557,6 +1557,33 @@ function mineFused(mine,player,dt){
  * Pure state logic: gameplay collision and rendering stay in game.js.
  * The helper must be a DIFFERENT living ceiling tentacle and remain alive.
  */
+/** Heavy rooted organisms are encounter obstacles, not disposable 2-HP ships.
+ * Numbers are intentionally substantial but finite, so the player can still
+ * excavate and defeat one. Severing remains a single event per organism.
+ */
+function organicDurability(morph,baselineHp=1){
+  if(!morph||!['tentacle','vine','root'].includes(morph.shape))return baselineHp;
+  const base=Math.max(1,Number(baselineHp)||1);
+  if(morph.boss)return Math.min(450,Math.ceil(Math.max(330,base*9)));
+  if(morph.shape==='root')return Math.min(150,Math.ceil(Math.max(85,base*17)));
+  return Math.min(220,Math.ceil(Math.max(145,base*24)));
+}
+/** Clip the swollen origin BEHIND its own geological paroi. The large painted
+ * organism has no visible bulb in its sprite; the upper/lower limb pixels
+ * meet the true rock edge without adding an invisible fake collision.
+ */
+function organicSurfaceY(morph,bounds,height){
+  if(!morph||!bounds||!Number.isFinite(height))return null;
+  if(morph.anchor==='ceiling'){
+    if(!Number.isFinite(bounds.top)||bounds.top<40||bounds.top>=540)return null;
+    return Math.round(bounds.top+1);
+  }
+  if(morph.anchor==='ground'){
+    if(!Number.isFinite(bounds.bottom)||bounds.bottom>512||bounds.bottom<=35)return null;
+    return Math.round(bounds.bottom-height-1);
+  }
+  return null;
+}
 const ORGANIC_FRAGMENT_LIMIT=6;
 const ORGANIC_STATES=Object.freeze(['fall','crawl','lunge','rescue','ambush','drop']);
 const bound=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -1847,19 +1874,34 @@ function compile(def,index,boss){
     anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
     hue:(index*47+(boss?14:177))%360});
 }
-/** Deterministic six-pose animated appendages. Real alpha/mask follows the paint. */
-const ORGANIC_ANIMATION_FRAMES=6;
+/** Twelve real, independent wave poses, with masks from the exact painted alpha.
+ * Base of each limb is fixed: its traveling wave grows toward its tip.
+ */
+const ORGANIC_ANIMATION_FRAMES=12;
 function isLivingAppendage(morph){
   return !!morph && ['root','vine','tentacle'].includes(morph.shape);
 }
 function appendagePose(morph,frame=0){
-  const t=((Math.floor(Number(frame)||0)%6)+6)%6*Math.PI/3;
+  const t=((Math.floor(Number(frame)||0)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)
+    %ORGANIC_ANIMATION_FRAMES*Math.PI*2/ORGANIC_ANIMATION_FRAMES;
   const seed=(morph?.index??0)*.61+(morph?.boss?1.25:0);
-  return {bend:Math.sin(t+seed)*(.15+(morph?.boss ? .05 : 0)),
-    curl:Math.cos(t+seed*.8)*.17,
-    extension:.76+.22*(.5+.5*Math.sin(t+seed-1)),
+  return {bend:Math.sin(t+seed)*(.31+(morph?.boss ? .08 : 0)),
+    curl:Math.cos(t+seed*.8)*.35,
+    extension:.73+.24*(.5+.5*Math.sin(t+seed-1)),
     warning:Math.sin(t+seed)>.60,
     nightmare:!!morph?.boss||(morph?.index??0)%3===1};
+}
+/** More movement without making the base float: a traveling wave propagates
+ * from a nearly fixed attachment toward independently swinging tips.
+ */
+function organicArmWave(morph,frame,arm){
+  const t=((Math.floor(Number(frame)||0)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)
+    %ORGANIC_ANIMATION_FRAMES*Math.PI*2/ORGANIC_ANIMATION_FRAMES;
+  const phase=t+arm*1.17+(morph?.index||0)*.28;
+  return {root:Math.sin(phase-.65)*.09,
+    elbow:Math.sin(phase+.35)*.32,
+    tip:Math.sin(phase+1.30)*.40,
+    thrust:Math.sin(phase+.90)*.15};
 }
 const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
@@ -1940,7 +1982,9 @@ function oval(g,x,y,rx,ry,color,angle=0){
 function paintLivingOrganism(g,m,frame,missingArm=-1){
   const w=m.boss?230:158,h=m.boss?244:174;
   const root=m.shape==='root',sign=root?-1:1;
-  const baseY=root?h-12:12;
+  // The fleshy root-knot itself is OUTSIDE the paintable sprite, inside
+  // the rock. Only its animated tendrils enter the visible corridor.
+  const baseY=root?h+18:-18;
   const pose=appendagePose(m,frame),arms=m.boss?7:5;
   const palette=(m.index%4);
   const skin=['#652545','#51223f','#421c42','#692539'][palette];
@@ -1955,10 +1999,14 @@ function paintLivingOrganism(g,m,frame,missingArm=-1){
     const bx=w*.5+a*w*(m.boss?.094:.124);
     const by=baseY;
     const fork=Math.sin(i*1.68+m.index*.32);
-    const tx=Math.max(17,Math.min(w-17,bx+fork*w*.24+pose.bend*w*.92));
-    const ty=baseY+sign*(h*(.61+(i%3)*.075)*pose.extension);
-    const c1=[bx+pose.bend*w*.20,baseY+sign*h*.23];
-    const c2=[tx-pose.curl*w*.52+fork*w*.12,baseY+sign*h*.50];
+    const wave=organicArmWave(m,frame,i);
+    // The attachment barely moves, while the elbow and tip swing out of
+    // phase, like a muscular tentacle traveling its bend down the shaft.
+    const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
+    const length=h*(.74+(i%3)*.055+wave.thrust)*pose.extension;
+    const ty=baseY+sign*length;
+    const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
+    const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
     const width=(m.boss?25:19)-(i%3)*3.2;
     const trace=(offset=0)=>{
       g.beginPath();g.moveTo(bx+offset,by);
@@ -3687,10 +3735,10 @@ function updateSpriteAnimations(dt=.016) {
         ballisticSolution(enemy,player):null;
       enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      // Six real articulated alpha masks for living roots and hanging tentacles.
-      // Other enemies retain their cheaper two-frame animation.
+      // Twelve genuine curved wave poses: every arm flexes independently.
+      // All other enemies keep their inexpensive two-frame animations.
       const organicFrame=isLivingAppendage(enemy.morph)?
-        Math.floor(enemy.age*8+enemy.phase*.3)%6:Math.floor(enemy.age*6)&1;
+        Math.floor(enemy.age*11+enemy.phase*.3)%12:Math.floor(enemy.age*6)&1;
       const base=spriteForMorph(enemy.morph,organicFrame,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArm??-1);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
@@ -4073,7 +4121,9 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
   // A hanging tentacle MUST have an actual ceiling. Surface scenes without
   // overhangs get a seeded ground-root variant, never an appendage in the sky.
-  const preview=terrainBounds(universe.seed,terrain.scroll+W+160);
+  const previewWidth=morph?.boss?230:158;
+  const previewWorld=terrain.scroll+offscreenSpawnX(W,previewWidth,70)+previewWidth*.5;
+  const preview=terrainBounds(universe.seed,previewWorld);
   if(morph?.anchor==='ceiling'&&preview.top<40){
     const collection=kind==='boss'?BOSS_MORPHS:ENEMY_MORPHS;
     const grounded=collection.filter(m=>m.shape==='root'&&m.phases.includes(stage.phase));
@@ -4086,17 +4136,22 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   const spawnX=offscreenSpawnX(W,s.width,70);
   const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
   const anchor=morph?.anchor;
-  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+  const living=isLivingAppendage(morph);
+  const anchorY=living?organicSurfaceY(morph,bounds,s.height):
+    anchor==='ceiling'?Math.max(20,bounds.top+6):
     anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
-  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
-  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
-  const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
+  if(living&&anchorY===null)return false; // No paroi = no tentacle.
+  const preferredY=living?anchorY:
+    clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Living appendages deliberately touch their home paroi (their buried
+  // knots are beyond the painted bitmap) and NEVER use terrain evictions.
+  // The player/contact and projectile collisions still use actual alpha AND.
+  const position=living?{x:spawnX,y:preferredY}:
+    safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
-  // A creature without contact with rock is not allowed to float as a decal.
-  if(isLivingAppendage(morph)&&anchorY!==null&&Math.abs(position.y-preferredY)>27)return false;
-  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
-    (isLivingAppendage(morph)?Math.max(5,species?.hp||0):
-      species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2));
+  const ordinaryHp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const hp=living?organicDurability(morph,ordinaryHp):ordinaryHp;
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
       // Asteroid species intentionally have no morphology; optional chaining
@@ -4113,7 +4168,7 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     severCount:0,severArm:-1,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
-  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
+  if(anchor&&terrain.active&&!living)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 /** Cut-off pieces survive: they can crawl, leap, be carried by a living
@@ -4600,6 +4655,28 @@ function update(dt) {
         msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
       }
       enemy.vx=-(28+enemy.bossPhase*6);
+    }
+    if(!warp&&isLivingAppendage(enemy.morph)){
+      // Anchors are in WORLD coordinates. The start of each painted tendon
+      // meets the real ceiling/floor (not a guessed screen edge). No roaming
+      // pathfinding moves the origin away from the paroi.
+      const anchorWorld=enemy.worldAnchorX+enemy.sprite.width*.5;
+      const support=terrainBounds(universe.seed,Math.max(0,anchorWorld));
+      const anchorY=organicSurfaceY(enemy.morph,support,enemy.sprite.height);
+      if(anchorY===null){enemy.hp=0;continue;}
+      enemy.x=enemy.worldAnchorX-terrain.scroll;
+      enemy.y=anchorY;
+      enemy.fire-=dt;
+      if(enemy.fire<=0&&enemy.x<W-50){
+        fireEnemy(enemy);
+        enemy.fire=(enemy.kind==='boss'?rand(.48,.90):rand(1.6,3.1))*
+          (enemy.species?.fireRate??1);
+      }
+      if(enemy.x<-enemy.sprite.width){
+        enemy.hp=0;
+        if(enemy.kind==='boss'){bossActive=false;wave++;updateHud();}
+      }
+      continue;
     }
     const robot=enemy.robot===true;
     const rock=enemy.kind==='asteroid'&&!robot;
