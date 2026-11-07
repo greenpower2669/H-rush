@@ -373,3 +373,17 @@
 - [x] CI [42366251548](https://github.com/greenpower2669/H-rush/actions/runs/42366251548) **167/167 tests**, HTML autonome reconstruit sans différence, Gradle Android Debug 0.5.12/code 62, signature/package/ressources validés et [préversion APK directe](https://github.com/greenpower2669/H-rush/releases/download/v0.5.12-null-morph-crashfix-preview/HRush-Omega-v0.5.12-null-morph-crashfix-debug.apk) publiée (14 006 063 octets au premier build). Contrôler le SHA256SUMS.txt joint à la Release pour chaque nouvelle compilation Debug.
 - [ ] QA réelle Samsung : rejouer au moins jusqu'à la région 2 puis poursuivre avec plusieurs apparitions astéroïdes (zone `space`), vérifier absence d'écran d'erreur, durée de partie, stabilité des missiles au double-tap et sauvegarde univers.
 - [ ] Avant toute mise à jour/désinstallation, exporter l'univers JSON ; contrôler compatibilité de signature Debug. Aucune fusion de PR ni AAB sans autorisation.
+
+
+## H-RUSH OMEGA 0.5.13 — racines vivantes / plafond cauchemardesque / colonnes blindées (7 novembre 2026)
+- [x] Créer branche dédiée depuis 0.5.12 sans modifier `main` ni les sauvegardes.
+- [x] Déplacer réellement les morphologies `root` au sol ; conserver `vine` et `tentacle` au plafond ; préserver le contact physique AND avec le terrain.
+- [x] Ancrage X monde stable des organiques, aucune rotation globale qui décroche la base ; six poses d'animation réelles et chacune recalculant le masque d'alpha de collision.
+- [x] Dessiner en Canvas des systèmes racinaires montants, tentacules pendants, vaisseaux organiques à nervures, ventouses, crocs, yeux lumineux et lueurs pré-attaque ; huit nouveaux morphs normaux et deux boss.
+- [x] Renforcer les colonnes mobiles : amplitude verticale accrue, résistance `gateHardness` de 1.7 à 3.1, petits cratères physiques AND NOT enregistrés dans les mêmes IDs ; colonnes d'astéroïdes multipliées en PV par 3.2 avec plafond borné.
+- [x] Ajouter tests sur morphologie/ancrage, animation, variété, résistance/persistance et bundle Android ; ajuster l'ancien test racines-plafond.
+- [x] Construire source Android 0.5.13/code 63 + HTML autonome synchronisé ; workflow prévu pour préversion APK directe.
+- [ ] Faire confirmer GitHub CI : suite de tests Node, bundle HTML strictement identique, signature APK, téléchargement et checksum de la Release ; ne fournir l'APK que si toutes les étapes réussissent.
+- [ ] QA Samsung : racines qui s'ancrent bien dans le sol, tentacules partant du plafond et sans sprites flottants, variantes et signaux d'attaque, perforation progressive des colonnes et sauvegarde des trous, longues scènes sans hausse de RAM ni plantage.
+- [ ] Équilibrer la vitesse d'oscillation et la difficulté en jouant, éviter passages réellement impossibles ; conserver le double-tap missile, autofocus facultatif, gameplay sans crash `null morph` et collision AND.
+- [ ] Ne pas fusionner dans `main` sans validation explicite. Ne pas publier d'AAB.
