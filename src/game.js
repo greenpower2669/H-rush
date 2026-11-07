@@ -14,7 +14,7 @@ import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, ke
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
 import { mineSpec, mineBeacon, mineMotion, mineNearPlayer, mineFused } from './robot-mines.js';
-import { ORGANIC_FRAGMENT_LIMIT, organicSeverDue, stepOrganicFragment } from './living-organics.js';
+import { ORGANIC_FRAGMENT_LIMIT, organicSeverDue, stepOrganicFragment, organicDurability, organicSurfaceY } from './living-organics.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
@@ -191,10 +191,10 @@ function updateSpriteAnimations(dt=.016) {
         ballisticSolution(enemy,player):null;
       enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      // Six real articulated alpha masks for living roots and hanging tentacles.
-      // Other enemies retain their cheaper two-frame animation.
+      // Twelve genuine curved wave poses: every arm flexes independently.
+      // All other enemies keep their inexpensive two-frame animations.
       const organicFrame=isLivingAppendage(enemy.morph)?
-        Math.floor(enemy.age*8+enemy.phase*.3)%6:Math.floor(enemy.age*6)&1;
+        Math.floor(enemy.age*11+enemy.phase*.3)%12:Math.floor(enemy.age*6)&1;
       const base=spriteForMorph(enemy.morph,organicFrame,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArm??-1);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
@@ -577,7 +577,9 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
   // A hanging tentacle MUST have an actual ceiling. Surface scenes without
   // overhangs get a seeded ground-root variant, never an appendage in the sky.
-  const preview=terrainBounds(universe.seed,terrain.scroll+W+160);
+  const previewWidth=morph?.boss?230:158;
+  const previewWorld=terrain.scroll+offscreenSpawnX(W,previewWidth,70)+previewWidth*.5;
+  const preview=terrainBounds(universe.seed,previewWorld);
   if(morph?.anchor==='ceiling'&&preview.top<40){
     const collection=kind==='boss'?BOSS_MORPHS:ENEMY_MORPHS;
     const grounded=collection.filter(m=>m.shape==='root'&&m.phases.includes(stage.phase));
@@ -590,17 +592,22 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   const spawnX=offscreenSpawnX(W,s.width,70);
   const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
   const anchor=morph?.anchor;
-  const anchorY=anchor==='ceiling'?Math.max(20,bounds.top+6):
+  const living=isLivingAppendage(morph);
+  const anchorY=living?organicSurfaceY(morph,bounds,s.height):
+    anchor==='ceiling'?Math.max(20,bounds.top+6):
     anchor==='ground'?Math.min(H-s.height-16,bounds.bottom-s.height-7):null;
-  const preferredY=clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
-  // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
-  const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
+  if(living&&anchorY===null)return false; // No paroi = no tentacle.
+  const preferredY=living?anchorY:
+    clamp(anchorY??(player.y+player.sprite.height/2-s.height/2+offset+rand(-18,18)),24,H-s.height-16);
+  // Living appendages deliberately touch their home paroi (their buried
+  // knots are beyond the painted bitmap) and NEVER use terrain evictions.
+  // The player/contact and projectile collisions still use actual alpha AND.
+  const position=living?{x:spawnX,y:preferredY}:
+    safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
-  // A creature without contact with rock is not allowed to float as a decal.
-  if(isLivingAppendage(morph)&&anchorY!==null&&Math.abs(position.y-preferredY)>27)return false;
-  const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
-    (isLivingAppendage(morph)?Math.max(5,species?.hp||0):
-      species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2));
+  const ordinaryHp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
+    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+  const hp=living?organicDurability(morph,ordinaryHp):ordinaryHp;
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
       // Asteroid species intentionally have no morphology; optional chaining
@@ -617,7 +624,7 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     severCount:0,severArm:-1,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
-  if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
+  if(anchor&&terrain.active&&!living)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
 }
 /** Cut-off pieces survive: they can crawl, leap, be carried by a living
@@ -1104,6 +1111,28 @@ function update(dt) {
         msg('⚠ '+(enemy.morph?.name||'BOSS')+' — PHASE '+(next+1),2.2);
       }
       enemy.vx=-(28+enemy.bossPhase*6);
+    }
+    if(!warp&&isLivingAppendage(enemy.morph)){
+      // Anchors are in WORLD coordinates. The start of each painted tendon
+      // meets the real ceiling/floor (not a guessed screen edge). No roaming
+      // pathfinding moves the origin away from the paroi.
+      const anchorWorld=enemy.worldAnchorX+enemy.sprite.width*.5;
+      const support=terrainBounds(universe.seed,Math.max(0,anchorWorld));
+      const anchorY=organicSurfaceY(enemy.morph,support,enemy.sprite.height);
+      if(anchorY===null){enemy.hp=0;continue;}
+      enemy.x=enemy.worldAnchorX-terrain.scroll;
+      enemy.y=anchorY;
+      enemy.fire-=dt;
+      if(enemy.fire<=0&&enemy.x<W-50){
+        fireEnemy(enemy);
+        enemy.fire=(enemy.kind==='boss'?rand(.48,.90):rand(1.6,3.1))*
+          (enemy.species?.fireRate??1);
+      }
+      if(enemy.x<-enemy.sprite.width){
+        enemy.hp=0;
+        if(enemy.kind==='boss'){bossActive=false;wave++;updateHud();}
+      }
+      continue;
     }
     const robot=enemy.robot===true;
     const rock=enemy.kind==='asteroid'&&!robot;
