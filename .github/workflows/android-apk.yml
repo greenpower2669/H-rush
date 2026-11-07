@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106, fix/omega-061-secondary-double-tap-only-20261106, fix/omega-062-null-morph-spawn-20261107, feature/omega-063-nightmare-organics-fortified-gates-20261107, feature/omega-064-anchored-columns-robot-mines-20261107]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106, fix/omega-061-secondary-double-tap-only-20261106, fix/omega-062-null-morph-spawn-20261107, feature/omega-063-nightmare-organics-fortified-gates-20261107, feature/omega-064-anchored-columns-robot-mines-20261107, feature/omega-065-living-colony-rescue-ambush-20261107]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -93,6 +93,11 @@ jobs:
           assert 'function appendagePose(morph,frame=0)' in html
           assert 'function gateHardness(gate)' in html
           assert 'function drawRobotMine(enemy)' in html
+          assert 'function paintLivingOrganism(g,m,frame)' in html
+          assert 'function organicFragmentSprite(morph,frame=0)' in html
+          assert 'function stepOrganicFragment(f,actors,player,environment,dt)' in html
+          assert 'function spawnOrganicFragment(parent,impact)' in html
+          assert 'const sparse=which===0' in html
           assert 'function mineSpec(seed,region,encounter' in html
           assert 'function detonateRobotMine(enemy)' in html
           assert 'this.drawGateSetting(ctx,gate,x)' in html
@@ -162,11 +167,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.14-robot-mines-anchored-columns-debug.apk
+          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='64' versionName='0.5.14'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='65' versionName='0.5.15'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -179,7 +184,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.14-robot-mines-anchored-columns-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.15-living-colony-ambush-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -207,6 +212,8 @@ jobs:
             assert b'function appendagePose(morph,frame=0)' in html
             assert b'function gateHardness(gate)' in html
             assert b'function drawRobotMine(enemy)' in html
+            assert b'function paintLivingOrganism(g,m,frame)' in html
+            assert b'function stepOrganicFragment(f,actors,player,environment,dt)' in html
             assert b'function mineSpec(seed,region,encounter' in html
             assert b'function detonateRobotMine(enemy)' in html
             assert b'movement:spawnMovement(morph,species.movement)' in html
@@ -230,7 +237,7 @@ jobs:
       - name: Publier uniquement APK direct sur GitHub Releases
         # Only the named first-party crash-fix PR may publish a preview after all checks.
         # Untrusted forks and unrelated pull requests retain read-only QA.
-        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/omega-064-anchored-columns-robot-mines-20261107') }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/omega-065-living-colony-rescue-ambush-20261107') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -239,19 +246,19 @@ jobs:
           set -euo pipefail
           # A final tagged Release on main; keep separate feature previews intact.
           if [ "$GITHUB_REF_NAME" = "main" ]; then
-            TAG=v0.5.14
+            TAG=v0.5.15
             RELEASE_FLAGS=()
           else
-            TAG=v0.5.14-robot-mines-anchored-columns-preview
+            TAG=v0.5.15-living-colony-ambush-preview
             RELEASE_FLAGS=(--prerelease)
           fi
-          APK=HRush-Omega-v0.5.14-robot-mines-anchored-columns-debug.apk
+          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.14 - mines robotiques et colonnes ancrees" \
-              --notes "H-RUSH OMEGA 0.5.14 : colonnes mobiles seulement dans un vrai paysage de surface/caverne, extremite d'ancrage toujours enfouie meme pendant leur oscillation, decor de socle adapte a roche/metal/organique ; suppression des anciennes colonnes de rochers flottant dans l'espace. Nouvelles mines robotiques compactes et fortement blindees : 4 puissances annoncees par blanc, jaune, orange, rouge avec clignotement, luminosite et vibration croissants, compte a rebours de proximite et detonation par contact ou tir. Rayon d'explosion collision en masques AND, density mobile et memoire bornees ; 0.5.13 racines, 0.5.12 correction null, 0.5.11 double tap conserves. Sauvegardes JSON compatibles. APK Android debug autonome sans AAB ; test materiel Samsung reste necessaire." \
+              --title "H-RUSH OMEGA 0.5.15 - colonie organique, fragments rampants et embuscades" \
+              --notes "H-RUSH OMEGA 0.5.15 : nouvelles racines charnues et tentacules geants en Canvas detaille (ventouses, veines, eclats, relief, rendu alpha ET collision AND identiques), attaches reels sous la roche. Les morceaux coupes restent des ennemis : rampent, bondissent ; un tentacule voisin vivant peut aider un fragment a regagner un plafond reel, puis celui-ci attend le vaisseau pour se laisser tomber en embuscade. Machine a etats bornes, jusqu'a six fragments actifs, 23 secondes, aucune fuite de cache. Colonnes mobiles reduites de 11 a 3-4 par region en conservant les IDs/crateres historiques. v0.5.14 mines, v0.5.12 crash et v0.5.11 missiles double-tap conserves. APK debug autonome direct, export JSON conseille ; validation appareil Samsung requise." \
               "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
