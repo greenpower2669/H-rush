@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-import {ENEMY_MORPHS,BOSS_MORPHS,morphFor,bossMorphFor,morphMovement,spawnMovement} from '../src/bestiary.js';
+import {ENEMY_MORPHS,BOSS_MORPHS,morphFor,bossMorphFor,morphMovement,spawnMovement,isLivingAppendage} from '../src/bestiary.js';
 import {SPECIES} from '../src/ecology.js';
 
 const read = p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -43,7 +43,7 @@ test('spawnEnemy actually handles morph-less asteroid species without crashing t
   const context={
     gravityFlight:()=>false,warp:null,terrain:{lastStage:{region:2,phase:'space'},scroll:777,active:false},
     universe:{seed}, biomeFor:()=>({kind:'machine'}),morphFor,bossMorphFor,
-    spriteForMorph:()=>raster(86,62),morphMovement,spawnMovement,
+    spriteForMorph:()=>raster(86,62),morphMovement,spawnMovement,isLivingAppendage,
     mutableAsteroid:()=>raster(56,56),
     ships:{scout:raster(),manta:raster(),boss:raster()},
     offscreenSpawnX:()=>1080,
