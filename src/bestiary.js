@@ -183,7 +183,7 @@ function oval(g,x,y,rx,ry,color,angle=0){
  * suckers, veins and independent branches. Base disappears behind rock tiles.
  * One shared Canvas drives rendering AND 2D impact masks (no hidden hitboxes).
  */
-function paintLivingOrganism(g,m,frame){
+function paintLivingOrganism(g,m,frame,missingArm=-1){
   const w=m.boss?230:158,h=m.boss?244:174;
   const root=m.shape==='root',sign=root?-1:1;
   const baseY=root?h-12:12;
@@ -196,6 +196,7 @@ function paintLivingOrganism(g,m,frame){
   g.save();g.lineCap='round';g.lineJoin='round';
   // Each branch is its own animated cubic with real tapered width.
   for(let i=0;i<arms;i++){
+    if(i===missingArm)continue; // Severed arm no longer exists in actual alpha mask.
     const a=i-(arms-1)*.5;
     const bx=w*.5+a*w*(m.boss?.094:.124);
     const by=baseY;
@@ -306,8 +307,8 @@ export function organicFragmentSprite(morph,frame=0){
   while(fragmentArtCache.size>48)fragmentArtCache.delete(fragmentArtCache.keys().next().value);
   return result;
 }
-function paintMorph(g,m,frame,phase,turretAngle=null){
-  if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame);return;}
+function paintMorph(g,m,frame,phase,turretAngle=null,missingArm=-1){
+  if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame,missingArm);return;}
   const w=m.boss?176:86,h=m.boss?112:62;
   const sway=Math.sin((frame%2)*Math.PI+.35+m.index*.7)*.13;
   const damagePhase=m.boss?bestiaryClamp(Math.floor(phase),0,3):0;
@@ -601,13 +602,14 @@ export function bevelMorphPixels(data,m){
 /** Sprite cache is bounded; frame and phase are part of the immutable source key.
  * Each wounded enemy clones its own edited pixels via damage.js.
  */
-export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
+export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null,missingArm=-1){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
   const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
   const resolvedAngle=turretBucket===null?null:turretBucket*.16;
   const poseFrame=isLivingAppendage(morph)?
     ((Math.floor(frame)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)%ORGANIC_ANIMATION_FRAMES:(frame&1);
-  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
+  const cut=isLivingAppendage(morph)&&missingArm>=0?Math.floor(missingArm):-1;
+  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static')+':cut'+cut;
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const living=isLivingAppendage(morph);
@@ -620,7 +622,7 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
     g.translate(w,0);g.scale(-1,1);
   }
-  paintMorph(g,morph,poseFrame,phase,resolvedAngle);
+  paintMorph(g,morph,poseFrame,phase,resolvedAngle,cut);
   paintSurfaceDetails(g,morph,frame,phase);
   g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
