@@ -802,8 +802,8 @@ function gateSpec(seed,region,which){
   const p=Math.round((legacy?[1930,3330,3840][which]:EXTRA_GATE_OFFSETS[which-3])*REGION_SIZE/LEGACY_REGION_SIZE);
   const full=which===1; // Full crossing remains destructible by the basic laser.
   const f=keyedFloat(seed,region,40+which),biome=biomeFor(seed,region);
-  const amplitude=full?9+f*12:15+f*19;
-  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':biome.kind==='organic'?'organic':which%3===0?'crystal':'rock');
+  const amplitude=full?15+f*19:34+f*31; // stronger visible up/down travel, still bounded
+  const shape=legacy?'legacy':(biome.kind==='machine'?'metal':['organic','garden'].includes(biome.kind)?'organic':which%3===0?'crystal':'rock');
   const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
   const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
   const anchorTop=which===3||which===5||which===7||which===9;
@@ -818,8 +818,24 @@ function gateSpec(seed,region,which){
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
     phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
     material:which===1?'metal':which===0?'crystal':which===2?'basalt':
-      biome.kind==='organic'?'organic':biome.kind==='ice'?'crystal':
+      ['organic','garden'].includes(biome.kind)?'organic':biome.kind==='ice'?'crystal':
       which%3===0?'crystal':which%3===1?'metal':'basalt'};
+}
+/** Mobile columns have a hardened physical cross-section. A shot removes a
+ * smaller TRUE alpha disc, rather than merely painting cosmetic cracks.
+ * The actual reduced radius is persisted as a crater in the same gate ID.
+ * Legacy IDs/scars remain compatible, so older saves are never overwritten.
+ */
+function gateHardness(gate){
+  if(!gate)return 1;
+  if(gate.full)return 1.7;
+  if(gate.shape==='legacy')return 1.85;
+  if(gate.material==='metal')return 3.1;
+  if(gate.material==='organic')return 2.65;
+  return gate.material==='crystal'?2.35:2.8;
+}
+function hardenedGateCraterRadius(gate,baseRadius){
+  return Math.max(5,Math.round(Math.max(1,Number(baseRadius)||1)/gateHardness(gate)));
 }
 function gateY(gate,time){return Math.round(gate.baseY+Math.sin(time*OMEGA_TAU*gate.frequency+gate.phase)*gate.amplitude);}
 /** Staged excavation: basic lasers must work progressively, not open a full gate in one shot. */
@@ -900,6 +916,7 @@ class OmegaTerrain {
     const grad=g.createLinearGradient(0,0,spec.width,0);
     if(material==='metal'){grad.addColorStop(0,'#677598');grad.addColorStop(.18,'#c0d8e3');grad.addColorStop(.47,'#36446d');grad.addColorStop(.78,'#9e9ac2');grad.addColorStop(1,'#4a4366');}
     else if(material==='crystal'){grad.addColorStop(0,'#aeedff');grad.addColorStop(.5,'#7854bf');grad.addColorStop(1,'#33f5e4');}
+    else if(material==='organic'){grad.addColorStop(0,'#8b314d');grad.addColorStop(.22,'#e78ba4');grad.addColorStop(.50,'#3c1835');grad.addColorStop(.78,'#9e4668');grad.addColorStop(1,'#f2ab8f');}
     else {grad.addColorStop(0,'#b7674b');grad.addColorStop(.5,'#543d6a');grad.addColorStop(1,'#fa9562');}
     g.fillStyle=grad;
     if(spec.shape==='legacy'){
@@ -925,7 +942,7 @@ class OmegaTerrain {
       g.closePath();g.fill();
     }
     g.globalCompositeOperation='source-atop';
-    g.fillStyle=material==='crystal'?'#fc7cef':'#f3ac69';
+    g.fillStyle=material==='organic'?'#ff9fc0':material==='crystal'?'#fc7cef':'#f3ac69';
     for(let y=14;y<spec.height;y+=23){g.globalAlpha=.35;g.fillRect(3,y,spec.width-6,2);}
     g.globalAlpha=1;g.globalCompositeOperation='source-over';
     const mask=maskFromImageData(g.getImageData(0,0,spec.width,spec.height));
@@ -979,8 +996,10 @@ class OmegaTerrain {
     let total=0;
     if(hit.kind==='gate'){
       const cx=Math.round(wx-hit.obj.worldX),cy=Math.round(y-hit.screenY);
-      const removed=this.applyDisc(hit.obj,cx,cy,radius);
-      if(removed){record.push(['g:'+hit.obj.id,[cx,cy,radius]]);total+=removed;}
+      // All damage, alpha masks, and saved craters use this same reduced disc.
+      // Unlike an extra invisible HP layer, every visible hole stays physical.
+      const removed=this.applyDisc(hit.obj,cx,cy,hardenedGateCraterRadius(hit.obj,radius));
+      if(removed){record.push(['g:'+hit.obj.id,[cx,cy,hardenedGateCraterRadius(hit.obj,radius)]]);total+=removed;}
     }else{
       const from=Math.max(0,Math.floor((wx-radius)/TILE_SIZE)),to=Math.floor((wx+radius)/TILE_SIZE);
       for(let i=from;i<=to;i++){
@@ -1568,7 +1587,15 @@ const NORMAL_DEFS=[
   ['Drone d’extraction','rover','surface interior','mechanical'],
   ['Fleur carnivore','flower','surface interior','organic'],
   ['Batterie mycélienne','flower','surface interior','organic'],
-  ['Canon racinaire','root','surface interior','organic']
+  ['Canon racinaire','root','surface interior','organic'],
+  ['Racine du cauchemar','root','surface interior','organic'],
+  ['Racine à crocs','root','surface interior','organic'],
+  ['Ronce carnivore','root','surface interior','hybrid'],
+  ['Mycélium dévoreur','root','surface interior','organic'],
+  ['Tentacule aux yeux','tentacle','surface interior','organic'],
+  ['Tentacule à harpons','tentacle','surface interior','hybrid'],
+  ['Bras de l’abîme','tentacle','surface interior','organic'],
+  ['Corde des oubliés','vine','surface interior','organic']
 ];
 const BOSS_DEFS=[
   ['Titan des racines','root','surface interior','organic'],
@@ -1586,16 +1613,32 @@ const BOSS_DEFS=[
   ['Œil cosmique','eye','space atmosphere interior','organic'],
   ['Station exterminatrice','satellite','space exit','mechanical'],
   ['Crabe colossal','crab','surface interior','hybrid'],
-  ['Colosse biomécanique','biomech','interior surface','hybrid']
+  ['Colosse biomécanique','biomech','interior surface','hybrid'],
+  ['Cœur des racines','root','surface interior','organic'],
+  ['Couronne de tentacules','tentacle','surface interior','organic']
 ];
-const ceilingShapes=new Set(['root','vine','tentacle']);
-const groundShapes=new Set(['worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
+const ceilingShapes=new Set(['vine','tentacle']);
+const groundShapes=new Set(['root','worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
 function compile(def,index,boss){
   const [name,shape,phases,family]=def;
   return Object.freeze({id:(boss?'b':'e')+index,index,name,shape,family,boss,
     phases:Object.freeze(phases.split(' ')),
     anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
     hue:(index*47+(boss?14:177))%360});
+}
+/** Deterministic six-pose animated appendages. Real alpha/mask follows the paint. */
+const ORGANIC_ANIMATION_FRAMES=6;
+function isLivingAppendage(morph){
+  return !!morph && ['root','vine','tentacle'].includes(morph.shape);
+}
+function appendagePose(morph,frame=0){
+  const t=((Math.floor(Number(frame)||0)%6)+6)%6*Math.PI/3;
+  const seed=(morph?.index??0)*.61+(morph?.boss?1.25:0);
+  return {bend:Math.sin(t+seed)*(.15+(morph?.boss ? .05 : 0)),
+    curl:Math.cos(t+seed*.8)*.17,
+    extension:.76+.22*(.5+.5*Math.sin(t+seed-1)),
+    warning:Math.sin(t+seed)>.60,
+    nightmare:!!morph?.boss||(morph?.index??0)%3===1};
 }
 const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
@@ -1753,19 +1796,45 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
       break;
     case 'root':
     case 'vine':
-    case 'tentacle':
-      oval(g,-.2,-.76,.47,.22,hull);
-      for(let i=0;i<5;i++){
-        const x=-.75+i*.32;
-        g.beginPath();g.moveTo(x,-.87);
-        g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.15,x+.20,.84);
-        g.lineWidth=.20-(i%2)*.035;g.strokeStyle=hull;g.stroke();
-        g.beginPath();g.moveTo(x,-.84);g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.14,x+.20,.84);
-        g.lineWidth=.045;g.strokeStyle=lit;g.stroke();
+    case 'tentacle': {
+      const pose=appendagePose(m,frame),fromGround=shape==='root';
+      const baseY=fromGround?.91:-.91,sign=fromGround?-1:1;
+      oval(g,0,baseY,.71,.16,dark);oval(g,0,baseY,.55,.115,hull);
+      for(let i=0;i<(m.boss?7:5);i++){
+        const t=i-(m.boss?3:2),x=t*(m.boss?.22:.28);
+        const bend=pose.bend*(1+Math.abs(t)*.14)+Math.sin(m.index*.4+i)*.065;
+        const thickness=(i%2===0?.23:.16)*(m.boss?1.13:1);
+        const tx=x+bend*.9+pose.curl*.38;
+        const ty=baseY+sign*(1.05+.55*pose.extension+(i%2?.08:-.10));
+        g.beginPath();g.moveTo(x,baseY);
+        g.bezierCurveTo(x+bend*.28,baseY+sign*.46,
+          tx-pose.curl*.5,baseY+sign*.97,tx,ty);
+        g.lineWidth=thickness;g.strokeStyle=dark;g.stroke();
+        g.lineWidth=thickness*.76;g.strokeStyle=hull;g.stroke();
+        g.lineWidth=.026;g.strokeStyle=lit;g.stroke();
+        for(let k=1;k<=3;k++){
+          const q=k/4,cx=x+(tx-x)*q+Math.sin(q*Math.PI)*bend*.14;
+          const cy=baseY+(ty-baseY)*q;
+          oval(g,cx,cy,.075,.06,k%2?metal:dark);
+          oval(g,cx,cy,.027,.028,lit);
+          if(!fromGround&&i%2===0)oval(g,cx+.09,cy,.038,.062,metal,.5);
+        }
+        oval(g,tx,ty,.095,.09,dark);
+        oval(g,tx+.012,ty,.046,.043,pose.warning?'#ffdfaa':lit);
+        if(pose.nightmare)
+          strokeShape(g,[[tx-.10,ty],[tx-.045,ty+sign*.12],[tx+.035,ty+sign*.03],
+            [tx+.10,ty+sign*.13],[tx+.12,ty]],metal);
       }
-      if(shape==='tentacle')for(let i=0;i<4;i++)oval(g,-.5+i*.25,.15+.15*(i%2),.065,.048,metal);
-      if(shape==='vine')for(let i=0;i<4;i++)oval(g,-.6+i*.37,.17,.18,.09,lit,.65+i*.3);
+      oval(g,pose.bend*.28,baseY+sign*.42,.19,.22,dark);
+      oval(g,pose.bend*.28,baseY+sign*.42,.10,.125,pose.warning?'#ffd2b2':lit);
+      if(pose.nightmare){
+        oval(g,pose.bend*.28,baseY+sign*.47,.06,.09,'#16091c');
+        for(let k=-1;k<=1;k++)
+          strokeShape(g,[[k*.12-.02,baseY+sign*.38],
+            [k*.12,baseY+sign*.52],[k*.12+.06,baseY+sign*.40]],metal);
+      }
       break;
+    }
     case 'worm':
     case 'crawler':
       for(let i=0;i<6;i++){
@@ -1939,7 +2008,9 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
   const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
   const resolvedAngle=turretBucket===null?null:turretBucket*.16;
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
+  const poseFrame=isLivingAppendage(morph)?
+    ((Math.floor(frame)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)%ORGANIC_ANIMATION_FRAMES:(frame&1);
+  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
@@ -1950,7 +2021,7 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
     g.translate(w,0);g.scale(-1,1);
   }
-  paintMorph(g,morph,frame,phase,resolvedAngle);
+  paintMorph(g,morph,poseFrame,phase,resolvedAngle);
   paintSurfaceDetails(g,morph,frame,phase);
   g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
@@ -3257,7 +3328,11 @@ function updateSpriteAnimations(dt=.016) {
         ballisticSolution(enemy,player):null;
       enemy.cannonAngle=cannon?.angle??null;
       const phase=enemy.kind==='boss'?enemy.bossPhase:0;
-      const base=spriteForMorph(enemy.morph,Math.floor(enemy.age*6)&1,phase,
+      // Six real articulated alpha masks for living roots and hanging tentacles.
+      // Other enemies retain their cheaper two-frame animation.
+      const organicFrame=isLivingAppendage(enemy.morph)?
+        Math.floor(enemy.age*8+enemy.phase*.3)%6:Math.floor(enemy.age*6)&1;
+      const base=spriteForMorph(enemy.morph,organicFrame,phase,
         cannon?cannon.angle-(enemy.hullPitch||0):null);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
       if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
@@ -3443,7 +3518,10 @@ function spawnRock(profile,y,x=null){
   const s=robot?sentinelSprite(stats.size,profile.seed):rockSprite(profile.size,profile.seed);
   const posY=clamp(y,16,H-s.height-16),posX=x??offscreenSpawnX(W,s.width);
   if(!warp && [0,52,105].some(shift=>terrain.collideEntity({sprite:s,x:posX-shift,y:posY})))return false;
-  const hp=robot?stats.hp:Math.max(1,Math.ceil(profile.size/18));
+  // Obstruction-column formations are deliberate durable cover, not the
+  // fragility of passing space pebbles. HP is bounded to protect game pacing.
+  const hp=Math.min(95,Math.ceil((robot?stats.hp:Math.max(1,Math.ceil(profile.size/18)))*
+    (profile.column===true?3.2:1)));
   enemies.push({kind:'asteroid',robot,column:profile.column===true,rockType:profile.kind,rockDepth:profile.depth||0,rockSeed:profile.seed,
     species:robot?{weapon:'aimed',fireRate:.85}:null,sprite:s,x:posX,y:posY,
     vx:robot?-stats.speed:-profile.speed,vy:robot?0:(profile.vy||0),mass:profile.mass||1,
@@ -3566,6 +3644,10 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     phase:rand(0,TAU),fire:rand(.8,2.4),age:0,hue:0,
     blockedTime:0,drillCooldown:0,bossPhase:0,bossPhases,
     hullPitch:0,cannonAngle:null,biteClock:0,
+    // Appendages are fixed to a WORLD-space surface, not sliding across it.
+    // They move left only because the universe scrolls under the ship.
+    worldAnchorX:morph&&['root','vine','tentacle'].includes(morph.shape)?
+      terrain.scroll+position.x:null,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
@@ -3999,7 +4081,10 @@ function update(dt) {
       rock?motion.y-enemy.y:anchorMove!==null?anchorMove:
       enemy.species?movementDelta(enemy.species,enemy.age,enemy.phase,enemy.y,player.y,dt):
       enemy.kind==='manta'||enemy.kind==='boss'?Math.sin(enemy.age*3+enemy.phase)*16*dt:0;
-    const moveX=rock?motion.x-enemy.x:enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
+    const moveX=rock?motion.x-enemy.x:
+      enemy.worldAnchorX!==null&&Number.isFinite(enemy.worldAnchorX)?
+        enemy.worldAnchorX-terrain.scroll-enemy.x:
+        enemy.vx*movementSpeedScale(enemy.species,enemy.age,enemy.phase)*dt;
     // No planetary collision inside the brief warp tunnel; every other ship is AND-tested.
     const navigation=warp?{trapped:false,blocked:false}:
       advanceEnemyOnTerrain(enemy,terrain,moveX,moveY);
