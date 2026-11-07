@@ -66,3 +66,24 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 
 ## OMEGA 0.5.3 — atmosphère en translation seule
 - `src/omega-visuals.js` : `atmosphereGlobePosition(local,W,H)` calcule un globe de rayon fixe, déjà formé hors écran, translate droite→gauche de l'approche à la sortie, puis disparaît seulement quand son halo est totalement hors champ. `tests/omega-053-atmosphere-globe.test.js` : diamètre invariant, centres monotones, continuité aux seuils, absence de rendu hors champ et HTML autonome synchronisé.
+
+## OMEGA 0.5.4 — cohérence horizon et rythme
+- `src/omega-visuals.js` : sortie de la bulle après la terre, taille fixe et brouillard prolongé. `src/bonuses.js` : `bonusDropAllowed` et cadence plafonnée.
+- `src/omega-events.js` : `warpExitWorld`, `offscreenSpawnX`, portails près du sol réel ; `src/game.js` : décor portail discret, retour espace, distribution clairsemée et colonnes derrière la géologie. `src/omega-terrain.js` : barrières dessinées derrière le vrai terrain.
+- `tests/omega-054-visual-pacing.test.js` : géologie/halo, bonus, warp spatial, occultation, apparition hors écran et progression de la difficulté.
+
+## OMEGA 0.5.5 — détourage et richesses des créatures
+- `src/art.js` : `cleanFrameMatte` avant création des masques, suppression des fonds opaques rectangulaires par flood-fill bordé.
+- `src/bestiary.js` : 49 ennemis morphologiques et 16 boss, peintres Canvas à silhouettes distinctes, cache 140, variantes 2 frames, boss 4 phases ; `src/ecology.js` : 52 rôles combattants, et `src/game.js` : attaches au relief / sauts et tirs différenciés.
+- `tests/atlas-clean-055.test.js` et `tests/bestiary-055.test.js` : matte alpha, identité, sélections déterministes, contrôles boss/combat et intégration source/standalone.
+
+## OMEGA 0.5.6 — visée tactile deux doigts
+- `src/two-finger-aim.js` : `acquireTwoFingerTarget` (plafond/sol/air), `twoFingerAimPoint` (corrections X/Y), `twoFingerNoseShot` (vrai nez et vecteur dynamique), `guidedMissileVelocity`, sélection d'un pixel opaque survivant du masque AND.
+- `src/game.js` : second `pointerId` autonome, missile initial, visée continue laser/missile, marqueur de cible visuel, relâchement, angle du projectile ±π sans changer l'inclinaison réelle du vaisseau ; `index.html` / HTML autonome documentent le geste.
+- `tests/two-finger-aim-056.test.js` : 10 tests de comportement et géométrie ; 134/134 tests complets avec run GitHub Actions `42265215991`.
+
+
+- **OMEGA 0.5.15 — `src/living-organics.js`** : FSM bornée des morceaux organiques coupés, secours par un voisin, réancrage et embuscade. `src/bestiary.js` : rendus organiques plus grands et vrai bras manquant dans l'alpha/masque AND. `src/omega-terrain.js` : colonnes rares (3–4 emplacements possibles sur 11 IDs), toutes sauvegardes intactes. Tests `tests/living-colony-065.test.js`, état/QA dans `todo.md`.
+
+
+- **OMEGA 0.5.16 — organismes ancrés très résistants** : `src/living-organics.js` (`organicDurability`, `organicSurfaceY`) ; `src/bestiary.js` (12 poses organiques, `organicArmWave`, bulbes sous le bord rocheux) ; `src/game.js` (ancrage fixe sans éviction par sa propre roche). `tests/heavy-organic-066.test.js`, suivi QA dans `todo.md`.
