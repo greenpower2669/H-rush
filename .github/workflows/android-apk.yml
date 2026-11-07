@@ -1,7 +1,7 @@
 name: Ash Rush OMEGA - Android APK de test uniquement
 on:
   push:
-    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106]
+    branches: [main, feature/omega-048-progression-parallaxe-20261106, feature/omega-049-tilt-axes-20261106, feature/omega-050-ecologie-warp-debris-20261106, feature/omega-051-sentinelles-hover-downwash-20261106, feature/omega-052-incandescence-15pct-20261106, feature/omega-053-transit-atmosphere-fixed-globe-20261106, feature/omega-054-atmosphere-warp-obstacles-bonus-20261106, feature/omega-055-bestiary-frames-bosses-20261106, feature/omega-056-double-touch-aim-20261106, feature/omega-057-ground-and-ballistics-worms-20261106, feature/omega-058-double-tap-visual-pass-20261106, fix/omega-059-webview-crash-recovery-20261106, feature/omega-060-manual-aim-default-20261106, fix/omega-061-secondary-double-tap-only-20261106, fix/omega-062-null-morph-spawn-20261107, feature/omega-063-nightmare-organics-fortified-gates-20261107, feature/omega-064-anchored-columns-robot-mines-20261107, feature/omega-065-living-colony-rescue-ambush-20261107]
     paths:
       - 'android-app/**'
       - 'src/**'
@@ -87,6 +87,30 @@ jobs:
           assert 'function portalPosition' in html and 'function moveDebris' in html
           assert 'function pitchSprite' in html and 'function hoverPlume' in html and 'function sentinelStats' in html
           assert 'function atmosphereGlobePosition' in html
+          assert 'function warpExitWorld' in html and 'function bonusDropAllowed' in html
+          assert 'function spriteForMorph' in html and 'function cleanFrameMatte' in html
+          assert 'function spawnMovement(morph,speciesMovement=' in html
+          assert 'function appendagePose(morph,frame=0)' in html
+          assert 'function gateHardness(gate)' in html
+          assert 'function drawRobotMine(enemy)' in html
+          assert 'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
+          assert 'function organicFragmentSprite(morph,frame=0)' in html
+          assert 'function stepOrganicFragment(f,actors,player,environment,dt)' in html
+          assert 'function spawnOrganicFragment(parent,impact)' in html
+          assert 'const sparse=which===0' in html
+          assert 'function mineSpec(seed,region,encounter' in html
+          assert 'function detonateRobotMine(enemy)' in html
+          assert 'this.drawGateSetting(ctx,gate,x)' in html
+          assert 'if(!spec.enabled||spec.worldX' in html
+          assert 'hardenedGateCraterRadius(hit.obj,radius)' in html
+          assert 'movement:spawnMovement(morph,species.movement)' in html
+          assert "morph?.anchor!=='air'?morphMovement(morph)" not in html
+          assert 'class TouchMissileGestures' in html and 'function paintSurfaceDetails' in html
+          assert 'function twoFingerNoseShot' in html and 'function acquireTwoFingerTarget' in html
+          assert 'function missileAutofocusVelocity' in html and 'id="autofocusToggle"' in html
+          assert 'function stopBrokenFrame' in html and 'id="crashPanel"' in html
+          assert 'function gnawTerrainByAnd' in html and 'function ballisticSolution' in html
+          assert 'function groundPitchByAnd' in html and 'MAX_ENEMY_DAMAGE_FRAMES=12' in html
           assert 'function burnHoleLimited' in html and 'MAX_ENEMY_CUT_FRACTION = .15' in html
           assert 'id="highScore"' in html and 'id="endRecord"' in html
           assert 'function atmosphericHeat' in html and 'function drawAtmosphericHeat' in html
@@ -126,6 +150,16 @@ jobs:
           test -s android-app/app/src/main/assets/assets/branding/h-rush-splash-16x9.webp
           test -s android-app/app/src/main/assets/assets/sprites/atlas.png
           test -s android-app/app/src/main/assets/assets/audio/spacefortress/kinetic_release.wav
+      - name: Vérifier la récupération du moteur Android et le mode mémoire
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          java=Path('android-app/app/src/main/java/fr/fab/ashrush/MainActivity.java').read_text()
+          for key in ('onRenderProcessGone(', 'removeView(view)', 'view.destroy();',
+                      'showRendererRecovery()', 'lowMemoryMode()', 'lastRendererIssue()'):
+            assert key in java, key
+          PY
       - name: Compiler APK de test uniquement
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
@@ -133,11 +167,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HRush-Omega-v0.5.3-atmosphere-translation-debug.apk
+          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
           cp android-app/app/build/outputs/apk/debug/app-debug.apk "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -8
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='53' versionName='0.5.3'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='fr.fab.ashrush.omegaimmersion' versionCode='65' versionName='0.5.15'"
           unzip -Z1 "$APK" > /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/ash-rush-standalone.html' /tmp/ashrush-omega-entries.txt
           grep -Fx 'assets/assets/sprites/atlas.png' /tmp/ashrush-omega-entries.txt
@@ -150,7 +184,7 @@ jobs:
           for song in space_echo.ogg action_a.mp3 battle.mp3 horror.mp3; do grep -Fx "assets/assets/music/djipie/$song" /tmp/ashrush-omega-entries.txt; done
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('HRush-Omega-v0.5.3-atmosphere-translation-debug.apk') as apk:
+          with zipfile.ZipFile('HRush-Omega-v0.5.15-living-colony-ambush-debug.apk') as apk:
             html=apk.read('assets/ash-rush-standalone.html')
             assert b'class OmegaTerrain' in html and b'class OmegaUniverse' in html
             assert b'function gateY' in html and b'window.__ASH_RUSH_ATLAS__=' in html
@@ -172,6 +206,23 @@ jobs:
             assert b'function portalPosition' in html and b'function moveDebris' in html
             assert b'function pitchSprite' in html and b'function hoverPlume' in html and b'function sentinelStats' in html
             assert b'function atmosphereGlobePosition' in html
+            assert b'function warpExitWorld' in html and b'function bonusDropAllowed' in html
+            assert b'function spriteForMorph' in html and b'function cleanFrameMatte' in html
+            assert b'function spawnMovement(morph,speciesMovement=' in html
+            assert b'function appendagePose(morph,frame=0)' in html
+            assert b'function gateHardness(gate)' in html
+            assert b'function drawRobotMine(enemy)' in html
+            assert b'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
+            assert b'function stepOrganicFragment(f,actors,player,environment,dt)' in html
+            assert b'function mineSpec(seed,region,encounter' in html
+            assert b'function detonateRobotMine(enemy)' in html
+            assert b'movement:spawnMovement(morph,species.movement)' in html
+            assert b'class TouchMissileGestures' in html and b'function bevelMorphPixels' in html
+            assert b'function twoFingerNoseShot' in html and b'function acquireTwoFingerTarget' in html
+            assert b'function missileAutofocusVelocity' in html and b'id="autofocusToggle"' in html
+            assert b'function stopBrokenFrame' in html and b'id="crashPanel"' in html
+            assert b'function gnawTerrainByAnd' in html and b'function ballisticSolution' in html
+            assert b'function groundPitchByAnd' in html and b'MAX_ENEMY_DAMAGE_FRAMES=12' in html
             assert b'function burnHoleLimited' in html and b'MAX_ENEMY_CUT_FRACTION = .15' in html
             assert b'id="highScore"' in html and b'id="endRecord"' in html
             assert b'function atmosphericHeat' in html and b'function drawAtmosphericHeat' in html
@@ -184,7 +235,9 @@ jobs:
           test "$(stat -c %s "$APK")" -gt 5500000
           sha256sum "$APK" > SHA256SUMS.txt
       - name: Publier uniquement APK direct sur GitHub Releases
-        if: github.event_name == 'push'
+        # Only the named first-party crash-fix PR may publish a preview after all checks.
+        # Untrusted forks and unrelated pull requests retain read-only QA.
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/omega-065-living-colony-rescue-ambush-20261107') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -193,19 +246,19 @@ jobs:
           set -euo pipefail
           # A final tagged Release on main; keep separate feature previews intact.
           if [ "$GITHUB_REF_NAME" = "main" ]; then
-            TAG=v0.5.3
+            TAG=v0.5.15
             RELEASE_FLAGS=()
           else
-            TAG=v0.5.3-atmosphere-translation-preview
+            TAG=v0.5.15-living-colony-ambush-preview
             RELEASE_FLAGS=(--prerelease)
           fi
-          APK=HRush-Omega-v0.5.3-atmosphere-translation-debug.apk
+          APK=HRush-Omega-v0.5.15-living-colony-ambush-debug.apk
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" SHA256SUMS.txt --clobber
           else
             gh release create "$TAG" "$APK" SHA256SUMS.txt \
-              --title "H-RUSH OMEGA 0.5.3 - atmosphère fixe en translation" \
-              --notes "H-RUSH OMEGA 0.5.3 : la planète et sa grande bulle atmosphérique restent à diamètre constant avant, pendant et après la traversée ; elles arrivent depuis la droite déjà formées, passent devant la fenêtre par simple translation latérale puis sortent entièrement à gauche. Suppression du zoom qui faisait grossir et diminuer la bulle. Aucun pop à l'entrée/sortie, trajectoire déterministe monotone, globe caché seulement quand son halo entier est hors champ. Tous les progrès 0.5.2 préservés (limite 15% de trous incandescents, robots, pilotage gravitationnel, moteur AND, portails, sauvegarde JSON). APK de test autonome, aucun AAB. Vérifier qualité sur Samsung et signature Debug de mise à jour." \
+              --title "H-RUSH OMEGA 0.5.15 - colonie organique, fragments rampants et embuscades" \
+              --notes "H-RUSH OMEGA 0.5.15 : nouvelles racines charnues et tentacules geants en Canvas detaille (ventouses, veines, eclats, relief, rendu alpha ET collision AND identiques), attaches reels sous la roche. Les morceaux coupes restent des ennemis : rampent, bondissent ; un tentacule voisin vivant peut aider un fragment a regagner un plafond reel, puis celui-ci attend le vaisseau pour se laisser tomber en embuscade. Machine a etats bornes, jusqu'a six fragments actifs, 23 secondes, aucune fuite de cache. Colonnes mobiles reduites de 11 a 3-4 par region en conservant les IDs/crateres historiques. v0.5.14 mines, v0.5.12 crash et v0.5.11 missiles double-tap conserves. APK debug autonome direct, export JSON conseille ; validation appareil Samsung requise." \
               "${RELEASE_FLAGS[@]}" --target "$RELEASE_HEAD"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
