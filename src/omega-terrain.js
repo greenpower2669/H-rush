@@ -62,16 +62,30 @@ export function gateSpec(seed,region,which){
   const amplitude=full?15+f*19:34+f*31; // stronger visible up/down travel, still bounded
   const shape=legacy?'legacy':(biome.kind==='machine'?'metal':['organic','garden'].includes(biome.kind)?'organic':which%3===0?'crystal':'rock');
   const width=legacy?(full?40:58):(52+Math.round(keyedFloat(seed,region,70+which)*44));
-  const height=legacy?(full?620:340):(110+Math.round(keyedFloat(seed,region,80+which)*210));
-  const anchorTop=which===3||which===5||which===7||which===9;
-  const localBounds=legacy?null:terrainBounds(seed,region*REGION_SIZE+p);
-  // Attach to the actual local ceiling/floor, never to the physical screen edge:
-  // in a cavern the hazard MUST protrude into the flyable corridor.
-  const baseY=legacy?(full?-40:which===0?-75:230):
-    anchorTop?(localBounds.top<0?-30:Math.round(localBounds.top-height*.54)):
-    localBounds.bottom>WORLD_H?(WORLD_H-height+20):Math.round(localBounds.bottom-height*.46);
+  const height=legacy?(full?620:340):
+    Math.max(480,110+Math.round(keyedFloat(seed,region,80+which)*210));
+  const worldX=region*REGION_SIZE+p;
+  const mid=terrainBounds(seed,worldX+width*.5);
+  const left=terrainBounds(seed,worldX+4),right=terrainBounds(seed,worldX+width-4);
+  // Only genuine floor/ceiling landscapes may hold a moving column.
+  // Atmosphere, exit and space must NEVER inherit the old floating hazards.
+  const eligible=(mid.phase==='surface'||mid.phase==='interior');
+  const floorSupported=[mid,left,right].every(v=>v.bottom<WORLD_H-28);
+  const ceilingSupported=[mid,left,right].every(v=>v.top>36);
+  const enabled=eligible&&(floorSupported||ceilingSupported);
+  const preferCeiling=which===3||which===5||which===7||which===9;
+  const anchorTop=ceilingSupported&&(preferCeiling||!floorSupported);
+  const anchor=anchorTop?'ceiling':'ground';
+  // The attachment end stays INSIDE rock even at the maximum excursion.
+  // Legacy sprite dimensions and scar IDs remain intact across upgrades.
+  const intrusion=full?WORLD_H+40:legacy?228:181+Math.round(f*48);
+  const floor=Math.max(mid.bottom,left.bottom,right.bottom);
+  const ceiling=Math.min(mid.top,left.top,right.top);
+  const baseY=full?-40:
+    anchorTop?Math.round(ceiling+intrusion-height):
+    Math.round(floor-intrusion);
   return {id:legacy?region*3+which:10000000+region*16+which,
-    worldX:region*REGION_SIZE+p,width,height,baseY,
+    worldX,width,height,baseY,enabled,anchor,contactY:anchorTop?ceiling:floor,
     amplitude,frequency:0.35+keyedFloat(seed,region,50+which)*0.55,
     phase:keyedFloat(seed,region,60+which)*OMEGA_TAU,full,shape,
     material:which===1?'metal':which===0?'crystal':which===2?'basalt':
@@ -226,7 +240,7 @@ export class OmegaTerrain {
     const a=[];
     for(let region=Math.max(0,first);region<=last;region++)for(let type=0;type<GATE_TYPES;type++){
       const spec=this.specs(region)[type];
-      if(spec.worldX + spec.width < x0 || spec.worldX>x1)continue;
+      if(!spec.enabled||spec.worldX + spec.width < x0 || spec.worldX>x1)continue;
       a.push(this.gate(region,type));
     }
     return a;
@@ -288,13 +302,35 @@ export class OmegaTerrain {
     const p=hit.result.first;
     return p?{x:Math.round(p.x+this.scroll),y:p.y,screenX:p.x,screenY:p.y,kind:hit.kind}:null;
   }
+  drawGateSetting(ctx,gate,x){
+    const at=gate.contactY;
+    if(!Number.isFinite(at))return;
+    const material=gate.material;
+    ctx.save();
+    ctx.globalAlpha=.82;
+    ctx.fillStyle=material==='organic'?'#683150':
+      material==='metal'?'#536b79':material==='crystal'?'#7661a5':'#66536a';
+    const cx=x+gate.width*.5;
+    // This broad attachment disappears into the actual solid tile at the
+    // bottom (or roof), while the mouth remains visible in the corridor.
+    ctx.beginPath();
+    ctx.ellipse(cx,at,gate.width*.79,22,0,0,OMEGA_TAU);
+    ctx.fill();
+    ctx.globalAlpha=.9;
+    ctx.strokeStyle=material==='organic'?'#ff9eae':material==='metal'?'#7de8ef':'#edae8c';
+    ctx.lineWidth=3;
+    ctx.beginPath();ctx.ellipse(cx,at,gate.width*.66,11,0,0,OMEGA_TAU);ctx.stroke();
+    ctx.restore();
+  }
   draw(ctx,viewportWidth){
     const lo=Math.max(0,Math.floor(this.scroll/TILE_SIZE));
     const hi=Math.ceil((this.scroll+viewportWidth)/TILE_SIZE);
-    // Moving gates appear off-screen and pass BEHIND the actual terrain image.
-    // The geometry and the AND collision of the gates and ground stay unchanged.
+    // Every mobile column has a geological / mechanical socket. Settings
+    // are decorative and drawn UNDER the exact terrain AND pixels; the actual
+    // obstacle is exclusively the mask of its animated translated raster.
     for(const gate of this.visibleGates(this.scroll-110,this.scroll+viewportWidth+110)){
       const x=Math.round(gate.worldX-this.scroll),y=gateY(gate,this.time);
+      this.drawGateSetting(ctx,gate,x);
       ctx.drawImage(gate.image,x,y);
     }
     for(let i=lo;i<=hi;i++){
