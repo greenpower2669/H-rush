@@ -8,12 +8,13 @@ import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { morphFor, bossMorphFor, spriteForMorph, morphMovement, spawnMovement, isLivingAppendage, bossWeapons } from './bestiary.js';
+import { ENEMY_MORPHS, BOSS_MORPHS, morphFor, bossMorphFor, spriteForMorph, organicFragmentSprite, morphMovement, spawnMovement, isLivingAppendage, bossWeapons } from './bestiary.js';
 import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
 import { mineSpec, mineBeacon, mineMotion, mineNearPlayer, mineFused } from './robot-mines.js';
+import { ORGANIC_FRAGMENT_LIMIT, organicSeverDue, stepOrganicFragment } from './living-organics.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
@@ -166,13 +167,13 @@ function useArt(frames) {
     if (frames[kind]?.length) ships[kind] = frames[kind][0];
   }
   if (player){player.baseSprite=ships.player;player.sprite=ships.player;}
-  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
+  for (const enemy of enemies) if (enemy.kind !== 'asteroid' && !enemy.mine && !enemy.fragment && !enemy.morph) switchDamagedFrame(enemy,ships[enemy.kind]);
 }
 function updateSpriteAnimations(dt=.016) {
   const frame = Math.max(0, Math.floor(elapsed * 11));
   if(artFrames)player.baseSprite = artFrames.player[frame % artFrames.player.length];
   for (const enemy of enemies) {
-    if (enemy.kind === 'asteroid'||enemy.kind === 'mine') continue; // Individually mutable alpha; not atlas frames.
+    if (enemy.kind === 'asteroid'||enemy.kind === 'mine'||enemy.fragment) continue; // Individually mutable alpha; not atlas frames.
     if(enemy.morph){
       const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
         isGroundCreature(enemy.morph);
@@ -572,8 +573,19 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     return spawnRock(p,player.y+player.sprite.height*.5-p.size*.5+offset);
   }
   const stage=terrain.lastStage,biome=biomeFor(universe.seed,stage.region);
-  const morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
+  let morph=kind==='boss'?bossMorphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):
     (species&&kind!=='asteroid'?morphFor(universe.seed,stage.region,stage.phase,spawnCount,biome.kind):null);
+  // A hanging tentacle MUST have an actual ceiling. Surface scenes without
+  // overhangs get a seeded ground-root variant, never an appendage in the sky.
+  const preview=terrainBounds(universe.seed,terrain.scroll+W+160);
+  if(morph?.anchor==='ceiling'&&preview.top<40){
+    const collection=kind==='boss'?BOSS_MORPHS:ENEMY_MORPHS;
+    const grounded=collection.filter(m=>m.shape==='root'&&m.phases.includes(stage.phase));
+    if(grounded.length){
+      const k=Math.floor(keyedFloat(universe.seed,stage.region*100000+spawnCount,2367)*grounded.length);
+      morph=grounded[Math.min(grounded.length-1,k)];
+    }else return false;
+  }
   const s=morph?spriteForMorph(morph,0):kind==='asteroid'?mutableAsteroid():ships[kind];
   const spawnX=offscreenSpawnX(W,s.width,70);
   const world=terrain.scroll+spawnX+s.width*.5,bounds=terrainBounds(universe.seed,world);
@@ -584,8 +596,11 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
   // Probe physical raster/AND collisions; wrong-size sprites do not phase through rock.
   const position=safeEnemySpawn(terrain,s,spawnX,preferredY);
   if(!position)return false;
+  // A creature without contact with rock is not allowed to float as a decal.
+  if(isLivingAppendage(morph)&&anchorY!==null&&Math.abs(position.y-preferredY)>27)return false;
   const hp=kind==='boss'?Math.round(35*(1+(bossPhases-1)*.14)):
-    species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2);
+    (isLivingAppendage(morph)?Math.max(5,species?.hp||0):
+      species?.hp??(kind==='asteroid'?5:kind==='manta'?3:2));
   const combat=kind==='boss'?{name:morph.name,weapon:bossWeapons(morph,0),
     movement:morphMovement(morph),fireRate:1}:species?{...species,
       // Asteroid species intentionally have no morphology; optional chaining
@@ -598,12 +613,46 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     hullPitch:0,cannonAngle:null,biteClock:0,
     // Appendages are fixed to a WORLD-space surface, not sliding across it.
     // They move left only because the universe scrolls under the ship.
-    worldAnchorX:morph&&['root','vine','tentacle'].includes(morph.shape)?
-      terrain.scroll+position.x:null,
+    worldAnchorX:isLivingAppendage(morph)?terrain.scroll+position.x:null,
+    severCount:0,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active)alignByTerrainAnd(terrain,spawned,anchor,95);
   return true;
+}
+/** Cut-off pieces survive: they can crawl, leap, be carried by a living
+ * ceiling neighbor, reattach and then drop on the player's approach.
+ * Each piece gets its OWN mutable alpha so AND NOT wounds are never shared.
+ */
+function spawnOrganicFragment(parent,impact){
+  if(!parent?.morph||warp||enemies.length>=20||
+      enemies.filter(e=>e.fragment&&e.hp>0).length>=ORGANIC_FRAGMENT_LIMIT)return false;
+  const form=parent.morph,source=organicFragmentSprite(form,Math.floor(parent.age*8)&1);
+  const s=copyDamageSprite(source);
+  const x=clamp(impact.x-s.width*.52,-8,W+125);
+  const y=clamp(impact.y-s.height*.45,24,H-s.height-15);
+  const pos=safeEnemySpawn(terrain,s,x,y,{lookAhead:[0],searchStep:9});
+  if(!pos)return false;
+  enemies.push({kind:'organic-fragment',fragment:true,
+    origin:form.shape==='root'?'root':'tentacle',
+    state:'fall',stateAge:0,ttl:23,helper:null,worldAnchorX:null,
+    sprite:s,x:pos.x,y:pos.y,vx:0,vy:38,age:0,
+    hp:3,maxHp:3,sourceSprite:s,phase:0,species:{weapon:'none'}});
+  particlesAt(impact.x,impact.y,'hull',12);
+  shockwaves.push({x:impact.x,y:impact.y,life:.23,age:0,size:13,color:'#ed65a6'});
+  return true;
+}
+function drawRescueLink(f){
+  if(f.state!=='rescue'||!f.helper||f.helper.hp<=0)return;
+  const h=f.helper;
+  const x0=h.x+h.sprite.width*.52,y0=h.y+h.sprite.height*.77;
+  const x1=f.x+f.sprite.width*.5,y1=f.y+f.sprite.height*.5;
+  ctx.save();ctx.lineCap='round';
+  ctx.globalAlpha=.65;ctx.lineWidth=5;ctx.strokeStyle='#39172f';
+  ctx.beginPath();ctx.moveTo(x0,y0);
+  ctx.bezierCurveTo(x0-12,y0+32,x1+23,y1-33,x1,y1);ctx.stroke();
+  ctx.lineWidth=1.8;ctx.strokeStyle='#ed7fbe';ctx.stroke();
+  ctx.restore();
 }
 function particlesAt(x,y,kind='spark',count=18,dx=0) {
   const colors = kind==='shield'?['#7bfbff','#c3ffff','#748bff']:kind==='motor'?['#ffad53','#ffd072','#fff7b4']:kind==='wing'?['#ff76e7','#e6d0ff','#fff6af']:['#ffe77e','#ffffff','#ff7a9c','#75f7ff'];
@@ -765,8 +814,8 @@ function hitEnemy(enemy,r) {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
-    if(enemy.kind==='asteroid'||enemy.kind==='mine'){
-      burnHoleLimited(enemy.sprite,px,py,enemy.kind==='mine'?2:enemy.robot?3:9,
+    if(enemy.kind==='asteroid'||enemy.kind==='mine'||enemy.fragment){
+      burnHoleLimited(enemy.sprite,px,py,enemy.fragment?3:enemy.kind==='mine'?2:enemy.robot?3:9,
         Number.isFinite(enemy.maxHp)&&enemy.maxHp>0 ? 1-(enemy.hp-1)/enemy.maxHp : 0);
       particlesAt(point.x,point.y,'motor',12);
     }else{
@@ -797,6 +846,10 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
+  if(organicSeverDue(enemy)&&point&&spawnOrganicFragment(enemy,point)){
+    enemy.severCount=1;
+    enemy.visualDirty=true;
+  }
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
   if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
   if(enemy.hp<=0){
@@ -811,7 +864,7 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:epicentre.x,y:epicentre.y,life:enemy.robot?.26:.58,age:0,
       size:enemy.robot?16:enemy.kind==='boss'?75:34,color:enemy.robot?'#83e5fa':'#ffb062'});
     sound.play(enemy.robot?'impact':'explosion');
-    dropBonus(enemy);
+    if(!enemy.fragment)dropBonus(enemy);
     if(warp&&enemy.kind==='asteroid')warp.broken++;
     if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.rockType&&enemy.rockDepth<2&&enemy.sprite.width>=36&&enemy.x>player.x+100){
       const fragments=splitAsteroid(enemy.sprite.width,enemy.rockSeed??.5,enemy.rockDepth);
@@ -823,7 +876,7 @@ function hitEnemy(enemy,r) {
         spawnRock(profile,enemy.y+enemy.sprite.height*.5-shard.size*.5+shard.angle*14,enemy.x+15+i*9);
       }
     }
-    reward(enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
+    reward(enemy.fragment?45:enemy.kind==='boss'?3000:enemy.kind==='manta'?220:100);
     kills++;
     if(enemy.kind==='boss'){bossActive=false;wave++;msg('BOSS DÉTRUIT ! ✨',3);}
     enemies.splice(enemies.indexOf(enemy),1);
@@ -1012,6 +1065,20 @@ function update(dt) {
   }
   for(const enemy of enemies){
     enemy.age+=dt;
+    if(enemy.fragment){
+      const world=terrain.scroll+enemy.x+enemy.sprite.width*.5;
+      const bounds=terrainBounds(universe.seed,Math.max(0,world));
+      const motion=stepOrganicFragment(enemy,enemies,player,{
+        floor:bounds.bottom,ceiling:bounds.top,scroll:terrain.scroll},dt);
+      if(motion.expired){enemy.hp=0;continue;}
+      const nav=advanceEnemyOnTerrain(enemy,terrain,motion.dx,motion.dy,{stepSize:5});
+      if(nav.trapped){enemy.hp=0;continue;}
+      // Crawlers follow the exact surviving solid alpha, not a decorative
+      // floor curve. If a neighboring ceiling rescues them they climb instead.
+      if(enemy.state==='crawl')alignByTerrainAnd(terrain,enemy,'ground',30);
+      if(enemy.x< -enemy.sprite.width)enemy.hp=0;
+      continue;
+    }
     if(enemy.mine){
       const step=mineMotion(enemy,player,dt);
       if(!warp){
@@ -1197,6 +1264,9 @@ function render() {
     const portal=nearbyPortal();
     if(portal)drawHiddenPortal(portal);
     for(const enemy of enemies)if(enemy.column)drawEntity(enemy);
+    // Ground roots and ceiling tentacles are BEHIND the real rocky matte,
+    // so their bases naturally disappear inside the ground or ceiling.
+    for(const enemy of enemies)if(isLivingAppendage(enemy.morph))drawEntity(enemy);
     terrain.draw(ctx, W);
   }
   for(const item of powerups){
@@ -1204,9 +1274,10 @@ function render() {
     drawEntity(item,.88+.12*Math.sin(elapsed*7+item.variant));
   }
   for(const rocket of missiles)drawEntity(rocket);
-  for(const enemy of enemies)if(warp||!enemy.column){
+  for(const enemy of enemies)if(warp||(!enemy.column&&!isLivingAppendage(enemy.morph))){
     if(enemy.mine)drawRobotMine(enemy);
     else drawEntity(enemy);
+    if(enemy.fragment)drawRescueLink(enemy);
   }
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
