@@ -401,3 +401,17 @@
 - [ ] Essais Samsung : mines visible en phases spatiales, blanc/jaune/orange/rouge et avertissement lisible, collision/contact/proximité, explosion, aucun tir d'ennemi accidentel, difficulté/taux de rencontres et performances.
 - [ ] Essais des colonnes sur terrain planétaire/cavernes et anciens univers sauvegardés : jamais d'extrémité d'ancrage flottante lors des oscillations, décor cohérent, cratères persistants et passages équitables après destruction.
 - [ ] Fusion de la PR en attente d'autorisation, pas d'AAB.
+
+
+## H-RUSH OMEGA 0.5.15 — colonie organique, fragments vivants et entraide (07/11/2026)
+- [x] Créer branche dédiée `feature/omega-065-living-colony-rescue-ambush-20261107` basée sur la 0.5.14, sans modifier `main`, sans écraser les sauvegardes ni les correctifs antérieurs.
+- [x] Refaire le rendu procédural de `root` / `tentacle` / `vine` en 158×174 px (boss 230×244) : multiples bras Bézier animés, peau violette/noire en dégradés, reflets, ventouses, lueurs, crocs/épines et gonflements d'ancrage. Masque AND recalculé exactement depuis les mêmes pixels alpha pour chacune des six poses.
+- [x] Interdire les tentacules sans plafond réel : morphologie de repli vers des racines enracinées, déterministe par graine de monde ; dessiner les racines/tentacules sous la véritable couche de terrain pour masquer leur implantation.
+- [x] À l'impact, lorsqu'un appendice a perdu suffisamment de PV, un bras disparaît du sprite source et de son masque AND, et un véritable fragment indépendant est créé avec sa propre image/mask, PV et limite de vie. Au maximum un détachement par parent et six fragments vivants au total.
+- [x] `src/living-organics.js` : fragments tombent, rampent, bondissent, peuvent être récupérés par un AUTRE tentacule vivant proche, remontent progressivement au plafond, se réancrent par AND et en coordonnées monde, attendent le vaisseau puis tombent dessus ; retombent si le sauveteur disparaît ; expiration au bout de 23 s ; aucun fragment de fragment.
+- [x] Colonnes mobiles raréfiées : 3–4 emplacements activables par région au lieu des 11, sans changement de leur ID historique, de leurs cicatrices ni de leurs règles de résistance.
+- [x] Écrire les tests de la FSM, du sauvetage, de l'embuscade et des formes réelles ; maintenir les anciens tests de crash et de collisions.
+- [x] Version 0.5.15/code65, source Android autonome régénérable, workflow de préversion APK directe.
+- [ ] Obtenir CI verte complète sur le dernier commit (tests, HTML reconstruit octet pour octet identique, build et signature Android, vérification asset Release et SHA256).
+- [ ] Validation visuelle sur Samsung : nouvelles matières proches du rendu de référence, vrai ancrage des racines et tentacules, coupure visible, rampement, soulevé par voisin, embuscade, cycles de FPS/RAM en milieu dense ; équilibrage de difficulté et fréquence.
+- [ ] Aucune fusion dans `main` ni AAB sans demande explicite. Avant une nouvelle installation Android, exporter l'univers JSON et contrôler la signature Debug.
