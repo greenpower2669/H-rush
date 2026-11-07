@@ -16,6 +16,7 @@ test('the reported null morphology in region 2 space preserves the asteroid spec
     assert.equal(spawnMovement(undefined,role.movement),role.movement);
   }
   assert.equal(spawnMovement(null),'weave','missing movement has a bounded fallback');
+  assert.equal(morphMovement(null),'weave','defensive barrier for future missing-morph callers');
 });
 test('all airborne morphs keep ecological movement; anchored morphs override appropriately',()=>{
   for(const morph of [...ENEMY_MORPHS,...BOSS_MORPHS]){
