@@ -54,7 +54,15 @@ const NORMAL_DEFS=[
   ['Drone d’extraction','rover','surface interior','mechanical'],
   ['Fleur carnivore','flower','surface interior','organic'],
   ['Batterie mycélienne','flower','surface interior','organic'],
-  ['Canon racinaire','root','surface interior','organic']
+  ['Canon racinaire','root','surface interior','organic'],
+  ['Racine du cauchemar','root','surface interior','organic'],
+  ['Racine à crocs','root','surface interior','organic'],
+  ['Ronce carnivore','root','surface interior','hybrid'],
+  ['Mycélium dévoreur','root','surface interior','organic'],
+  ['Tentacule aux yeux','tentacle','surface interior','organic'],
+  ['Tentacule à harpons','tentacle','surface interior','hybrid'],
+  ['Bras de l’abîme','tentacle','surface interior','organic'],
+  ['Corde des oubliés','vine','surface interior','organic']
 ];
 const BOSS_DEFS=[
   ['Titan des racines','root','surface interior','organic'],
@@ -72,16 +80,32 @@ const BOSS_DEFS=[
   ['Œil cosmique','eye','space atmosphere interior','organic'],
   ['Station exterminatrice','satellite','space exit','mechanical'],
   ['Crabe colossal','crab','surface interior','hybrid'],
-  ['Colosse biomécanique','biomech','interior surface','hybrid']
+  ['Colosse biomécanique','biomech','interior surface','hybrid'],
+  ['Cœur des racines','root','surface interior','organic'],
+  ['Couronne de tentacules','tentacle','surface interior','organic']
 ];
-const ceilingShapes=new Set(['root','vine','tentacle']);
-const groundShapes=new Set(['worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
+const ceilingShapes=new Set(['vine','tentacle']);
+const groundShapes=new Set(['root','worm','crawler','beetle','tank','rover','walker','turret','tower','fortress','spider','flower']);
 function compile(def,index,boss){
   const [name,shape,phases,family]=def;
   return Object.freeze({id:(boss?'b':'e')+index,index,name,shape,family,boss,
     phases:Object.freeze(phases.split(' ')),
     anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
     hue:(index*47+(boss?14:177))%360});
+}
+/** Deterministic six-pose animated appendages. Real alpha/mask follows the paint. */
+export const ORGANIC_ANIMATION_FRAMES=6;
+export function isLivingAppendage(morph){
+  return !!morph && ['root','vine','tentacle'].includes(morph.shape);
+}
+export function appendagePose(morph,frame=0){
+  const t=((Math.floor(Number(frame)||0)%6)+6)%6*Math.PI/3;
+  const seed=(morph?.index??0)*.61+(morph?.boss?1.25:0);
+  return {bend:Math.sin(t+seed)*(.15+(morph?.boss ? .05 : 0)),
+    curl:Math.cos(t+seed*.8)*.17,
+    extension:.76+.22*(.5+.5*Math.sin(t+seed-1)),
+    warning:Math.sin(t+seed)>.60,
+    nightmare:!!morph?.boss||(morph?.index??0)%3===1};
 }
 export const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 export const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
@@ -239,19 +263,45 @@ function paintMorph(g,m,frame,phase,turretAngle=null){
       break;
     case 'root':
     case 'vine':
-    case 'tentacle':
-      oval(g,-.2,-.76,.47,.22,hull);
-      for(let i=0;i<5;i++){
-        const x=-.75+i*.32;
-        g.beginPath();g.moveTo(x,-.87);
-        g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.15,x+.20,.84);
-        g.lineWidth=.20-(i%2)*.035;g.strokeStyle=hull;g.stroke();
-        g.beginPath();g.moveTo(x,-.84);g.bezierCurveTo(x+.18+sway,-.38,x-.25-sway,.14,x+.20,.84);
-        g.lineWidth=.045;g.strokeStyle=lit;g.stroke();
+    case 'tentacle': {
+      const pose=appendagePose(m,frame),fromGround=shape==='root';
+      const baseY=fromGround?.91:-.91,sign=fromGround?-1:1;
+      oval(g,0,baseY,.71,.16,dark);oval(g,0,baseY,.55,.115,hull);
+      for(let i=0;i<(m.boss?7:5);i++){
+        const t=i-(m.boss?3:2),x=t*(m.boss?.22:.28);
+        const bend=pose.bend*(1+Math.abs(t)*.14)+Math.sin(m.index*.4+i)*.065;
+        const thickness=(i%2===0?.23:.16)*(m.boss?1.13:1);
+        const tx=x+bend*.9+pose.curl*.38;
+        const ty=baseY+sign*(1.05+.55*pose.extension+(i%2?.08:-.10));
+        g.beginPath();g.moveTo(x,baseY);
+        g.bezierCurveTo(x+bend*.28,baseY+sign*.46,
+          tx-pose.curl*.5,baseY+sign*.97,tx,ty);
+        g.lineWidth=thickness;g.strokeStyle=dark;g.stroke();
+        g.lineWidth=thickness*.76;g.strokeStyle=hull;g.stroke();
+        g.lineWidth=.026;g.strokeStyle=lit;g.stroke();
+        for(let k=1;k<=3;k++){
+          const q=k/4,cx=x+(tx-x)*q+Math.sin(q*Math.PI)*bend*.14;
+          const cy=baseY+(ty-baseY)*q;
+          oval(g,cx,cy,.075,.06,k%2?metal:dark);
+          oval(g,cx,cy,.027,.028,lit);
+          if(!fromGround&&i%2===0)oval(g,cx+.09,cy,.038,.062,metal,.5);
+        }
+        oval(g,tx,ty,.095,.09,dark);
+        oval(g,tx+.012,ty,.046,.043,pose.warning?'#ffdfaa':lit);
+        if(pose.nightmare)
+          strokeShape(g,[[tx-.10,ty],[tx-.045,ty+sign*.12],[tx+.035,ty+sign*.03],
+            [tx+.10,ty+sign*.13],[tx+.12,ty]],metal);
       }
-      if(shape==='tentacle')for(let i=0;i<4;i++)oval(g,-.5+i*.25,.15+.15*(i%2),.065,.048,metal);
-      if(shape==='vine')for(let i=0;i<4;i++)oval(g,-.6+i*.37,.17,.18,.09,lit,.65+i*.3);
+      oval(g,pose.bend*.28,baseY+sign*.42,.19,.22,dark);
+      oval(g,pose.bend*.28,baseY+sign*.42,.10,.125,pose.warning?'#ffd2b2':lit);
+      if(pose.nightmare){
+        oval(g,pose.bend*.28,baseY+sign*.47,.06,.09,'#16091c');
+        for(let k=-1;k<=1;k++)
+          strokeShape(g,[[k*.12-.02,baseY+sign*.38],
+            [k*.12,baseY+sign*.52],[k*.12+.06,baseY+sign*.40]],metal);
+      }
       break;
+    }
     case 'worm':
     case 'crawler':
       for(let i=0;i<6;i++){
@@ -425,7 +475,9 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(!morph||!morph.id)throw new RangeError('Unknown enemy morphology');
   const turretBucket=Number.isFinite(turretAngle)?Math.round(turretAngle/.16):null;
   const resolvedAngle=turretBucket===null?null:turretBucket*.16;
-  const key=morph.id+':'+(frame&1)+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
+  const poseFrame=isLivingAppendage(morph)?
+    ((Math.floor(frame)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)%ORGANIC_ANIMATION_FRAMES:(frame&1);
+  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const w=morph.boss?176:86,h=morph.boss?112:62;
@@ -436,7 +488,7 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null){
   if(morph.anchor==='air'||morph.shape==='worm'||morph.shape==='crawler'){
     g.translate(w,0);g.scale(-1,1);
   }
-  paintMorph(g,morph,frame,phase,resolvedAngle);
+  paintMorph(g,morph,poseFrame,phase,resolvedAngle);
   paintSurfaceDetails(g,morph,frame,phase);
   g.setTransform(1,0,0,1,0,0);
   const data=g.getImageData(0,0,w,h);
