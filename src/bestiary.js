@@ -120,6 +120,9 @@ export function spawnMovement(morph,speciesMovement='weave'){
   return morphMovement(morph);
 }
 export function morphMovement(profile){
+  // Defense in depth: future callers must not stop the animation loop just
+  // because a procedurally spawned enemy has no dedicated morphology.
+  if(!profile)return 'weave';
   if(profile.anchor==='ceiling')return 'ceiling';
   if(profile.shape==='worm')return 'jump';
   if(profile.anchor==='ground')return profile.shape==='rover'||profile.shape==='tank'?'patrol':'ground';
