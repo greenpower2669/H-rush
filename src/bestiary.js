@@ -122,6 +122,59 @@ export function organicArmWave(morph,frame,arm){
     tip:Math.sin(phase+1.30)*.40,
     thrust:Math.sin(phase+.90)*.15};
 }
+
+/** Shared Bézier geometry: paint AND wound reprojection always use the SAME curve. */
+export function livingArmCount(m){return m?.boss?7:5;}
+export function livingArmGeometry(m,frame,arm){
+  const w=m.boss?230:158,h=m.boss?244:174;
+  const sign=m.shape==='root'?-1:1,baseY=sign<0?h+18:-18;
+  const a=arm-(livingArmCount(m)-1)*.5;
+  const bx=w*.5+a*w*(m.boss?.094:.124),by=baseY;
+  const fork=Math.sin(arm*1.68+m.index*.32);
+  const wave=organicArmWave(m,frame,arm),pose=appendagePose(m,frame);
+  const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
+  const length=h*(.74+(arm%3)*.055+wave.thrust)*pose.extension;
+  const ty=baseY+sign*length;
+  const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
+  const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
+  return {bx,by,tx,ty,c1,c2,width:(m.boss?25:19)-(arm%3)*3.2,fork};
+}
+function bezierLocal(g,t){
+  const u=1-t;return {
+    x:u*u*u*g.bx+3*u*u*t*g.c1[0]+3*u*t*t*g.c2[0]+t*t*t*g.tx,
+    y:u*u*u*g.by+3*u*u*t*g.c1[1]+3*u*t*t*g.c2[1]+t*t*t*g.ty
+  };
+}
+/** Material point stays attached to ONE arm, even when it crosses another. */
+export function livingMaterialPosition(m,frame,scar){
+  if(!scar||!Number.isInteger(scar.arm))return null;
+  const g=livingArmGeometry(m,frame,scar.arm);
+  const t=Math.max(0,Math.min(1,scar.t)),p=bezierLocal(g,t);
+  const a=bezierLocal(g,Math.max(0,t-.012)),b=bezierLocal(g,Math.min(1,t+.012));
+  const len=Math.max(1e-6,Math.hypot(b.x-a.x,b.y-a.y));
+  const offset=(scar.offset||0)*g.width;
+  return {x:p.x-(b.y-a.y)/len*offset,y:p.y+(b.x-a.x)/len*offset};
+}
+/** Convert actual AND hit pixel into animated Bézier material coordinates. */
+export function livingMaterialHit(m,frame,x,y,missingArms=[]){
+  let best=null,dist=Infinity;
+  const missing=new Set(Array.isArray(missingArms)?missingArms:[missingArms]);
+  for(let arm=0;arm<livingArmCount(m);arm++){
+    if(missing.has(arm))continue;
+    const g=livingArmGeometry(m,frame,arm);
+    for(let i=0;i<=60;i++){
+      const t=i/60,p=bezierLocal(g,t),d=Math.hypot(x-p.x,y-p.y);
+      if(d<dist&&d<g.width*.85+4){
+        const a=bezierLocal(g,Math.max(0,t-.012)),b=bezierLocal(g,Math.min(1,t+.012));
+        const len=Math.max(1e-6,Math.hypot(b.x-a.x,b.y-a.y));
+        best={arm,t,offset:Math.max(-.85,Math.min(.85,((x-p.x)*(-(b.y-a.y))+(y-p.y)*(b.x-a.x))/len/g.width))};
+        dist=d;
+      }
+    }
+  }
+  return best;
+}
+
 export const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 export const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
 const affinity=Object.freeze({
@@ -213,20 +266,8 @@ function paintLivingOrganism(g,m,frame,missingArm=-1){
   g.save();g.lineCap='round';g.lineJoin='round';
   // Each branch is its own animated cubic with real tapered width.
   for(let i=0;i<arms;i++){
-    if(i===missingArm)continue; // Severed arm no longer exists in actual alpha mask.
-    const a=i-(arms-1)*.5;
-    const bx=w*.5+a*w*(m.boss?.094:.124);
-    const by=baseY;
-    const fork=Math.sin(i*1.68+m.index*.32);
-    const wave=organicArmWave(m,frame,i);
-    // The attachment barely moves, while the elbow and tip swing out of
-    // phase, like a muscular tentacle traveling its bend down the shaft.
-    const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
-    const length=h*(.74+(i%3)*.055+wave.thrust)*pose.extension;
-    const ty=baseY+sign*length;
-    const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
-    const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
-    const width=(m.boss?25:19)-(i%3)*3.2;
+    if((Array.isArray(missingArm)?missingArm.includes(i):i===missingArm))continue; // Missing arms are absent from raster AND mask.
+    const {bx,by,tx,ty,c1,c2,width,fork}=livingArmGeometry(m,frame,i);
     const trace=(offset=0)=>{
       g.beginPath();g.moveTo(bx+offset,by);
       g.bezierCurveTo(c1[0]+offset,c1[1],c2[0]+offset,c2[1],tx+offset,ty);
@@ -629,8 +670,8 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null,missingArm
   const resolvedAngle=turretBucket===null?null:turretBucket*.16;
   const poseFrame=isLivingAppendage(morph)?
     ((Math.floor(frame)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)%ORGANIC_ANIMATION_FRAMES:(frame&1);
-  const cut=isLivingAppendage(morph)&&missingArm>=0?Math.floor(missingArm):-1;
-  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static')+':cut'+cut;
+  const cut=isLivingAppendage(morph)?(Array.isArray(missingArm)?[...new Set(missingArm)].sort((a,b)=>a-b):missingArm>=0?[Math.floor(missingArm)]:[]):[];
+  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static')+':cut'+cut.join('-');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const living=isLivingAppendage(morph);
@@ -649,7 +690,7 @@ export function spriteForMorph(morph,frame=0,phase=0,turretAngle=null,missingArm
   const data=g.getImageData(0,0,w,h);
   bevelMorphPixels(data,morph); // RGB only: preserve exact opaque bits.
   g.putImageData(data,0,0);
-  const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
+  const s={image,width:w,height:h,mask:maskFromImageData(data,42),organicFrame:living?poseFrame:null,cutArms:cut};
   spriteCache.set(key,s);
   while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
   return s;
