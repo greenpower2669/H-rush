@@ -362,3 +362,14 @@
 - [x] GitHub Actions [42302055667](https://github.com/greenpower2669/H-rush/actions/runs/42302055667) **163/163 tests**, HTML autonome identique, APK Android signé/package/ressources validés, publication préversion réussie : [APK direct 0.5.11](https://github.com/greenpower2669/H-rush/releases/download/v0.5.11-double-tap-only-preview/HRush-Omega-v0.5.11-double-tap-only-debug.apk). SHA-256 à vérifier via le fichier `SHA256SUMS.txt` joint à la Release (debug non reproductible bit à bit).
 - [ ] QA Samsung en paysage : premier doigt maintenu + deuxième doigt posé puis déplacé, double-tap rapide de chaque doigt, alternance droite/gauche et orientation, retour depuis arrière-plan ; vérifier aucune dépense sur simple pose du deuxième doigt et exactement une dépense par double-tap.
 - [ ] Vérifier compatibilité de la signature de mise à jour sans désinstallation, exporter l'univers JSON au préalable ; ne pas fusionner les PR sans accord explicite ; aucun AAB.
+
+
+## H-RUSH OMEGA 0.5.12 — correctif crash morphologie nulle (7 novembre 2026)
+- [x] Lire le diagnostic réel transmis depuis le téléphone : `TypeError: Cannot read properties of null (reading 'anchor')`, chaîne `morphMovement → spawnEnemy → update → frame`, région 2, phase `space`, 2 ennemis et 17 projectiles.
+- [x] Identifier la condition fautive : `morph?.anchor !== 'air'` donne `true` pour `null` ; les espèces astéroïdes emploient volontairement des sprites physiques sans morphologie, puis ce chemin appelle `morphMovement(null)`.
+- [x] Ajouter `spawnMovement(morph,species.movement)` : conserver le déplacement écologique des espèces sans morphologie et des morphs aériens ; appliquer `morphMovement` uniquement aux morphs ancrés au sol/plafond. Défense supplémentaire pour `morphMovement(null)`.
+- [x] Test d'intégration de `spawnEnemy` avec les véritables espèces astéroïdes en phase `space` région 2 ; tests de toutes les morphologies/biomes/phases sur un ensemble de régions, vérification du bundle autonome ; préserver collisions AND et touchez double-tap de la 0.5.11.
+- [x] Mise à jour version 0.5.12/code 62, source+HTML autonome, workflow de vérification et préversion APK directe depuis une branche dédiée ; aucune fusion dans `main`.
+- [ ] Confirmer GitHub Actions : tests Node, correspondance octet par octet de l'HTML autonome, Gradle APK signé, vérification des ressources, publication APK et SHA-256 ; ne donner le lien qu'après vérification.
+- [ ] QA réelle Samsung : rejouer au moins jusqu'à la région 2 puis poursuivre avec plusieurs apparitions astéroïdes (zone `space`), vérifier absence d'écran d'erreur, durée de partie, stabilité des missiles au double-tap et sauvegarde univers.
+- [ ] Avant toute mise à jour/désinstallation, exporter l'univers JSON ; contrôler compatibilité de signature Debug. Aucune fusion de PR ni AAB sans autorisation.
