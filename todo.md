@@ -415,3 +415,15 @@
 - [x] CI verte [42397428297](https://github.com/greenpower2669/H-rush/actions/runs/42397428297) : **189/189 tests**, HTML standalone reconstruit octet pour octet identique, compilation Android 0.5.15/code65, signature et assets vérifiés ; [prérelease APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.15-living-colony-ambush-preview/HRush-Omega-v0.5.15-living-colony-ambush-debug.apk) publié (~14 Mo), SHA256SUMS.txt joint à la Release. Essais Samsung physiques toujours ouverts.
 - [ ] Validation visuelle sur Samsung : nouvelles matières proches du rendu de référence, vrai ancrage des racines et tentacules, coupure visible, rampement, soulevé par voisin, embuscade, cycles de FPS/RAM en milieu dense ; équilibrage de difficulté et fréquence.
 - [ ] Aucune fusion dans `main` ni AAB sans demande explicite. Avant une nouvelle installation Android, exporter l'univers JSON et contrôler la signature Debug.
+
+
+## H-RUSH OMEGA 0.5.16 — tentacules très résistants, ancrage invisible et ondulations (07/11/2026)
+- [x] Isoler la correction sur `fix/omega-066-heavy-organics-hidden-roots-20261107` à partir de la 0.5.15 ; aucune modification de main.
+- [x] Rehausser fortement les PV réellement consommés par les tirs : racines 85–150, tentacules/vignes 145–220, boss organiques 330–450. Garder les dégâts alpha AND, l'arrachement d'une seule branche et les fragments indépendants.
+- [x] Éliminer les bourrelets d'attache exposés : racine corporelle dessinée sous la limite inférieure du sprite, tentacule ancré au-dessus ; placer les extrémités vivantes contre le véritable sol/plafond de `terrainBounds`, jamais dans l'espace, et préserver l'ordre de dessin derrière la matte rocheuse. Supprimer les déplacements qui décollent la base du relief (pas de `advanceEnemyOnTerrain` pour les organismes fixés).
+- [x] Passer les vraies silhouettes organiques de six à douze poses alphamasquées, ondes de flexion décalées pour chaque bras, coude et pointe qui évoluent avec une phase propre, tout en gardant le pied presque immobile.
+- [x] Tests : résilience, vraie sélection de l'ancrage géologique et l'appel `spawnEnemy` d'origine, animation déterministe/variété de pose, conservation des règles collision ET des sauvegardes.
+- [x] Préparer Android 0.5.16/code66, HTML offline embarqué strictement identique, GitHub Actions en préversion APK directe.
+- [ ] Vérifier CI finale : tests Node, rebuild HTML identique, Gradle, certificat, SHA256SUMS.txt et asset APK non zippé réellement présent sur Release.
+- [ ] QA Samsung indispensable : vue en jeu des bases invisibles près des parois irrégulières, ondulation naturelle, FPS/RAM en biome dense, résistance réelle des organiques, fragments et secours, absence de régression sur les mines et missiles.
+- [ ] Pas de fusion dans main, ni AAB, sans accord de Fab.
