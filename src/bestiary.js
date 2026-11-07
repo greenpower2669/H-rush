@@ -93,19 +93,34 @@ function compile(def,index,boss){
     anchor:ceilingShapes.has(shape)?'ceiling':groundShapes.has(shape)?'ground':'air',
     hue:(index*47+(boss?14:177))%360});
 }
-/** Deterministic six-pose animated appendages. Real alpha/mask follows the paint. */
-export const ORGANIC_ANIMATION_FRAMES=6;
+/** Twelve real, independent wave poses, with masks from the exact painted alpha.
+ * Base of each limb is fixed: its traveling wave grows toward its tip.
+ */
+export const ORGANIC_ANIMATION_FRAMES=12;
 export function isLivingAppendage(morph){
   return !!morph && ['root','vine','tentacle'].includes(morph.shape);
 }
 export function appendagePose(morph,frame=0){
-  const t=((Math.floor(Number(frame)||0)%6)+6)%6*Math.PI/3;
+  const t=((Math.floor(Number(frame)||0)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)
+    %ORGANIC_ANIMATION_FRAMES*Math.PI*2/ORGANIC_ANIMATION_FRAMES;
   const seed=(morph?.index??0)*.61+(morph?.boss?1.25:0);
-  return {bend:Math.sin(t+seed)*(.15+(morph?.boss ? .05 : 0)),
-    curl:Math.cos(t+seed*.8)*.17,
-    extension:.76+.22*(.5+.5*Math.sin(t+seed-1)),
+  return {bend:Math.sin(t+seed)*(.31+(morph?.boss ? .08 : 0)),
+    curl:Math.cos(t+seed*.8)*.35,
+    extension:.73+.24*(.5+.5*Math.sin(t+seed-1)),
     warning:Math.sin(t+seed)>.60,
     nightmare:!!morph?.boss||(morph?.index??0)%3===1};
+}
+/** More movement without making the base float: a traveling wave propagates
+ * from a nearly fixed attachment toward independently swinging tips.
+ */
+export function organicArmWave(morph,frame,arm){
+  const t=((Math.floor(Number(frame)||0)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)
+    %ORGANIC_ANIMATION_FRAMES*Math.PI*2/ORGANIC_ANIMATION_FRAMES;
+  const phase=t+arm*1.17+(morph?.index||0)*.28;
+  return {root:Math.sin(phase-.65)*.09,
+    elbow:Math.sin(phase+.35)*.32,
+    tip:Math.sin(phase+1.30)*.40,
+    thrust:Math.sin(phase+.90)*.15};
 }
 export const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 export const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
@@ -186,7 +201,9 @@ function oval(g,x,y,rx,ry,color,angle=0){
 function paintLivingOrganism(g,m,frame,missingArm=-1){
   const w=m.boss?230:158,h=m.boss?244:174;
   const root=m.shape==='root',sign=root?-1:1;
-  const baseY=root?h-12:12;
+  // The fleshy root-knot itself is OUTSIDE the paintable sprite, inside
+  // the rock. Only its animated tendrils enter the visible corridor.
+  const baseY=root?h+18:-18;
   const pose=appendagePose(m,frame),arms=m.boss?7:5;
   const palette=(m.index%4);
   const skin=['#652545','#51223f','#421c42','#692539'][palette];
@@ -201,10 +218,14 @@ function paintLivingOrganism(g,m,frame,missingArm=-1){
     const bx=w*.5+a*w*(m.boss?.094:.124);
     const by=baseY;
     const fork=Math.sin(i*1.68+m.index*.32);
-    const tx=Math.max(17,Math.min(w-17,bx+fork*w*.24+pose.bend*w*.92));
-    const ty=baseY+sign*(h*(.61+(i%3)*.075)*pose.extension);
-    const c1=[bx+pose.bend*w*.20,baseY+sign*h*.23];
-    const c2=[tx-pose.curl*w*.52+fork*w*.12,baseY+sign*h*.50];
+    const wave=organicArmWave(m,frame,i);
+    // The attachment barely moves, while the elbow and tip swing out of
+    // phase, like a muscular tentacle traveling its bend down the shaft.
+    const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
+    const length=h*(.74+(i%3)*.055+wave.thrust)*pose.extension;
+    const ty=baseY+sign*length;
+    const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
+    const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
     const width=(m.boss?25:19)-(i%3)*3.2;
     const trace=(offset=0)=>{
       g.beginPath();g.moveTo(bx+offset,by);
