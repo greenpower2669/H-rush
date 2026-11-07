@@ -2,6 +2,33 @@
  * Pure state logic: gameplay collision and rendering stay in game.js.
  * The helper must be a DIFFERENT living ceiling tentacle and remain alive.
  */
+/** Heavy rooted organisms are encounter obstacles, not disposable 2-HP ships.
+ * Numbers are intentionally substantial but finite, so the player can still
+ * excavate and defeat one. Severing remains a single event per organism.
+ */
+export function organicDurability(morph,baselineHp=1){
+  if(!morph||!['tentacle','vine','root'].includes(morph.shape))return baselineHp;
+  const base=Math.max(1,Number(baselineHp)||1);
+  if(morph.boss)return Math.min(450,Math.ceil(Math.max(330,base*9)));
+  if(morph.shape==='root')return Math.min(150,Math.ceil(Math.max(85,base*17)));
+  return Math.min(220,Math.ceil(Math.max(145,base*24)));
+}
+/** Clip the swollen origin BEHIND its own geological paroi. The large painted
+ * organism has no visible bulb in its sprite; the upper/lower limb pixels
+ * meet the true rock edge without adding an invisible fake collision.
+ */
+export function organicSurfaceY(morph,bounds,height){
+  if(!morph||!bounds||!Number.isFinite(height))return null;
+  if(morph.anchor==='ceiling'){
+    if(!Number.isFinite(bounds.top)||bounds.top<40||bounds.top>=540)return null;
+    return Math.round(bounds.top+1);
+  }
+  if(morph.anchor==='ground'){
+    if(!Number.isFinite(bounds.bottom)||bounds.bottom>512||bounds.bottom<=35)return null;
+    return Math.round(bounds.bottom-height-1);
+  }
+  return null;
+}
 export const ORGANIC_FRAGMENT_LIMIT=6;
 export const ORGANIC_STATES=Object.freeze(['fall','crawl','lunge','rescue','ambush','drop']);
 const bound=(x,a,b)=>Math.max(a,Math.min(b,x));
