@@ -104,9 +104,9 @@ test('the original morphs retain correct attachment and high-detail silhouette i
   assert.ok(ENEMY_MORPHS.filter(x=>x.shape==='root').every(x=>x.anchor==='ground'));
   assert.ok(ENEMY_MORPHS.filter(x=>x.shape==='tentacle').every(x=>x.anchor==='ceiling'));
   assert.ok(BOSS_MORPHS.some(x=>x.shape==='tentacle'));
-  for(const token of ['function paintLivingOrganism(g,m,frame)', 'function organicFragmentSprite(morph,frame=0)',
-    'maskFromImageData(data,42)','maskFromImageData(data,42)', 'g.bezierCurveTo(', 'g.createLinearGradient(',
-    'g.createRadialGradient(', "if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame);return;}",
+  for(const token of ['function paintLivingOrganism(g,m,frame,missingArm=-1)', 'function organicFragmentSprite(morph,frame=0)',
+    'maskFromImageData(data,42)', 'g.bezierCurveTo(', 'g.createLinearGradient(',
+    'g.createRadialGradient(', "if(isLivingAppendage(m)){paintLivingOrganism(g,m,frame,missingArm);return;}",
     "const w=living?(morph.boss?230:158)", "const h=living?(morph.boss?244:174)"]){
     assert.ok(art.includes(token),token);
   }
@@ -140,6 +140,9 @@ test('game enforces roof for ceiling tentacles and the Android bundle includes r
     }
   }
   assert.ok(html.includes('function rescueHelper(fragment,actors)'));
+  assert.ok(html.includes('if(i===missingArm)continue'));
+  assert.ok(src.includes('enemy.severArm=Math.max(0'));
+  assert.ok(src.includes('enemy.severArm??-1'));
   assert.ok(html.includes('function organicFragmentSprite(morph,frame=0)'));
   assert.ok(!src.includes('if(enemy.kind !== \'asteroid\' && !enemy.morph)'));
 });
