@@ -78,8 +78,6 @@ test('every visible moving gate stays in a true ground or ceiling biome',()=>{
     const phase=terrainBounds(SEED,g.worldX+g.width*.5).phase;
     if(!g.enabled){
       excluded++;
-      assert.ok(!['surface','interior'].includes(phase)||
-        (!terrainBounds(SEED,g.worldX).top || true));
       continue;
     }
     active++;
