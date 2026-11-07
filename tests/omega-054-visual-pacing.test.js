@@ -60,12 +60,15 @@ test('bonus reward policy stops previous fragment flood, enforces cooldown and o
   assert.equal(bonusDropAllowed({...base,kind:'boss',roll:.30}),true);
   assert.equal(bonusDropAllowed({...base,hearts:1,roll:.12}),true);
 });
-test('moving columns form outside viewport and are visibly occluded by the rock raster',()=>{
+test('moving columns are backed by terrain and free-floating asteroid columns were removed',()=>{
   assert.ok(offscreenSpawnX(960,68,64)-68>960);
-  assert.ok(obstructionColumn(seed,3,21,260).length>0);
+  assert.ok(obstructionColumn(seed,3,21,260).length>0,
+    'historic utility is still available, but deliberately not spawned by game');
   const game=read('src/game.js'),terrain=read('src/omega-terrain.js');
-  assert.match(game,/column:true/);
-  assert.match(game,/if\(enemy\.column\)drawEntity\(enemy\);[\s\S]*terrain\.draw\(ctx, W\)/);
+  assert.doesNotMatch(game,/column:true/,'no free-floating column formations');
+  assert.match(game,/spawnRobotMine\(stage\)/);
+  assert.match(terrain,/if\(!spec\.enabled\|\|spec\.worldX/);
+  assert.match(terrain,/this\.drawGateSetting\(ctx,gate,x\)/);
   const draw=terrain.slice(terrain.indexOf('  draw(ctx,viewportWidth)'));
   assert.ok(draw.indexOf('for(const gate of this.visibleGates')<draw.indexOf('for(let i=lo;i<=hi;i++)'));
   assert.match(game,/const spawnX=offscreenSpawnX\(W,s\.width,70\)/);
