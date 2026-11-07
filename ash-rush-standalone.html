@@ -3319,9 +3319,13 @@ function updateSpriteAnimations(dt=.016) {
       const grounded=!warp&&terrain.active&&gravityFlight(terrain.lastStage.phase)&&
         isGroundCreature(enemy.morph);
       if(grounded){
-        enemy.hullPitch=enemy.morph.anchor==='ground'?
-          groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
-          Math.sin(enemy.age*1.5+enemy.phase)*.085;
+        // Organic feet/tendon roots must keep their attachment flush with the
+        // physical terrain. Their own segmented alpha frames provide the sway;
+        // rotating the entire sprite would tear them off the surface.
+        enemy.hullPitch=isLivingAppendage(enemy.morph)?0:
+          enemy.morph.anchor==='ground'?
+            groundPitchByAnd(terrain,enemy,enemy.hullPitch||0,dt):
+            Math.sin(enemy.age*1.5+enemy.phase)*.085;
       }else enemy.hullPitch=0;
       // Articulate the REAL barrel and build its AND mask before hull rotation.
       const cannon=grounded&&isBallisticTurret(enemy.morph)?
