@@ -93,7 +93,7 @@ jobs:
           assert 'function appendagePose(morph,frame=0)' in html
           assert 'function gateHardness(gate)' in html
           assert 'function drawRobotMine(enemy)' in html
-          assert 'function paintLivingOrganism(g,m,frame)' in html
+          assert 'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
           assert 'function organicFragmentSprite(morph,frame=0)' in html
           assert 'function stepOrganicFragment(f,actors,player,environment,dt)' in html
           assert 'function spawnOrganicFragment(parent,impact)' in html
@@ -212,7 +212,7 @@ jobs:
             assert b'function appendagePose(morph,frame=0)' in html
             assert b'function gateHardness(gate)' in html
             assert b'function drawRobotMine(enemy)' in html
-            assert b'function paintLivingOrganism(g,m,frame)' in html
+            assert b'function paintLivingOrganism(g,m,frame,missingArm=-1)' in html
             assert b'function stepOrganicFragment(f,actors,player,environment,dt)' in html
             assert b'function mineSpec(seed,region,encounter' in html
             assert b'function detonateRobotMine(enemy)' in html
