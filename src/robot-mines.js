@@ -34,7 +34,7 @@ export function mineSpec(seed,region,encounter,phase='space'){
 export function mineBeacon(mine,time=0){
   const p=mine.spec||mine;
   const timeValue=Number.isFinite(time)?time:0;
-  const period=p.blinkPeriod*(mine.fuse!==null&&mine.fuse!==undefined?.39:1);
+  const period=p.blinkPeriod*((mine.fuse!==null&&mine.fuse!==undefined) ? .39 : 1);
   const phase=(timeValue+(p.pulseOffset||0))*Math.PI*2/period;
   const flash=Math.pow(.5+.5*Math.cos(phase),2);
   return {color:p.color,brightness:p.luminosity*(.27+.73*flash),
