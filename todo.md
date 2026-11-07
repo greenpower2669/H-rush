@@ -412,6 +412,6 @@
 - [x] Colonnes mobiles raréfiées : 3–4 emplacements activables par région au lieu des 11, sans changement de leur ID historique, de leurs cicatrices ni de leurs règles de résistance.
 - [x] Écrire les tests de la FSM, du sauvetage, de l'embuscade et des formes réelles ; maintenir les anciens tests de crash et de collisions.
 - [x] Version 0.5.15/code65, source Android autonome régénérable, workflow de préversion APK directe.
-- [ ] Obtenir CI verte complète sur le dernier commit (tests, HTML reconstruit octet pour octet identique, build et signature Android, vérification asset Release et SHA256).
+- [x] CI verte [42397428297](https://github.com/greenpower2669/H-rush/actions/runs/42397428297) : **189/189 tests**, HTML standalone reconstruit octet pour octet identique, compilation Android 0.5.15/code65, signature et assets vérifiés ; [prérelease APK direct](https://github.com/greenpower2669/H-rush/releases/download/v0.5.15-living-colony-ambush-preview/HRush-Omega-v0.5.15-living-colony-ambush-debug.apk) publié (~14 Mo), SHA256SUMS.txt joint à la Release. Essais Samsung physiques toujours ouverts.
 - [ ] Validation visuelle sur Samsung : nouvelles matières proches du rendu de référence, vrai ancrage des racines et tentacules, coupure visible, rampement, soulevé par voisin, embuscade, cycles de FPS/RAM en milieu dense ; équilibrage de difficulté et fréquence.
 - [ ] Aucune fusion dans `main` ni AAB sans demande explicite. Avant une nouvelle installation Android, exporter l'univers JSON et contrôler la signature Debug.
