@@ -36,8 +36,8 @@ test('both buried knots are outside the rendered raster, each limb meets the rea
     'no suspended roots if there is no ground');
   const art=read('src/bestiary.js');
   assert.ok(art.includes("const baseY=root?h+18:-18"),'bulbs are beyond sprite raster');
-  assert.ok(art.includes('const wave=organicArmWave(m,frame,i)'));
-  assert.ok(art.includes("if(i===missingArm)continue"));
+  assert.ok(art.includes('livingArmGeometry(m,frame,i)'));
+  assert.ok(art.includes("missingArm.includes(i)"));
 });
 test('12 independently moving articulated wave poses are deterministic and loop seamlessly',()=>{
   assert.equal(ORGANIC_ANIMATION_FRAMES,12);
