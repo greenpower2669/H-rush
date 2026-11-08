@@ -1,19 +1,19 @@
 /** Twenty distinct collectible silhouettes, rasterized and collision-tested from identical alpha. */
 import { maskFromImageData } from './collision.js';
-export const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart']);
+export const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart','aura','orb','thruster']);
 export const BONUS_VARIANTS = 4;
-export const BONUS_MIN_INTERVAL_SECONDS=24;
-export const BONUS_MAX_SIMULTANEOUS=1;
+export const BONUS_MIN_INTERVAL_SECONDS=9;
+export const BONUS_MAX_SIMULTANEOUS=3;
 /** Sparse bonus drops. HP and difficulty director are unaffected. */
 export function bonusDropAllowed({elapsed=0,sinceLast=Infinity,active=0,kind='scout',
   rockType='',warp=false,hearts=5,roll=1}={}){
   if(warp||elapsed<22||sinceLast<BONUS_MIN_INTERVAL_SECONDS||active>=BONUS_MAX_SIMULTANEOUS)return false;
   if(rockType==='fragment'||rockType==='warp'||rockType==='rain')return false;
-  const chance=kind==='boss'?.32:hearts<=2?.15:.095;
+  const chance=kind==='boss'?.45:hearts<=2?.29:.22;
   return Number.isFinite(roll)&&roll>=0&&roll<chance;
 }
-const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a']});
-const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+'};
+const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a'],aura:['#e5bbff','#885dff'],orb:['#85fff6','#ff6af2'],thruster:['#ffdf82','#ff435e']});
+const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+',aura:'A+',orb:'◉+',thruster:'P+'};
 export function bonusVariant(seed,region,index,type) {
   const input=String(seed)+':'+String(region)+':'+String(index)+':'+type;
   let h=2166136261;
@@ -54,8 +54,13 @@ export function createBonusSprites() {
 }
 
 /** Extra hearts are genuinely rare (3% of random drops), not one sixth of all drops. */
+/** Weighted pickup pool: an orb is exactly +1 and can be found repeatedly. */
 export function pickBonusType(random=Math.random) {
-  const r=Math.max(0,Math.min(0.999999,Number(random())||0));
+  const r=Math.max(0,Math.min(.999999,Number(random())||0));
   if(r<.03)return 'extraHeart';
-  return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
+  if(r<.45)return 'orb';
+  if(r<.57)return 'aura';
+  if(r<.69)return 'thruster';
+  const legacy=['laser','missile','heal','shield','protection'];
+  return legacy[Math.min(4,Math.floor((r-.69)/.31*5))];
 }
