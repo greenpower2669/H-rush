@@ -270,3 +270,9 @@ Branche `feature/omega-067-offensive-pickups-organic-wounds-20261108`.
 Changement source : les cratères étaient historiquement mémorisés en (x,y) de sprite et donc réaffichés immobiles à travers les 12 poses. Désormais le repère de blessure est lié à chaque Bézier organique (bras, abscisse paramétrique, décalage normal). Les masques AND NOT sont reconstruits après projection des blessures sur la frame source, en conservant la limite de 15% d'érosion incrémentale. Les bras physiquement arrachés sont exclus du raster et du masque. Contrairement à l'ancien seul arrachement sous un seuil HP, chaque seuil de 10 projectiles directs retire un bras disponible.
 Trois compteurs initialisés à zéro par `initialOffense()`; aucun gain automatique. Les effets de zone sont découpés en disques/jet issus de `createMask`, collision `A & B` et préfiltre de ligne de vue dans les tuiles physiques.
 HUD, animation, vitesse tactile et emballage standalone modifiés. Mesures FPS/RAM/CPU sur Samsung : non faites ; ne pas annoncer de résultat chiffré sans données.
+
+## 2026-11-08 — OMEGA 0.5.17 : validation CI terminée
+GitHub Actions **42428408811** : étape tests Node réussie (201 tests), génération standalone identique aux sources réussie ; musique CC0 intégrée ; compilation Android Gradle et contrôle APK apksigner, version 67/0.5.17 et présence des ressources réussis ; publication GitHub Release réussie.
+Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.5.17-offensive-bonuses-preview
+APK : `HRush-Omega-v0.5.17-offensive-bonuses-debug.apk`, taille 14 025 471 octets ; digest GitHub **SHA-256 ec49dd3b4d3e7be85f2c21d2a1efbe0dff7f7d1c6eb82abb8e19e8f1a069dc36**.
+Ce sont des validations de build et d'intégrité, **pas** un essai de fluidité, de rendu ou de contrôle tactile sur Samsung. APK signé en mode debug, pas certificat de distribution pérenne.
