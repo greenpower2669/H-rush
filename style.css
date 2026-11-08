@@ -149,3 +149,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
 #crashDetails{display:block;box-sizing:border-box;width:100%;max-height:110px;min-height:50px;
   background:#061626;color:#bbdfff;border:1px solid #507a9a;border-radius:8px;
   padding:6px;font-family:monospace;font-size:10px;resize:none;}
+
+/* OMEGA 0.5.17 — visibly separate collectible-only offense counters. */
+#auraBonus{color:#c9b0ff;} #orbBonus{color:#7ffce2;} #thrusterBonus{color:#ffb07d;}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px;} .hud small{font-size:7px;} .hud strong{font-size:10px;}}
