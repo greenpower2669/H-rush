@@ -160,6 +160,10 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
   background:#061626;color:#bbdfff;border:1px solid #507a9a;border-radius:8px;
   padding:6px;font-family:monospace;font-size:10px;resize:none;}
 
+/* OMEGA 0.5.17 — visibly separate collectible-only offense counters. */
+#auraBonus{color:#c9b0ff;} #orbBonus{color:#7ffce2;} #thrusterBonus{color:#ffb07d;}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){.hud{gap:5px;} .hud small{font-size:7px;} .hud strong{font-size:10px;}}
+
 </style>
   
 </head>
@@ -173,12 +177,15 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
         <div><small>BOUCLIER</small><strong id="shield">◇ 0</strong></div>
         <div><small>CANON</small><strong id="weapon">⚡ ×1</strong></div>
         <div><small>MISSILES</small><strong id="missiles">🚀 5 ×1</strong></div>
+        <div><small>AURA</small><strong id="auraBonus">0/3</strong></div>
+        <div><small>ORBES</small><strong id="orbBonus">0/50</strong></div>
+        <div><small>PROPULSEURS</small><strong id="thrusterBonus">0/3</strong></div>
       </div>
     </header>
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.16</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.17</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -1903,6 +1910,59 @@ function organicArmWave(morph,frame,arm){
     tip:Math.sin(phase+1.30)*.40,
     thrust:Math.sin(phase+.90)*.15};
 }
+
+/** Shared Bézier geometry: paint AND wound reprojection always use the SAME curve. */
+function livingArmCount(m){return m?.boss?7:5;}
+function livingArmGeometry(m,frame,arm){
+  const w=m.boss?230:158,h=m.boss?244:174;
+  const sign=m.shape==='root'?-1:1,baseY=sign<0?h+18:-18;
+  const a=arm-(livingArmCount(m)-1)*.5;
+  const bx=w*.5+a*w*(m.boss?.094:.124),by=baseY;
+  const fork=Math.sin(arm*1.68+m.index*.32);
+  const wave=organicArmWave(m,frame,arm),pose=appendagePose(m,frame);
+  const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
+  const length=h*(.74+(arm%3)*.055+wave.thrust)*pose.extension;
+  const ty=baseY+sign*length;
+  const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
+  const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
+  return {bx,by,tx,ty,c1,c2,width:(m.boss?25:19)-(arm%3)*3.2,fork};
+}
+function bezierLocal(g,t){
+  const u=1-t;return {
+    x:u*u*u*g.bx+3*u*u*t*g.c1[0]+3*u*t*t*g.c2[0]+t*t*t*g.tx,
+    y:u*u*u*g.by+3*u*u*t*g.c1[1]+3*u*t*t*g.c2[1]+t*t*t*g.ty
+  };
+}
+/** Material point stays attached to ONE arm, even when it crosses another. */
+function livingMaterialPosition(m,frame,scar){
+  if(!scar||!Number.isInteger(scar.arm))return null;
+  const g=livingArmGeometry(m,frame,scar.arm);
+  const t=Math.max(0,Math.min(1,scar.t)),p=bezierLocal(g,t);
+  const a=bezierLocal(g,Math.max(0,t-.012)),b=bezierLocal(g,Math.min(1,t+.012));
+  const len=Math.max(1e-6,Math.hypot(b.x-a.x,b.y-a.y));
+  const offset=(scar.offset||0)*g.width;
+  return {x:p.x-(b.y-a.y)/len*offset,y:p.y+(b.x-a.x)/len*offset};
+}
+/** Convert actual AND hit pixel into animated Bézier material coordinates. */
+function livingMaterialHit(m,frame,x,y,missingArms=[]){
+  let best=null,dist=Infinity;
+  const missing=new Set(Array.isArray(missingArms)?missingArms:[missingArms]);
+  for(let arm=0;arm<livingArmCount(m);arm++){
+    if(missing.has(arm))continue;
+    const g=livingArmGeometry(m,frame,arm);
+    for(let i=0;i<=60;i++){
+      const t=i/60,p=bezierLocal(g,t),d=Math.hypot(x-p.x,y-p.y);
+      if(d<dist&&d<g.width*.85+4){
+        const a=bezierLocal(g,Math.max(0,t-.012)),b=bezierLocal(g,Math.min(1,t+.012));
+        const len=Math.max(1e-6,Math.hypot(b.x-a.x,b.y-a.y));
+        best={arm,t,offset:Math.max(-.85,Math.min(.85,((x-p.x)*(-(b.y-a.y))+(y-p.y)*(b.x-a.x))/len/g.width))};
+        dist=d;
+      }
+    }
+  }
+  return best;
+}
+
 const ENEMY_MORPHS=Object.freeze(NORMAL_DEFS.map((e,i)=>compile(e,i,false)));
 const BOSS_MORPHS=Object.freeze(BOSS_DEFS.map((e,i)=>compile(e,i,true)));
 const affinity=Object.freeze({
@@ -1994,20 +2054,8 @@ function paintLivingOrganism(g,m,frame,missingArm=-1){
   g.save();g.lineCap='round';g.lineJoin='round';
   // Each branch is its own animated cubic with real tapered width.
   for(let i=0;i<arms;i++){
-    if(i===missingArm)continue; // Severed arm no longer exists in actual alpha mask.
-    const a=i-(arms-1)*.5;
-    const bx=w*.5+a*w*(m.boss?.094:.124);
-    const by=baseY;
-    const fork=Math.sin(i*1.68+m.index*.32);
-    const wave=organicArmWave(m,frame,i);
-    // The attachment barely moves, while the elbow and tip swing out of
-    // phase, like a muscular tentacle traveling its bend down the shaft.
-    const tx=Math.max(15,Math.min(w-15,bx+fork*w*.10+wave.tip*w*.75));
-    const length=h*(.74+(i%3)*.055+wave.thrust)*pose.extension;
-    const ty=baseY+sign*length;
-    const c1=[bx+wave.root*w*.36,baseY+sign*h*.19];
-    const c2=[bx+wave.elbow*w*.94+fork*w*.13,baseY+sign*h*.52];
-    const width=(m.boss?25:19)-(i%3)*3.2;
+    if((Array.isArray(missingArm)?missingArm.includes(i):i===missingArm))continue; // Missing arms are absent from raster AND mask.
+    const {bx,by,tx,ty,c1,c2,width,fork}=livingArmGeometry(m,frame,i);
     const trace=(offset=0)=>{
       g.beginPath();g.moveTo(bx+offset,by);
       g.bezierCurveTo(c1[0]+offset,c1[1],c2[0]+offset,c2[1],tx+offset,ty);
@@ -2410,8 +2458,8 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null,missingArm=-1){
   const resolvedAngle=turretBucket===null?null:turretBucket*.16;
   const poseFrame=isLivingAppendage(morph)?
     ((Math.floor(frame)%ORGANIC_ANIMATION_FRAMES)+ORGANIC_ANIMATION_FRAMES)%ORGANIC_ANIMATION_FRAMES:(frame&1);
-  const cut=isLivingAppendage(morph)&&missingArm>=0?Math.floor(missingArm):-1;
-  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static')+':cut'+cut;
+  const cut=isLivingAppendage(morph)?(Array.isArray(missingArm)?[...new Set(missingArm)].sort((a,b)=>a-b):missingArm>=0?[Math.floor(missingArm)]:[]):[];
+  const key=morph.id+':'+poseFrame+':'+bestiaryClamp(Math.floor(phase),0,3)+':'+(turretBucket??'static')+':cut'+cut.join('-');
   if(spriteCache.has(key)){const s=spriteCache.get(key);spriteCache.delete(key);spriteCache.set(key,s);return s;}
   if(typeof document==='undefined')throw Error('Canvas needed to rasterize enemy silhouette');
   const living=isLivingAppendage(morph);
@@ -2430,7 +2478,7 @@ function spriteForMorph(morph,frame=0,phase=0,turretAngle=null,missingArm=-1){
   const data=g.getImageData(0,0,w,h);
   bevelMorphPixels(data,morph); // RGB only: preserve exact opaque bits.
   g.putImageData(data,0,0);
-  const s={image,width:w,height:h,mask:maskFromImageData(data,42)};
+  const s={image,width:w,height:h,mask:maskFromImageData(data,42),organicFrame:living?poseFrame:null,cutArms:cut};
   spriteCache.set(key,s);
   while(spriteCache.size>MAX_BESTIARY_CACHE)spriteCache.delete(spriteCache.keys().next().value);
   return s;
@@ -2649,8 +2697,12 @@ function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worldHeight
   const px = options.invertX ? worldWidth-point.x : point.x;
   const py = options.invertY ? worldHeight-point.y : point.y;
   const clearance = Math.max(offsetX,shipWidth+14);
+  // Close to the left edge, keep a small grip clearance instead of shoving
+  // the ship nearly 90 px away. The transition is continuous at x=120.
+  const edgeEase=clampTouch(px/120,0,1);
+  const adaptiveClearance=42+(clearance-42)*edgeEase;
   return {
-    x: clampTouch(px+clearance,10,worldWidth-shipWidth-15),
+    x: clampTouch(px+adaptiveClearance,10,worldWidth-shipWidth-15),
     y: clampTouch(py-shipHeight*.5+offsetY,35,worldHeight-shipHeight-15)
   };
 }
@@ -2898,20 +2950,20 @@ class TiltController {
 }
 
 /** Twenty distinct collectible silhouettes, rasterized and collision-tested from identical alpha. */
-const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart']);
+const BONUS_TYPES = Object.freeze(['laser','missile','heal','shield','protection','extraHeart','aura','orb','thruster']);
 const BONUS_VARIANTS = 4;
-const BONUS_MIN_INTERVAL_SECONDS=24;
-const BONUS_MAX_SIMULTANEOUS=1;
+const BONUS_MIN_INTERVAL_SECONDS=9;
+const BONUS_MAX_SIMULTANEOUS=3;
 /** Sparse bonus drops. HP and difficulty director are unaffected. */
 function bonusDropAllowed({elapsed=0,sinceLast=Infinity,active=0,kind='scout',
   rockType='',warp=false,hearts=5,roll=1}={}){
   if(warp||elapsed<22||sinceLast<BONUS_MIN_INTERVAL_SECONDS||active>=BONUS_MAX_SIMULTANEOUS)return false;
   if(rockType==='fragment'||rockType==='warp'||rockType==='rain')return false;
-  const chance=kind==='boss'?.32:hearts<=2?.15:.095;
+  const chance=kind==='boss'?.45:hearts<=2?.29:.22;
   return Number.isFinite(roll)&&roll>=0&&roll<chance;
 }
-const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a']});
-const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+'};
+const COLORS = Object.freeze({laser:['#ffdd58','#ff7c58'],missile:['#ff985e','#ff4b8b'],heal:['#78ffad','#23c8d8'],shield:['#7de7ff','#5f84ff'],protection:['#e2a2ff','#fa6cff'],extraHeart:['#ffe96b','#ff619a'],aura:['#e5bbff','#885dff'],orb:['#85fff6','#ff6af2'],thruster:['#ffdf82','#ff435e']});
+const LETTERS={laser:'×2',missile:'M+',heal:'♥',shield:'S',protection:'S+',extraHeart:'♥+',aura:'A+',orb:'◉+',thruster:'P+'};
 function bonusVariant(seed,region,index,type) {
   const input=String(seed)+':'+String(region)+':'+String(index)+':'+type;
   let h=2166136261;
@@ -2952,10 +3004,15 @@ function createBonusSprites() {
 }
 
 /** Extra hearts are genuinely rare (3% of random drops), not one sixth of all drops. */
+/** Weighted pickup pool: an orb is exactly +1 and can be found repeatedly. */
 function pickBonusType(random=Math.random) {
-  const r=Math.max(0,Math.min(0.999999,Number(random())||0));
+  const r=Math.max(0,Math.min(.999999,Number(random())||0));
   if(r<.03)return 'extraHeart';
-  return BONUS_TYPES[Math.min(4,Math.floor((r-.03)/.97*5))];
+  if(r<.45)return 'orb';
+  if(r<.57)return 'aura';
+  if(r<.69)return 'thruster';
+  const legacy=['laser','missile','heal','shield','protection'];
+  return legacy[Math.min(4,Math.floor((r-.69)/.31*5))];
 }
 
 /** OMEGA 0.5.2 — perceptible thermal scarring without erasing the enemy silhouette.
@@ -3061,6 +3118,12 @@ function rememberDamageFrame(enemy,source,edited){
   while(enemy.damageFrames.size>MAX_ENEMY_DAMAGE_FRAMES)
     enemy.damageFrames.delete(enemy.damageFrames.keys().next().value);
 }
+/** Project a stable wound onto THIS exact animated source frame and its alpha mask. */
+function woundPosition(enemy,source,scar){
+  if(!scar?.material||!isLivingAppendage(enemy?.morph))return {x:scar.x,y:scar.y};
+  if(source.cutArms?.includes(scar.material.arm))return null;
+  return livingMaterialPosition(enemy.morph,source.organicFrame??0,scar.material);
+}
 /** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
@@ -3069,7 +3132,7 @@ function switchDamagedFrame(enemy,source){
   let edited=enemy.damageFrames.get(source);
   if(!edited){
     edited=copyDamageSprite(source);
-    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
+    for(const p of enemy.scars){const at=woundPosition(enemy,source,p);if(at)burnHoleLimited(edited,at.x,at.y,p.r,p.loss??0);}
   }
   rememberDamageFrame(enemy,source,edited);
   enemy.sprite=edited;
@@ -3081,19 +3144,62 @@ function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.damageFrames)enemy.damageFrames=new Map();
   const loss=Number.isFinite(enemy.maxHp)&&enemy.maxHp>0
     ?clampDamage(1-(enemy.hp-1)/enemy.maxHp,0,1):0;
-  const burn={x:Math.round(localX),y:Math.round(localY),
+  const source=enemy.sourceSprite;
+  const material=isLivingAppendage(enemy.morph)?
+    livingMaterialHit(enemy.morph,source.organicFrame??0,localX,localY,enemy.severArms||[]):null;
+  const burn={x:Math.round(localX),y:Math.round(localY),material,
     r:Math.max(2,Math.round(radius)),loss};
   // HP and glow still advance after full physical scarring; bounded mark history avoids runaway CPU.
   if(enemy.scars.length<128)enemy.scars.push(burn);
-  for(const edited of enemy.damageFrames.values())
-    burnHoleLimited(edited,burn.x,burn.y,burn.r,burn.loss);
+  for(const edited of enemy.damageFrames.values()){
+    const at=woundPosition(enemy,edited,burn);
+    if(at)burnHoleLimited(edited,at.x,at.y,burn.r,burn.loss);
+  }
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
-    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
+    for(const p of enemy.scars){const at=woundPosition(enemy,source,p);if(at)burnHoleLimited(edited,at.x,at.y,p.r,p.loss??0);}
     rememberDamageFrame(enemy,enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;
+}
+
+/** OMEGA 0.5.17 — collectible-only offensive protections.
+ * No time or distance grant is permitted; each pickup changes ONE counter.
+ */
+const OFFENSE_LIMITS=Object.freeze({aura:3,orb:50,thruster:3});
+function initialOffense(){return {aura:0,orbs:0,thrusters:0};}
+function gainOffense(state,type){
+  const s={...state};
+  if(type==='aura')s.aura=Math.min(OFFENSE_LIMITS.aura,(s.aura||0)+1);
+  else if(type==='orb')s.orbs=Math.min(OFFENSE_LIMITS.orb,(s.orbs||0)+1);
+  else if(type==='thruster')s.thrusters=Math.min(OFFENSE_LIMITS.thruster,(s.thrusters||0)+1);
+  else throw new RangeError('Unknown offensive bonus '+type);
+  return s;
+}
+function spendOrbs(state,count=1){
+  return {...state,orbs:Math.max(0,(state.orbs||0)-Math.max(0,Math.floor(count)))};
+}
+function orbPosition(index,time,cx,cy){
+  const ring=Math.floor(index/10),lane=index%10;
+  const slots=10,phase=lane*Math.PI*2/slots+time*(ring%2?-1:1)*(.9+ring*.08)+ring*.32;
+  const rx=53+ring*16,ry=31+ring*11;
+  return {x:cx+Math.cos(phase)*rx,y:cy+Math.sin(phase)*ry};
+}
+function auraWaveCount(level){return Math.max(0,Math.min(3,Math.floor(level)||0));}
+/** Velocity-limited spring with damping. Far-away fingers cannot teleport a ship. */
+function followTouch(x,y,vx,vy,targetX,targetY,dt){
+  const step=Math.max(0,Math.min(.05,Number(dt)||0));
+  if(step===0)return {x,y,vx,vy};
+  const ax=(targetX-x)*22-vx*11,ay=(targetY-y)*22-vy*11;
+  vx+=ax*step;vy+=ay*step;
+  const speed=Math.hypot(vx,vy),maxSpeed=435;
+  if(speed>maxSpeed){vx=vx/speed*maxSpeed;vy=vy/speed*maxSpeed;}
+  const dx=targetX-x,dy=targetY-y;
+  const moveX=vx*step,moveY=vy*step;
+  if(Math.abs(moveX)>=Math.abs(dx)&&Math.sign(moveX)===Math.sign(dx)){x=targetX;vx=0;}else x+=moveX;
+  if(Math.abs(moveY)>=Math.abs(dy)&&Math.sign(moveY)===Math.sign(dy)){y=targetY;vy=0;}else y+=moveY;
+  return {x,y,vx,vy};
 }
 
 /** OMEGA 0.4.8: bounded and deterministic encounter director.
@@ -3740,7 +3846,7 @@ function updateSpriteAnimations(dt=.016) {
       const organicFrame=isLivingAppendage(enemy.morph)?
         Math.floor(enemy.age*11+enemy.phase*.3)%12:Math.floor(enemy.age*6)&1;
       const base=spriteForMorph(enemy.morph,organicFrame,phase,
-        cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArm??-1);
+        cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArms?.length?enemy.severArms:enemy.severArm??-1);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
       if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
         continue; // Avoid per-frame raster mask and damage-cache churn.
@@ -3780,12 +3886,15 @@ let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall
 let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
 let lastBonusSpawn=-Infinity;
+let auraPulses=[],orbFlights=[],auraCooldown=0,orbLaunchCooldown=0,thrusterCooldown=0;
+let touchVx=0,touchVy=0;
 
 function reset(fromCheckpoint = false) {
-  player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
+  player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5,...initialOffense()};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
   hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};lastBonusSpawn=-Infinity;
+  auraPulses=[];orbFlights=[];auraCooldown=0;orbLaunchCooldown=0;thrusterCooldown=0;touchVx=touchVy=0;
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -3813,6 +3922,9 @@ function updateHud() {
   $('#shield').textContent='◇ '+player.shield;
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
+  $('#auraBonus').textContent=player.aura+'/3';
+  $('#orbBonus').textContent=player.orbs+'/50';
+  $('#thrusterBonus').textContent=player.thrusters+'/3';
   $('#wave').textContent='VAGUE '+wave;
   const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
   $('#terrainStatus').hidden = false;
@@ -4165,7 +4277,7 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     // Appendages are fixed to a WORLD-space surface, not sliding across it.
     // They move left only because the universe scrolls under the ship.
     worldAnchorX:isLivingAppendage(morph)?terrain.scroll+position.x:null,
-    severCount:0,severArm:-1,
+    severCount:0,severArm:-1,severArms:[],directHits:0,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active&&!living)alignByTerrainAnd(terrain,spawned,anchor,95);
@@ -4231,7 +4343,9 @@ function impactResult(result,target) {
   particlesAt(p.x,p.y,zone,zone==='hull'?12:18,18);
   sound.play('impact');
   spawnSpriteExplosion(p.x,p.y,.5);
-  decals.push({target,x:localX,y:localY,life:1.2,age:0,zone});
+  const material=isLivingAppendage(target.morph)?
+    livingMaterialHit(target.morph,target.sourceSprite?.organicFrame??0,localX,localY,target.severArms||[]):null;
+  decals.push({target,x:localX,y:localY,material,life:1.2,age:0,zone});
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
   return p;
 }
@@ -4275,6 +4389,178 @@ function renderHoverPlume(){
   }
   ctx.restore();
 }
+
+/** One binary alpha mask per rounded radius: area attacks still use exact A & B. */
+const offenseDiscs=new Map();
+function offenseDisc(radius){
+  const r=Math.max(4,Math.min(162,Math.round(radius/6)*6));
+  if(offenseDiscs.has(r))return offenseDiscs.get(r);
+  const width=r*2+1,mask=createMask(width,width,(x,y)=>(x-r)**2+(y-r)**2<=r*r);
+  const sprite={width,height:width,mask};
+  offenseDiscs.set(r,sprite);
+  while(offenseDiscs.size>28)offenseDiscs.delete(offenseDiscs.keys().next().value);
+  return sprite;
+}
+const offenseProbe={width:1,height:1,mask:createMask(1,1,()=>true)};
+const heatJet={width:132,height:158,mask:createMask(132,158,(x,y)=>{
+  if(y<3)return false;
+  const spread=5+y*.23,drift=Math.sin(y*.075)*4;
+  return Math.abs(x-(37-drift))<spread||Math.abs(x-(95+drift))<spread;
+})};
+/** Sample the ACTUAL carved terrain (and gates), not the undeformed analytic geology. */
+function offenseLineClear(x1,y1,x2,y2){
+  if(warp||!terrain.active)return true;
+  const length=Math.hypot(x2-x1,y2-y1);
+  const n=Math.max(0,Math.min(12,Math.floor(length/22)));
+  for(let i=1;i<n;i++){
+    const t=i/n;
+    if(terrain.collideEntity({x:Math.round(x1+(x2-x1)*t),y:Math.round(y1+(y2-y1)*t),sprite:offenseProbe}))
+      return false;
+  }
+  return true;
+}
+function offenseEnemyCenter(e){
+  return {x:e.x+e.sprite.width*.5,y:e.y+e.sprite.height*.5};
+}
+function offenseHitAt(entity,x,y,radius,power){
+  const disc=offenseDisc(radius);
+  const impact=collide(disc.mask,Math.round(x-disc.width*.5),Math.round(y-disc.height*.5),
+    entity.sprite.mask,entity.x,entity.y,METHODS.BITMASK);
+  if(impact.hit)hitEnemy(entity,impact,'offense',power);
+  return impact.hit;
+}
+/** Offensive powers exist ONLY after their matching collectible was picked up. */
+function stepOffensiveSystems(dt,stage){
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  auraCooldown=Math.max(0,auraCooldown-dt);
+  orbLaunchCooldown=Math.max(0,orbLaunchCooldown-dt);
+  thrusterCooldown=Math.max(0,thrusterCooldown-dt);
+  if(player.aura>0&&auraCooldown===0&&enemies.some(e=>{
+    if(e.hp<=0)return false;
+    const p=offenseEnemyCenter(e);
+    return Math.hypot(p.x-cx,p.y-cy)<142&&offenseLineClear(cx,cy,p.x,p.y);
+  })){
+    const count=auraWaveCount(player.aura);
+    for(let i=0;i<count;i++)
+      auraPulses.push({delay:i*.20,age:0,life:.54,hit:new Set(),strength:2+player.aura*2});
+    auraCooldown=8-player.aura*.6;
+  }
+  for(const pulse of auraPulses){
+    pulse.delay-=dt;
+    if(pulse.delay>0)continue;
+    pulse.age+=dt;
+    const radius=24+Math.max(0,Math.min(1,pulse.age/pulse.life))*147;
+    for(const e of [...enemies]){
+      if(e.hp<=0||pulse.hit.has(e))continue;
+      const p=offenseEnemyCenter(e);
+      if(Math.hypot(p.x-cx,p.y-cy)>radius+Math.max(e.sprite.width,e.sprite.height)*.5)continue;
+      if(!offenseLineClear(cx,cy,p.x,p.y))continue;
+      const disc=offenseDisc(radius);
+      const r=collide(disc.mask,Math.round(cx-disc.width*.5),Math.round(cy-disc.height*.5),
+        e.sprite.mask,e.x,e.y,METHODS.BITMASK);
+      if(r.hit){pulse.hit.add(e);hitEnemy(e,r,'offense',pulse.strength);}
+    }
+  }
+  auraPulses=auraPulses.filter(p=>p.delay>0||p.age<p.life);
+  if(player.orbs>0&&orbFlights.length<8&&orbLaunchCooldown===0){
+    let nearest=null,best=Infinity;
+    for(const e of enemies){
+      if(e.hp<=0)continue;
+      const p=offenseEnemyCenter(e),dist=Math.hypot(p.x-cx,p.y-cy);
+      if(dist<145&&dist<best&&offenseLineClear(cx,cy,p.x,p.y)){best=dist;nearest=e;}
+    }
+    if(nearest){
+      const start=orbPosition(player.orbs-1,elapsed,cx,cy);
+      orbFlights.push({x:start.x,y:start.y,target:nearest,age:0,done:false});
+      Object.assign(player,spendOrbs(player,1));
+      orbLaunchCooldown=.14;
+      updateHud();
+    }
+  }
+  for(const orb of orbFlights){
+    if(orb.done)continue;
+    orb.age+=dt;
+    if(orb.age>2.2){orb.done=true;continue;}
+    const target=orb.target;
+    if(!target||target.hp<=0){orb.done=true;continue;}
+    const p=offenseEnemyCenter(target),dx=p.x-orb.x,dy=p.y-orb.y;
+    const distance=Math.max(1,Math.hypot(dx,dy));
+    const speed=Math.min(820,330+orb.age*550),travel=Math.min(distance,speed*dt);
+    orb.x+=dx/distance*travel;orb.y+=dy/distance*travel;
+    const sprite=offenseDisc(8);
+    if(!warp&&terrain.active&&terrain.collideEntity({sprite,x:orb.x-sprite.width*.5,y:orb.y-sprite.height*.5})){
+      orb.done=true;shockwaves.push({x:orb.x,y:orb.y,life:.28,age:0,size:17,color:'#83fff3'});
+      continue;
+    }
+    const contact=collide(sprite.mask,Math.round(orb.x-sprite.width*.5),Math.round(orb.y-sprite.height*.5),
+      target.sprite.mask,target.x,target.y,METHODS.BITMASK);
+    if(!contact.hit)continue;
+    orb.done=true;
+    shockwaves.push({x:orb.x,y:orb.y,life:.52,age:0,size:86,color:'#d1a3ff'});
+    particlesAt(orb.x,orb.y,'shield',35);
+    for(const e of [...enemies])if(e.hp>0){
+      const center=offenseEnemyCenter(e);
+      if(Math.hypot(center.x-orb.x,center.y-orb.y)<95&&offenseLineClear(orb.x,orb.y,center.x,center.y))
+        offenseHitAt(e,orb.x,orb.y,45,e===target?12:5);
+    }
+  }
+  orbFlights=orbFlights.filter(o=>!o.done);
+  const grounded=!warp&&gravityFlight(stage.phase)&&hoverState.jet;
+  if(player.thrusters>0&&grounded&&thrusterCooldown===0){
+    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
+      (player.baseSprite||ships.player).height,player.pitch);
+    const jetX=Math.round(cx-heatJet.width*.5),jetY=Math.round(bottom-3);
+    for(const e of [...enemies])if(e.hp>0){
+      const p=offenseEnemyCenter(e);
+      if(p.y<bottom-12||p.y>bottom+heatJet.height+e.sprite.height)continue;
+      if(!offenseLineClear(cx,bottom,p.x,p.y))continue;
+      const r=collide(heatJet.mask,jetX,jetY,e.sprite.mask,e.x,e.y,METHODS.BITMASK);
+      if(r.hit)hitEnemy(e,r,'offense',player.thrusters===3?5:player.thrusters===2?3:1);
+    }
+    if(player.thrusters>=2&&terrain.active){
+      const collision=terrain.collideEntity({sprite:heatJet,x:jetX,y:jetY});
+      if(collision){
+        const p=terrain.firstWorldImpact(collision);
+        if(p)terrain.carveImpact(collision,p,player.thrusters===3?4:2);
+      }
+    }
+    thrusterCooldown=player.thrusters===3?.16:player.thrusters===2?.25:.38;
+  }
+}
+function renderOffensiveSystems(){
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  if(player.thrusters>0&&hoverState.jet&&!warp){
+    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
+      (player.baseSprite||ships.player).height,player.pitch);
+    const length=44+player.thrusters*27;
+    const color=['','#ffc57c','#ff5b23','#a9f8ff'][player.thrusters];
+    ctx.strokeStyle=color;ctx.lineWidth=5+player.thrusters*3;ctx.globalAlpha=.72;
+    for(const x of [cx-29,cx+29]){
+      ctx.beginPath();ctx.moveTo(x,bottom-3);
+      ctx.quadraticCurveTo(x+Math.sin(elapsed*24)*7,bottom+length*.55,
+        x+Math.sin(elapsed*17)*11,bottom+length);ctx.stroke();
+    }
+  }
+  for(const pulse of auraPulses)if(pulse.delay<=0){
+    const t=pulse.age/pulse.life;
+    ctx.globalAlpha=Math.max(0,(1-t)*.72);ctx.strokeStyle='#bcb2ff';ctx.lineWidth=3+6*(1-t);
+    ctx.beginPath();ctx.arc(cx,cy,24+t*147,0,TAU);ctx.stroke();
+  }
+  for(let i=0;i<player.orbs;i++){
+    const p=orbPosition(i,elapsed,cx,cy);
+    ctx.globalAlpha=.85;
+    ctx.fillStyle='hsl('+((i*37+elapsed*95)%360)+' 100% 75%)';
+    ctx.beginPath();ctx.arc(p.x,p.y,3.2+Math.sin(elapsed*4+i)*.6,0,TAU);ctx.fill();
+  }
+  for(const o of orbFlights){
+    ctx.globalAlpha=.95;ctx.strokeStyle='#f8aeff';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(o.x,o.y,6,0,TAU);ctx.stroke();
+    ctx.fillStyle='#f5ffff';ctx.beginPath();ctx.arc(o.x,o.y,3.5,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+}
+
 function activeSecondFingerAim(){
   return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
 }
@@ -4361,7 +4647,7 @@ function playerDamage(r) {
   if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
 }
-function hitEnemy(enemy,r) {
+function hitEnemy(enemy,r,damageSource='projectile',strength=1) {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
@@ -4396,15 +4682,24 @@ function hitEnemy(enemy,r) {
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
-  enemy.hp--;
-  if(organicSeverDue(enemy)&&point&&spawnOrganicFragment(enemy,point)){
-    enemy.severCount=1;
-    // With the next animated pose the branch genuinely disappears from
-    // the parent alpha mask. The separated organism has its own AND sprite.
-    const total=enemy.morph.boss?7:5;
-    const localX=point.x-enemy.x;
-    enemy.severArm=Math.max(0,Math.min(total-1,Math.floor(localX/Math.max(1,enemy.sprite.width)*total)));
-    enemy.visualDirty=true;
+  enemy.hp-=Math.max(1,Math.floor(strength)||1);
+  // Direct projectiles only. Every tenth hit tears exactly ONE living arm.
+  if(point&&damageSource==='projectile'&&isLivingAppendage(enemy.morph)){
+    enemy.directHits=(enemy.directHits||0)+1;
+    if(enemy.directHits%10===0&&(enemy.severCount||0)<livingArmCount(enemy.morph)){
+      const at=livingMaterialHit(enemy.morph,enemy.sourceSprite?.organicFrame??0,
+        point.x-Math.round(enemy.x),point.y-Math.round(enemy.y),enemy.severArms||[]);
+      const available=Array.from({length:livingArmCount(enemy.morph)},(_,i)=>i)
+        .filter(i=>!(enemy.severArms||[]).includes(i));
+      const arm=available.includes(at?.arm)?at.arm:available[0];
+      if(arm!==undefined){
+        enemy.severArms=[...(enemy.severArms||[]),arm];
+        enemy.severCount=enemy.severArms.length;
+        enemy.visualDirty=true;
+        spawnOrganicFragment(enemy,point); // Visual creature is optional if active cap reached.
+        particlesAt(point.x,point.y,'hull',32);
+      }
+    }
   }
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
   if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
@@ -4535,9 +4830,10 @@ function update(dt) {
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
     const target = touch.target(pointer, player.sprite.width, player.sprite.height, W, H, {invertX:tilt.invertX,invertY:tilt.invertY});
-    player.x+=(target.x-player.x)*Math.min(1,dt*16);
-    player.y+=(target.y-player.y)*Math.min(1,dt*16);
+    const next=followTouch(player.x,player.y,touchVx,touchVy,target.x,target.y,dt);
+    player.x=next.x;player.y=next.y;touchVx=next.vx;touchVy=next.vy;
   } else {
+    touchVx=0;touchVy=0;
     // Touch priority, keyboard and native gravity calibrated in screen coordinates.
     const mx=clamp(dx+tiltMove.x,-1,1),my=clamp(dy+tiltMove.y,-1,1);
     const diagonal=Math.max(1,Math.hypot(mx,my));
@@ -4555,6 +4851,7 @@ function update(dt) {
   player.x=clamp(player.x,10,W-player.sprite.width-15);
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
+  stepOffensiveSystems(dt,stage);
   fireClock-=dt;
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
@@ -4801,7 +5098,11 @@ function update(dt) {
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
       else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
       else if(item.type==='extraHeart'){const oldMax=player.maxHearts??5;Object.assign(player,grantExtraHeart(player));msg(player.maxHearts>oldMax?'💝 CŒUR EXTRA ! '+player.maxHearts+' CŒURS MAX':'💝 CŒUR RESTAURÉ !',2.3);}
-      else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
+      else if(item.type==='aura'||item.type==='orb'||item.type==='thruster'){
+        Object.assign(player,gainOffense(player,item.type));
+        msg(item.type==='orb'?'ORBE +1 · '+player.orbs+'/50':
+          item.type==='aura'?'AURA · '+player.aura+'/3':'PROPULSEURS · '+player.thrusters+'/3',1.9);
+      }else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
@@ -4861,6 +5162,7 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
+  renderOffensiveSystems();
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
   drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
@@ -4881,7 +5183,9 @@ function render() {
     ctx.drawImage(frame.image,fx.x-w/2,fx.y-h/2,w,h);ctx.restore();
   }
   for(const d of decals) {
-    const x=Math.round(d.target.x+d.x),y=Math.round(d.target.y+d.y);
+    const pos=d.material?livingMaterialPosition(d.target.morph,d.target.sourceSprite?.organicFrame??0,d.material):{x:d.x,y:d.y};
+    if(d.material&&d.target.severArms?.includes(d.material.arm))continue;
+    const x=Math.round(d.target.x+pos.x),y=Math.round(d.target.y+pos.y);
     ctx.save();ctx.globalAlpha=1-d.age/d.life;ctx.strokeStyle=d.zone==='motor'?'#ffb765':'#ffedb5';ctx.lineWidth=2.5;
     ctx.beginPath();ctx.arc(x,y,2+d.age*15,0,TAU);ctx.stroke();ctx.restore();
   }
