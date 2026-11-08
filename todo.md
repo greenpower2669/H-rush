@@ -438,6 +438,9 @@
 - [x] Suivi tactile amorti, vitesse bornée, offset gauche progressif.
 - [x] HUD 0/3–0/50–0/3 ; sources offline intégrées au HTML standalone.
 - [x] Tests de base ajoutés ; anciens tests adaptés aux invariants remplacés.
-- [ ] Valider la réussite complète de GitHub Actions, npm test, génération HTML identique, signature et APK présent en Release ; noter SHA256.
+- [x] Valider la réussite complète de GitHub Actions, npm test, génération HTML identique, signature et APK présent en Release ; SHA256 ci-dessous.
 - [ ] Tester sur Samsung : fluidité, 50 orbes, vraies collisions, 10e tir, zones d'occlusion, gestuelle deux doigts, régime thermique CPU/RAM.
 - [ ] Régler l'équilibrage du taux de bonus et l'efficacité sur boss, selon essais réels.
+
+- [x] Vérification CI de la v0.5.17 (run 42428408811) : tests JS, contrôle de parité du HTML, build, apksigner, ressources, APK et Release réussis.
+- [ ] Installer et valider sur Samsung : 50 orbes, bras au dixième tir, aura multi-fronts et propulsion plasma ; tester les données sauvegardées si une clé de signature debug différente impose une désinstallation.
