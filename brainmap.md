@@ -87,3 +87,7 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 
 
 - **OMEGA 0.5.16 — organismes ancrés très résistants** : `src/living-organics.js` (`organicDurability`, `organicSurfaceY`) ; `src/bestiary.js` (12 poses organiques, `organicArmWave`, bulbes sous le bord rocheux) ; `src/game.js` (ancrage fixe sans éviction par sa propre roche). `tests/heavy-organic-066.test.js`, suivi QA dans `todo.md`.
+
+## Pointeur OMEGA 0.5.17 — 2026-11-08
+Branche d'essai : `feature/omega-067-offensive-pickups-organic-wounds-20261108`.
+Sources : `src/offense.js` (compteurs/ramassage/commande), `src/bonuses.js` (bonus), `src/game.js` (combat), `src/bestiary.js` et `src/damage.js` (Bézier/matériau/AND NOT), `src/input.js` (décalage X). Tests : `tests/offense.test.js`, `tests/organic-scars-067.test.js`. Détails et état de validation : `todo.md` / `debughistorical.md`.
