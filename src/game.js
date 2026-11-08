@@ -740,6 +740,178 @@ function renderHoverPlume(){
   }
   ctx.restore();
 }
+
+/** One binary alpha mask per rounded radius: area attacks still use exact A & B. */
+const offenseDiscs=new Map();
+function offenseDisc(radius){
+  const r=Math.max(4,Math.min(162,Math.round(radius/6)*6));
+  if(offenseDiscs.has(r))return offenseDiscs.get(r);
+  const width=r*2+1,mask=createMask(width,width,(x,y)=>(x-r)**2+(y-r)**2<=r*r);
+  const sprite={width,height:width,mask};
+  offenseDiscs.set(r,sprite);
+  while(offenseDiscs.size>28)offenseDiscs.delete(offenseDiscs.keys().next().value);
+  return sprite;
+}
+const offenseProbe={width:1,height:1,mask:createMask(1,1,()=>true)};
+const heatJet={width:132,height:158,mask:createMask(132,158,(x,y)=>{
+  if(y<3)return false;
+  const spread=5+y*.23,drift=Math.sin(y*.075)*4;
+  return Math.abs(x-(37-drift))<spread||Math.abs(x-(95+drift))<spread;
+})};
+/** Sample the ACTUAL carved terrain (and gates), not the undeformed analytic geology. */
+function offenseLineClear(x1,y1,x2,y2){
+  if(warp||!terrain.active)return true;
+  const length=Math.hypot(x2-x1,y2-y1);
+  const n=Math.max(0,Math.min(12,Math.floor(length/22)));
+  for(let i=1;i<n;i++){
+    const t=i/n;
+    if(terrain.collideEntity({x:Math.round(x1+(x2-x1)*t),y:Math.round(y1+(y2-y1)*t),sprite:offenseProbe}))
+      return false;
+  }
+  return true;
+}
+function offenseEnemyCenter(e){
+  return {x:e.x+e.sprite.width*.5,y:e.y+e.sprite.height*.5};
+}
+function offenseHitAt(entity,x,y,radius,power){
+  const disc=offenseDisc(radius);
+  const impact=collide(disc.mask,Math.round(x-disc.width*.5),Math.round(y-disc.height*.5),
+    entity.sprite.mask,entity.x,entity.y,METHODS.BITMASK);
+  if(impact.hit)hitEnemy(entity,impact,'offense',power);
+  return impact.hit;
+}
+/** Offensive powers exist ONLY after their matching collectible was picked up. */
+function stepOffensiveSystems(dt,stage){
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  auraCooldown=Math.max(0,auraCooldown-dt);
+  orbLaunchCooldown=Math.max(0,orbLaunchCooldown-dt);
+  thrusterCooldown=Math.max(0,thrusterCooldown-dt);
+  if(player.aura>0&&auraCooldown===0&&enemies.some(e=>{
+    if(e.hp<=0)return false;
+    const p=offenseEnemyCenter(e);
+    return Math.hypot(p.x-cx,p.y-cy)<142&&offenseLineClear(cx,cy,p.x,p.y);
+  })){
+    const count=auraWaveCount(player.aura);
+    for(let i=0;i<count;i++)
+      auraPulses.push({delay:i*.20,age:0,life:.54,hit:new Set(),strength:2+player.aura*2});
+    auraCooldown=8-player.aura*.6;
+  }
+  for(const pulse of auraPulses){
+    pulse.delay-=dt;
+    if(pulse.delay>0)continue;
+    pulse.age+=dt;
+    const radius=24+Math.max(0,Math.min(1,pulse.age/pulse.life))*147;
+    for(const e of [...enemies]){
+      if(e.hp<=0||pulse.hit.has(e))continue;
+      const p=offenseEnemyCenter(e);
+      if(Math.hypot(p.x-cx,p.y-cy)>radius+Math.max(e.sprite.width,e.sprite.height)*.5)continue;
+      if(!offenseLineClear(cx,cy,p.x,p.y))continue;
+      const disc=offenseDisc(radius);
+      const r=collide(disc.mask,Math.round(cx-disc.width*.5),Math.round(cy-disc.height*.5),
+        e.sprite.mask,e.x,e.y,METHODS.BITMASK);
+      if(r.hit){pulse.hit.add(e);hitEnemy(e,r,'offense',pulse.strength);}
+    }
+  }
+  auraPulses=auraPulses.filter(p=>p.delay>0||p.age<p.life);
+  if(player.orbs>0&&orbFlights.length<8&&orbLaunchCooldown===0){
+    let nearest=null,best=Infinity;
+    for(const e of enemies){
+      if(e.hp<=0)continue;
+      const p=offenseEnemyCenter(e),dist=Math.hypot(p.x-cx,p.y-cy);
+      if(dist<145&&dist<best&&offenseLineClear(cx,cy,p.x,p.y)){best=dist;nearest=e;}
+    }
+    if(nearest){
+      const start=orbPosition(player.orbs-1,elapsed,cx,cy);
+      orbFlights.push({x:start.x,y:start.y,target:nearest,age:0,done:false});
+      Object.assign(player,spendOrbs(player,1));
+      orbLaunchCooldown=.14;
+      updateHud();
+    }
+  }
+  for(const orb of orbFlights){
+    if(orb.done)continue;
+    orb.age+=dt;
+    if(orb.age>2.2){orb.done=true;continue;}
+    const target=orb.target;
+    if(!target||target.hp<=0){orb.done=true;continue;}
+    const p=offenseEnemyCenter(target),dx=p.x-orb.x,dy=p.y-orb.y;
+    const distance=Math.max(1,Math.hypot(dx,dy));
+    const speed=Math.min(820,330+orb.age*550),travel=Math.min(distance,speed*dt);
+    orb.x+=dx/distance*travel;orb.y+=dy/distance*travel;
+    const sprite=offenseDisc(8);
+    if(!warp&&terrain.active&&terrain.collideEntity({sprite,x:orb.x-sprite.width*.5,y:orb.y-sprite.height*.5})){
+      orb.done=true;shockwaves.push({x:orb.x,y:orb.y,life:.28,age:0,size:17,color:'#83fff3'});
+      continue;
+    }
+    const contact=collide(sprite.mask,Math.round(orb.x-sprite.width*.5),Math.round(orb.y-sprite.height*.5),
+      target.sprite.mask,target.x,target.y,METHODS.BITMASK);
+    if(!contact.hit)continue;
+    orb.done=true;
+    shockwaves.push({x:orb.x,y:orb.y,life:.52,age:0,size:86,color:'#d1a3ff'});
+    particlesAt(orb.x,orb.y,'shield',35);
+    for(const e of [...enemies])if(e.hp>0){
+      const center=offenseEnemyCenter(e);
+      if(Math.hypot(center.x-orb.x,center.y-orb.y)<95&&offenseLineClear(orb.x,orb.y,center.x,center.y))
+        offenseHitAt(e,orb.x,orb.y,45,e===target?12:5);
+    }
+  }
+  orbFlights=orbFlights.filter(o=>!o.done);
+  const grounded=!warp&&gravityFlight(stage.phase)&&hoverState.jet;
+  if(player.thrusters>0&&grounded&&thrusterCooldown===0){
+    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
+      (player.baseSprite||ships.player).height,player.pitch);
+    const jetX=Math.round(cx-heatJet.width*.5),jetY=Math.round(bottom-3);
+    for(const e of [...enemies])if(e.hp>0){
+      const p=offenseEnemyCenter(e);
+      if(p.y<bottom-12||p.y>bottom+heatJet.height+e.sprite.height)continue;
+      if(!offenseLineClear(cx,bottom,p.x,p.y))continue;
+      const r=collide(heatJet.mask,jetX,jetY,e.sprite.mask,e.x,e.y,METHODS.BITMASK);
+      if(r.hit)hitEnemy(e,r,'offense',player.thrusters===3?5:player.thrusters===2?3:1);
+    }
+    if(player.thrusters>=2&&terrain.active){
+      const collision=terrain.collideEntity({sprite:heatJet,x:jetX,y:jetY});
+      if(collision){
+        const p=terrain.firstWorldImpact(collision);
+        if(p)terrain.carveImpact(collision,p,player.thrusters===3?4:2);
+      }
+    }
+    thrusterCooldown=player.thrusters===3?.16:player.thrusters===2?.25:.38;
+  }
+}
+function renderOffensiveSystems(){
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  if(player.thrusters>0&&hoverState.jet&&!warp){
+    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
+      (player.baseSprite||ships.player).height,player.pitch);
+    const length=44+player.thrusters*27;
+    const color=['','#ffc57c','#ff5b23','#a9f8ff'][player.thrusters];
+    ctx.strokeStyle=color;ctx.lineWidth=5+player.thrusters*3;ctx.globalAlpha=.72;
+    for(const x of [cx-29,cx+29]){
+      ctx.beginPath();ctx.moveTo(x,bottom-3);
+      ctx.quadraticCurveTo(x+Math.sin(elapsed*24)*7,bottom+length*.55,
+        x+Math.sin(elapsed*17)*11,bottom+length);ctx.stroke();
+    }
+  }
+  for(const pulse of auraPulses)if(pulse.delay<=0){
+    const t=pulse.age/pulse.life;
+    ctx.globalAlpha=Math.max(0,(1-t)*.72);ctx.strokeStyle='#bcb2ff';ctx.lineWidth=3+6*(1-t);
+    ctx.beginPath();ctx.arc(cx,cy,24+t*147,0,TAU);ctx.stroke();
+  }
+  for(let i=0;i<player.orbs;i++){
+    const p=orbPosition(i,elapsed,cx,cy);
+    ctx.globalAlpha=.85;
+    ctx.fillStyle='hsl('+((i*37+elapsed*95)%360)+' 100% 75%)';
+    ctx.beginPath();ctx.arc(p.x,p.y,3.2+Math.sin(elapsed*4+i)*.6,0,TAU);ctx.fill();
+  }
+  for(const o of orbFlights){
+    ctx.globalAlpha=.95;ctx.strokeStyle='#f8aeff';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(o.x,o.y,6,0,TAU);ctx.stroke();
+    ctx.fillStyle='#f5ffff';ctx.beginPath();ctx.arc(o.x,o.y,3.5,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+}
+
 function activeSecondFingerAim(){
   return secondFingerAim?twoFingerAimPoint(secondFingerAim,enemies,W,H,autofocusEnabled):null;
 }
@@ -826,7 +998,7 @@ function playerDamage(r) {
   if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
 }
-function hitEnemy(enemy,r,damageSource='projectile') {
+function hitEnemy(enemy,r,damageSource='projectile',strength=1) {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
@@ -861,7 +1033,7 @@ function hitEnemy(enemy,r,damageSource='projectile') {
     }
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
-  enemy.hp--;
+  enemy.hp-=Math.max(1,Math.floor(strength)||1);
   // Direct projectiles only. Every tenth hit tears exactly ONE living arm.
   if(point&&damageSource==='projectile'&&isLivingAppendage(enemy.morph)){
     enemy.directHits=(enemy.directHits||0)+1;
@@ -1030,6 +1202,7 @@ function update(dt) {
   player.x=clamp(player.x,10,W-player.sprite.width-15);
   player.y=clamp(player.y,35,H-player.sprite.height-15);
   updateHoverPlume(dt,stage);
+  stepOffensiveSystems(dt,stage);
   fireClock-=dt;
   if((keys.has(' ')||dragging||tiltMove.active) && fireClock<=0){firePlayer();fireClock=.16;}
   spawnClock-=dt;
@@ -1340,6 +1513,7 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
+  renderOffensiveSystems();
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
   drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
