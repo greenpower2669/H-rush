@@ -1,4 +1,4 @@
-import { maskFromImageData, collide, forEachImpact, METHODS, eraseDisc } from './collision.js';
+import { maskFromImageData, createMask, collide, forEachImpact, METHODS, eraseDisc } from './collision.js';
 import { SpatialGrid } from './spatial.js';
 import { createSoundEngine } from './sound.js';
 import { createMusicEngine, sceneMusic } from './music.js';
@@ -8,17 +8,18 @@ import { TouchMissileGestures } from './touch-missile.js';
 import { TiltController, screenGravity } from './tilt.js';
 import { createBonusSprites, BONUS_TYPES, bonusVariant, pickBonusType, bonusDropAllowed, BONUS_MAX_SIMULTANEOUS } from './bonuses.js';
 import { loadGameArt } from './art.js';
-import { ENEMY_MORPHS, BOSS_MORPHS, morphFor, bossMorphFor, spriteForMorph, organicFragmentSprite, morphMovement, spawnMovement, isLivingAppendage, bossWeapons } from './bestiary.js';
+import { ENEMY_MORPHS, BOSS_MORPHS, morphFor, bossMorphFor, spriteForMorph, organicFragmentSprite, morphMovement, spawnMovement, isLivingAppendage, livingArmCount, livingMaterialHit, livingMaterialPosition, bossWeapons } from './bestiary.js';
 import { isBallisticTurret, isGroundCreature, isBitingWorm, groundPitchByAnd, alignByTerrainAnd, ballisticSolution, gnawTerrainByAnd, WORM_BITE_INTERVAL } from './ground-combat.js';
 import { OmegaUniverse, stageAt, regionIdentity, REGION_SIZE, formatDuration, keyedFloat } from './universe.js';
 import { atmosphericHeat, drawAtmosphericHeat } from './atmosphere.js';
 import { OmegaTerrain, craterRadius, terrainBounds } from './omega-terrain.js';
 import { mineSpec, mineBeacon, mineMotion, mineNearPlayer, mineFused } from './robot-mines.js';
-import { ORGANIC_FRAGMENT_LIMIT, organicSeverDue, stepOrganicFragment, organicDurability, organicSurfaceY } from './living-organics.js';
+import { ORGANIC_FRAGMENT_LIMIT, stepOrganicFragment, organicDurability, organicSurfaceY } from './living-organics.js';
 import { safeEnemySpawn, advanceEnemyOnTerrain } from './obstacle-navigation.js';
 import { drawOmegaWorld } from './omega-visuals.js';
 import { biomeFor, debrisGravity } from './biomes.js';
 import { copyDamageSprite, burnHoleLimited, switchDamagedFrame, addEnemyBurn } from './damage.js';
+import { initialOffense, gainOffense, spendOrbs, orbPosition, auraWaveCount, followTouch } from './offense.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
 import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
@@ -196,7 +197,7 @@ function updateSpriteAnimations(dt=.016) {
       const organicFrame=isLivingAppendage(enemy.morph)?
         Math.floor(enemy.age*11+enemy.phase*.3)%12:Math.floor(enemy.age*6)&1;
       const base=spriteForMorph(enemy.morph,organicFrame,phase,
-        cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArm??-1);
+        cannon?cannon.angle-(enemy.hullPitch||0):null,enemy.severArms?.length?enemy.severArms:enemy.severArm??-1);
       const pitchBucket=grounded&&Math.abs(enemy.hullPitch)>.026 ? Math.round(enemy.hullPitch/.05) : 0;
       if(enemy.lastVisualSource===base&&enemy.lastVisualPitch===pitchBucket&&!enemy.visualDirty)
         continue; // Avoid per-frame raster mask and damage-cache churn.
@@ -236,12 +237,15 @@ let runBaseScore = 0, runBaseMaxDistance = 0, runBasePoints = 0, pauseBeforeHall
 let warp=null, warpClock=0, rockSerial=0, portalSeen=new Set(), warpDust=[];
 let hoverClouds=[],hoverClock=0,hoverState={jet:0,dust:0,gap:Infinity};
 let lastBonusSpawn=-Infinity;
+let auraPulses=[],orbFlights=[],auraCooldown=0,orbLaunchCooldown=0,thrusterCooldown=0;
+let touchVx=0,touchVy=0;
 
 function reset(fromCheckpoint = false) {
-  player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5};
+  player = {sprite:ships.player,baseSprite:ships.player,pitch:0,x:86,y:H/2-23,...initialHealth(),shield:0,fireLevel:1,missileLevel:1,ammo:5,...initialOffense()};
   enemies=[]; bullets=[]; enemyShots=[]; missiles=[]; particles=[]; powerups=[]; decals=[]; shockwaves=[]; bursts=[];
   warp=null;warpClock=0;rockSerial=0;portalSeen=new Set();warpDust=[];
   hoverClouds=[];hoverClock=0;hoverState={jet:0,dust:0,gap:Infinity};lastBonusSpawn=-Infinity;
+  auraPulses=[];orbFlights=[];auraCooldown=0;orbLaunchCooldown=0;thrusterCooldown=0;touchVx=touchVy=0;
   terrain.flush();
   terrain.scroll = fromCheckpoint ? Math.floor(universe.state.distance/REGION_SIZE)*REGION_SIZE
     : Math.max(0,universe.state.distance-260);
@@ -269,6 +273,9 @@ function updateHud() {
   $('#shield').textContent='◇ '+player.shield;
   $('#missiles').textContent='🚀 '+player.ammo+' ×'+player.missileLevel;
   $('#weapon').textContent='⚡ ×'+player.fireLevel;
+  $('#auraBonus').textContent=player.aura+'/3';
+  $('#orbBonus').textContent=player.orbs+'/50';
+  $('#thrusterBonus').textContent=player.thrusters+'/3';
   $('#wave').textContent='VAGUE '+wave;
   const s=terrain.lastStage,id=regionIdentity(universe.seed,s.region);
   $('#terrainStatus').hidden = false;
@@ -621,7 +628,7 @@ function spawnEnemy(kind='scout',species=null,offset=0,bossPhases=1) {
     // Appendages are fixed to a WORLD-space surface, not sliding across it.
     // They move left only because the universe scrolls under the ship.
     worldAnchorX:isLivingAppendage(morph)?terrain.scroll+position.x:null,
-    severCount:0,severArm:-1,
+    severCount:0,severArm:-1,severArms:[],directHits:0,
     sourceSprite:s,scars:[],damageFrames:new Map()});
   const spawned=enemies[enemies.length-1];
   if(anchor&&terrain.active&&!living)alignByTerrainAnd(terrain,spawned,anchor,95);
@@ -687,7 +694,9 @@ function impactResult(result,target) {
   particlesAt(p.x,p.y,zone,zone==='hull'?12:18,18);
   sound.play('impact');
   spawnSpriteExplosion(p.x,p.y,.5);
-  decals.push({target,x:localX,y:localY,life:1.2,age:0,zone});
+  const material=isLivingAppendage(target.morph)?
+    livingMaterialHit(target.morph,target.sourceSprite?.organicFrame??0,localX,localY,target.severArms||[]):null;
+  decals.push({target,x:localX,y:localY,material,life:1.2,age:0,zone});
   latestImpact={x:p.x,y:p.y,zone,count:result.count,at:elapsed};
   return p;
 }
@@ -817,7 +826,7 @@ function playerDamage(r) {
   if(player.hp<=0) { particlesAt(player.x+40,player.y+23,'hull',90);finishRun('combat'); }
   updateHud();
 }
-function hitEnemy(enemy,r) {
+function hitEnemy(enemy,r,damageSource='projectile') {
   const point=impactResult(r,enemy);
   if(point){
     const px=point.x-Math.round(enemy.x),py=point.y-Math.round(enemy.y);
@@ -853,14 +862,23 @@ function hitEnemy(enemy,r) {
     shockwaves.push({x:point.x,y:point.y,life:.3,age:0,size:12,color:'#ffab54'});
   }
   enemy.hp--;
-  if(organicSeverDue(enemy)&&point&&spawnOrganicFragment(enemy,point)){
-    enemy.severCount=1;
-    // With the next animated pose the branch genuinely disappears from
-    // the parent alpha mask. The separated organism has its own AND sprite.
-    const total=enemy.morph.boss?7:5;
-    const localX=point.x-enemy.x;
-    enemy.severArm=Math.max(0,Math.min(total-1,Math.floor(localX/Math.max(1,enemy.sprite.width)*total)));
-    enemy.visualDirty=true;
+  // Direct projectiles only. Every tenth hit tears exactly ONE living arm.
+  if(point&&damageSource==='projectile'&&isLivingAppendage(enemy.morph)){
+    enemy.directHits=(enemy.directHits||0)+1;
+    if(enemy.directHits%10===0&&(enemy.severCount||0)<livingArmCount(enemy.morph)){
+      const at=livingMaterialHit(enemy.morph,enemy.sourceSprite?.organicFrame??0,
+        point.x-Math.round(enemy.x),point.y-Math.round(enemy.y),enemy.severArms||[]);
+      const available=Array.from({length:livingArmCount(enemy.morph)},(_,i)=>i)
+        .filter(i=>!(enemy.severArms||[]).includes(i));
+      const arm=available.includes(at?.arm)?at.arm:available[0];
+      if(arm!==undefined){
+        enemy.severArms=[...(enemy.severArms||[]),arm];
+        enemy.severCount=enemy.severArms.length;
+        enemy.visualDirty=true;
+        spawnOrganicFragment(enemy,point); // Visual creature is optional if active cap reached.
+        particlesAt(point.x,point.y,'hull',32);
+      }
+    }
   }
   // Sentinels remain durable even after visible surface damage: HP, not missing pixels, decides death.
   if(enemy.kind==='asteroid'&&!enemy.robot&&enemy.sprite.mask.filled<120)enemy.hp=0;
@@ -991,9 +1009,10 @@ function update(dt) {
   const dy=(keys.has('ArrowDown')||keys.has('s')||keys.has('S')?1:0)-(keys.has('ArrowUp')||keys.has('w')||keys.has('W')||keys.has('z')||keys.has('Z')?1:0);
   if(dragging) {
     const target = touch.target(pointer, player.sprite.width, player.sprite.height, W, H, {invertX:tilt.invertX,invertY:tilt.invertY});
-    player.x+=(target.x-player.x)*Math.min(1,dt*16);
-    player.y+=(target.y-player.y)*Math.min(1,dt*16);
+    const next=followTouch(player.x,player.y,touchVx,touchVy,target.x,target.y,dt);
+    player.x=next.x;player.y=next.y;touchVx=next.vx;touchVy=next.vy;
   } else {
+    touchVx=0;touchVy=0;
     // Touch priority, keyboard and native gravity calibrated in screen coordinates.
     const mx=clamp(dx+tiltMove.x,-1,1),my=clamp(dy+tiltMove.y,-1,1);
     const diagonal=Math.max(1,Math.hypot(mx,my));
@@ -1257,7 +1276,11 @@ function update(dt) {
       else if(item.type==='missile'){player.missileLevel=Math.min(3,player.missileLevel+1);player.ammo+=3;msg('MISSILES AMÉLIORÉS !',1.6);}
       else if(item.type==='heal'){Object.assign(player,restoreHeart(player));msg('CŒUR ET PV RESTAURÉS !',1.6);}
       else if(item.type==='extraHeart'){const oldMax=player.maxHearts??5;Object.assign(player,grantExtraHeart(player));msg(player.maxHearts>oldMax?'💝 CŒUR EXTRA ! '+player.maxHearts+' CŒURS MAX':'💝 CŒUR RESTAURÉ !',2.3);}
-      else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
+      else if(item.type==='aura'||item.type==='orb'||item.type==='thruster'){
+        Object.assign(player,gainOffense(player,item.type));
+        msg(item.type==='orb'?'ORBE +1 · '+player.orbs+'/50':
+          item.type==='aura'?'AURA · '+player.aura+'/3':'PROPULSEURS · '+player.thrusters+'/3',1.9);
+      }else {player.shield=Math.min(4,player.shield+(item.type==='protection'?2:1));msg('BOUCLIER +',1.6);}
       sound.play('pickup');particlesAt(item.x,item.y,'shield',22);powerups.splice(powerups.indexOf(item),1);updateHud();}
     else if(item.x < -50)powerups.splice(powerups.indexOf(item),1);
   }
@@ -1337,7 +1360,9 @@ function render() {
     ctx.drawImage(frame.image,fx.x-w/2,fx.y-h/2,w,h);ctx.restore();
   }
   for(const d of decals) {
-    const x=Math.round(d.target.x+d.x),y=Math.round(d.target.y+d.y);
+    const pos=d.material?livingMaterialPosition(d.target.morph,d.target.sourceSprite?.organicFrame??0,d.material):{x:d.x,y:d.y};
+    if(d.material&&d.target.severArms?.includes(d.material.arm))continue;
+    const x=Math.round(d.target.x+pos.x),y=Math.round(d.target.y+pos.y);
     ctx.save();ctx.globalAlpha=1-d.age/d.life;ctx.strokeStyle=d.zone==='motor'?'#ffb765':'#ffedb5';ctx.lineWidth=2.5;
     ctx.beginPath();ctx.arc(x,y,2+d.age*15,0,TAU);ctx.stroke();ctx.restore();
   }
