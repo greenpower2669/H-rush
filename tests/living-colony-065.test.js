@@ -133,16 +133,16 @@ test('game enforces roof for ceiling tentacles and the Android bundle includes r
   for(const code of [src,html]){
     for(const token of ['if(morph?.anchor===\'ceiling\'&&preview.top<40)',
       'function spawnOrganicFragment(parent,impact)', 'function drawRescueLink(f)',
-      'organicSeverDue(enemy)', 'stepOrganicFragment(enemy,enemies,player',
+      'enemy.directHits%10===0', 'stepOrganicFragment(enemy,enemies,player',
       "if(enemy.state==='crawl')alignByTerrainAnd",
       'if(isLivingAppendage(enemy.morph))drawEntity(enemy)']){
       assert.ok(code.includes(token),token+' missing');
     }
   }
   assert.ok(html.includes('function rescueHelper(fragment,actors)'));
-  assert.ok(html.includes('if(i===missingArm)continue'));
-  assert.ok(src.includes('enemy.severArm=Math.max(0'));
-  assert.ok(src.includes('enemy.severArm??-1'));
+  assert.ok(html.includes('missingArm.includes(i)'));
+  assert.ok(src.includes('enemy.severArms=['));
+  assert.ok(src.includes('enemy.severArms?.length'));
   assert.ok(html.includes('function organicFragmentSprite(morph,frame=0)'));
   assert.ok(!src.includes('if(enemy.kind !== \'asteroid\' && !enemy.morph)'));
 });
