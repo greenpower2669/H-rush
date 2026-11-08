@@ -130,3 +130,5 @@ Trois bonus ramassables et indépendants, remis strictement à zéro à chaque p
 Les blessures des appendices vivants sont repérées par (bras, t de Bézier, décalage normal) avec projection depuis la même géométrie que la peinture ; dégâts et masques AND NOT suivent les 12 poses. Tous les 10 impacts directs, disparition d'un bras distinct ; fragments autonomes soumis à la limite de population.
 Le pilotage tactile suit une cible avec vitesse bornée et réduit continûment le décalage X près du bord gauche. Les dégâts d'aura, d'orbes et de jets utilisent un masque d'aire binaire AND et une vérification de terrain réel avant propagation.
 Validation de compilation et du comportement physique sur Samsung non déduite du seul code : consulter `debughistorical.md` et Actions.
+
+Validation CI OMEGA 0.5.17 : GitHub Actions run 42428408811 réussi (tests Node, bundle autonome, compilation Android, APK signé/contrôlé et Release). Livraison d'essai : https://github.com/greenpower2669/H-rush/releases/tag/v0.5.17-offensive-bonuses-preview. Tests physiques et signature stable de production restent distincts.
