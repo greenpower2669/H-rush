@@ -427,3 +427,17 @@
 - [x] GitHub Actions [42400503837](https://github.com/greenpower2669/H-rush/actions/runs/42400503837) : **194/194 tests**, HTML autonome reconstruite sans différences, Gradle Debug 0.5.16/code66, signature/package vérifiés, [APK direct publié](https://github.com/greenpower2669/H-rush/releases/download/v0.5.16-heavy-organics-motion-preview/HRush-Omega-v0.5.16-heavy-organics-motion-debug.apk) (14 019 771 octets lors de la première publication), SHA256SUMS.txt joint. Contrôles visuels Samsung encore requis.
 - [ ] QA Samsung indispensable : vue en jeu des bases invisibles près des parois irrégulières, ondulation naturelle, FPS/RAM en biome dense, résistance réelle des organiques, fragments et secours, absence de régression sur les mines et missiles.
 - [ ] Pas de fusion dans main, ni AAB, sans accord de Fab.
+
+## OMEGA 0.5.17 — travaux 08/11/2026
+- [x] Branche dédiée depuis OMEGA 0.5.16, sans toucher à main.
+- [x] État initial aura 0/3, orbes 0/50, propulseurs 0/3 ; ramassage exclusif par type.
+- [x] Aura de 1 à 3 vagues, délais de recharge et collisions AND de zone.
+- [x] Orbes iridescentes orbitales, une seule par bonus, défense sacrificielle et compteur décrémenté.
+- [x] Trois grades de jets thermiques en gravité, collisions physiques des ennemis et excavation thermique.
+- [x] Blessures Bézier par bras et reprojection sur 12 frames ; chaque 10 tirs directs arrache un nouveau bras.
+- [x] Suivi tactile amorti, vitesse bornée, offset gauche progressif.
+- [x] HUD 0/3–0/50–0/3 ; sources offline intégrées au HTML standalone.
+- [x] Tests de base ajoutés ; anciens tests adaptés aux invariants remplacés.
+- [ ] Valider la réussite complète de GitHub Actions, npm test, génération HTML identique, signature et APK présent en Release ; noter SHA256.
+- [ ] Tester sur Samsung : fluidité, 50 orbes, vraies collisions, 10e tir, zones d'occlusion, gestuelle deux doigts, régime thermique CPU/RAM.
+- [ ] Régler l'équilibrage du taux de bonus et l'efficacité sur boss, selon essais réels.
