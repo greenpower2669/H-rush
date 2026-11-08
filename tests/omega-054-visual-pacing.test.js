@@ -45,14 +45,14 @@ test('portals sit near solid rock and exit into next-region space',()=>{
   assert.ok(visible>=10);
   assert.throws(()=>warpExitWorld(-1),RangeError);
 });
-test('bonus reward policy stops previous fragment flood, enforces cooldown and on-screen cap',()=>{
-  assert.ok(BONUS_MIN_INTERVAL_SECONDS>=20);
-  assert.equal(BONUS_MAX_SIMULTANEOUS,1);
+test('bonus reward policy supports collectible progression with bounded cooldown and on-screen cap',()=>{
+  assert.ok(BONUS_MIN_INTERVAL_SECONDS>=8);
+  assert.equal(BONUS_MAX_SIMULTANEOUS,3);
   const base={elapsed:250,sinceLast:150,active:0,kind:'scout',hearts:5,roll:.01};
   assert.equal(bonusDropAllowed(base),true);
   assert.equal(bonusDropAllowed({...base,elapsed:11}),false);
-  assert.equal(bonusDropAllowed({...base,sinceLast:12}),false);
-  assert.equal(bonusDropAllowed({...base,active:1}),false);
+  assert.equal(bonusDropAllowed({...base,sinceLast:5}),false);
+  assert.equal(bonusDropAllowed({...base,active:3}),false);
   assert.equal(bonusDropAllowed({...base,warp:true}),false);
   for(const rockType of ['fragment','warp','rain'])
     assert.equal(bonusDropAllowed({...base,kind:'asteroid',rockType}),false);
@@ -73,7 +73,7 @@ test('moving columns are backed by terrain and free-floating asteroid columns we
   assert.ok(draw.indexOf('for(const gate of this.visibleGates')<draw.indexOf('for(let i=lo;i<=hi;i++)'));
   assert.match(game,/const spawnX=offscreenSpawnX\(W,s\.width,70\)/);
 });
-test('progressive bounded difficulty is preserved even with fewer bonus pickups',()=>{
+test('progressive bounded difficulty is preserved with collectible offensive upgrades',()=>{
   const times=[0,42,98,190,360,900,2000,8000];
   const profile=times.map(seconds=>difficultyAt({seconds,region:0,kills:0,hearts:5,seed,phase:'space'}));
   for(let i=1;i<profile.length;i++){
@@ -96,10 +96,10 @@ test('warp now resumes in space, and forced frequent shield drops are removed',(
   assert.match(html,/function atmosphereGlobePosition/);
 });
 
-test('baseline bonus chance stays at 9.5 percent under a uniform deterministic sweep',()=>{
+test('offensive pickup chance is 22 percent under a uniform deterministic sweep',()=>{
   const common={elapsed:1000,sinceLast:1000,active:0,kind:'scout',hearts:5};
   let successes=0;
   for(let i=0;i<1000;i++)
     if(bonusDropAllowed({...common,roll:(i+.5)/1000}))successes++;
-  assert.equal(successes,95);
+  assert.equal(successes,220);
 });
