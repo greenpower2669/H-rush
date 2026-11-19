@@ -453,6 +453,9 @@
 - [x] Conserver le gameplay 0.5.17 : bonus exclusivement ramassables 0/3, 0/50, 0/3, AND et tentacules.
 - [x] Mettre à jour version Android 0.5.18/code 68 et source HTML autonome.
 - [x] Écrire les tests ciblés de mouvement, géométrie, ordre de dessin, effet visuel.
-- [ ] Obtenir CI GitHub Actions complète (tests Node, HTML autonome identique, Gradle, signature APK et Release).
-- [ ] Vérifier APK direct et SHA-256, puis contrôler l'installation sur Samsung et les FPS/gestes/effets visuels.
+- [x] GitHub Actions 44554879947 : 205/205 tests Node, HTML autonome identique, build Gradle, apksigner et Release contrôlés.
+- [x] APK direct présent en Release, SHA-256 vérifié ; lien ci-dessous.
+- [ ] Contrôler l'installation sur Samsung, les FPS, les gestes et les effets visuels.
 - [ ] Préserver une signature Android stable : APK debug soumis au certificat de la CI, exporter les données avant toute désinstallation.
+
+- [x] [Prérelease OMEGA 0.5.18](https://github.com/greenpower2669/H-rush/releases/tag/v0.5.18-touch-thruster-fx-preview) : `HRush-Omega-v0.5.18-touch-thruster-fx-debug.apk` (14 026 503 octets), SHA-256 `8f01bc83c95b920826c7025273c63eb2d172b88baf1150e29cc7a4acd6c06587`.
