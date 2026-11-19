@@ -185,7 +185,7 @@ footer { margin-top:13px; color:#7e9cbd; text-align:center; font-size:11px; }
     <main>
       <div class="stage" id="stage">
         <canvas id="game" width="960" height="540" aria-label="Jeu spatial Ash Rush : vaisseau contrôlé aux flèches ou en glissant le doigt"></canvas>
-        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.17</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
+        <div class="stage-top"><span class="pill">🚀 H-RUSH OMEGA 0.5.18</span><span id="terrainStatus" class="pill cave-status" hidden>🪨 GALERIES</span><span id="wave" class="pill">VAGUE 1</span></div>
         <div id="announcement" class="announcement" aria-live="polite"></div>
         <section id="welcomeScreen" class="welcome-screen" role="dialog" aria-modal="true" aria-label="Accueil H-RUSH OMEGA">
           <div class="welcome-controls">
@@ -3191,9 +3191,10 @@ function auraWaveCount(level){return Math.max(0,Math.min(3,Math.floor(level)||0)
 function followTouch(x,y,vx,vy,targetX,targetY,dt){
   const step=Math.max(0,Math.min(.05,Number(dt)||0));
   if(step===0)return {x,y,vx,vy};
-  const ax=(targetX-x)*22-vx*11,ay=(targetY-y)*22-vy*11;
+  // Near-critical damping: fast response without a snap or spring oscillation.
+  const ax=(targetX-x)*90-vx*19,ay=(targetY-y)*90-vy*19;
   vx+=ax*step;vy+=ay*step;
-  const speed=Math.hypot(vx,vy),maxSpeed=435;
+  const speed=Math.hypot(vx,vy),maxSpeed=1000;
   if(speed>maxSpeed){vx=vx/speed*maxSpeed;vy=vy/speed*maxSpeed;}
   const dx=targetX-x,dy=targetY-y;
   const moveX=vx*step,moveY=vy*step;
@@ -3362,6 +3363,18 @@ function aimFromNose(cx,cy,width,pitch,speed=780,lane=0){
 }
 function projectedHullBottom(cy,w,h,angle){
   return cy+(Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*.5;
+}
+/** Physical emitter anchors embedded inside the tilted hull.
+ * Draw the exhaust BEFORE the ship: the sprite naturally occludes the roots.
+ * Coordinates use the same world-space pitch as pitchSprite().
+ */
+function gravityNozzlePositions(cx,cy,width,height,pitch=0){
+  const c=Math.cos(pitch),s=Math.sin(pitch);
+  const localY=height*.19;
+  return [-1,1].map(sign=>{
+    const localX=sign*width*.26;
+    return {x:cx+c*localX-s*localY,y:cy+s*localX+c*localY};
+  });
 }
 /** Downwash never appears in vacuum, ground dust only when the solid surface is nearby. */
 function hoverPlume(phase,ground,hullBottom){
@@ -3870,7 +3883,37 @@ function updateSpriteAnimations(dt=.016) {
     rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
-  if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
+  // Pure circular alpha effect: atlas FX cells formerly revealed square mattes.
+  if(bursts.length>=28)bursts.shift();
+  bursts.push({x,y,size:Math.max(.25,Math.min(2.6,size)),age:0,life:.34,
+    phase:(bursts.length*.61803398875%1)*TAU});
+}
+/** Procedural radial glow, ring and sparks. Every drawn contour is circular:
+ * no rectangular sprite, square fill or opaque atlas background.
+ */
+function renderExplosionBurst(fx){
+  const t=Math.max(0,Math.min(1,fx.age/fx.life));
+  const fade=Math.pow(1-t,1.55),r=(9+47*t)*fx.size;
+  if(fade<=0)return;
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  const glow=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,r);
+  glow.addColorStop(0,'rgba(255,255,239,'+(fade*.90)+')');
+  glow.addColorStop(.24,'rgba(255,224,122,'+(fade*.64)+')');
+  glow.addColorStop(.56,'rgba(255,99,63,'+(fade*.24)+')');
+  glow.addColorStop(1,'rgba(255,85,55,0)');
+  ctx.fillStyle=glow;
+  ctx.beginPath();ctx.arc(fx.x,fx.y,r,0,TAU);ctx.fill();
+  ctx.globalAlpha=fade*.85;ctx.strokeStyle='#ffd5a1';ctx.lineWidth=Math.max(1,2.8*fx.size*(1-t));
+  ctx.beginPath();ctx.arc(fx.x,fx.y,r*.78,0,TAU);ctx.stroke();
+  ctx.globalAlpha=fade*.76;ctx.lineWidth=Math.max(1,1.65*fx.size);
+  for(let i=0;i<9;i++){
+    const angle=fx.phase+i*TAU/9,inner=r*(.40+(i%3)*.06),outer=r*(1.05+(i%4)*.12);
+    ctx.beginPath();
+    ctx.moveTo(fx.x+Math.cos(angle)*inner,fx.y+Math.sin(angle)*inner);
+    ctx.lineTo(fx.x+Math.cos(angle)*outer,fx.y+Math.sin(angle)*outer);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand(.4,2),speed:rand(12,90),twinkle:rand(0,TAU)}));
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
@@ -4527,21 +4570,36 @@ function stepOffensiveSystems(dt,stage){
     thrusterCooldown=player.thrusters===3?.16:player.thrusters===2?.25:.38;
   }
 }
+/** Exhaust ribbon roots are INSIDE the ship and rendered underneath it.
+ * The ship's opaque pixels cover the emitter origins; no floating tubes.
+ */
+function renderThrusterUnderlay(){
+  if(player.thrusters<=0||!hoverState.jet||warp)return;
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const base=player.baseSprite||ships.player;
+  const nozzles=gravityNozzlePositions(cx,cy,base.width,base.height,player.pitch);
+  const length=44+player.thrusters*29;
+  const colors=['','#ffd59e','#ff702f','#92f2ff'];
+  const color=colors[player.thrusters];
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  for(const [i,p] of nozzles.entries()){
+    const bend=Math.sin(elapsed*16+i*2.1)*7;
+    const x2=p.x+bend*1.25;
+    const y2=p.y+length;
+    ctx.globalAlpha=.26;ctx.strokeStyle=color;ctx.lineWidth=7+player.thrusters*3;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    ctx.bezierCurveTo(p.x+bend*.45,p.y+length*.26,p.x-bend*.60,p.y+length*.65,x2,y2);
+    ctx.stroke();
+    ctx.globalAlpha=.72;ctx.lineWidth=2.5+player.thrusters*1.5;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    ctx.bezierCurveTo(p.x+bend*.45,p.y+length*.26,p.x-bend*.60,p.y+length*.65,x2,y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function renderOffensiveSystems(){
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
   ctx.save();ctx.globalCompositeOperation='lighter';
-  if(player.thrusters>0&&hoverState.jet&&!warp){
-    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
-      (player.baseSprite||ships.player).height,player.pitch);
-    const length=44+player.thrusters*27;
-    const color=['','#ffc57c','#ff5b23','#a9f8ff'][player.thrusters];
-    ctx.strokeStyle=color;ctx.lineWidth=5+player.thrusters*3;ctx.globalAlpha=.72;
-    for(const x of [cx-29,cx+29]){
-      ctx.beginPath();ctx.moveTo(x,bottom-3);
-      ctx.quadraticCurveTo(x+Math.sin(elapsed*24)*7,bottom+length*.55,
-        x+Math.sin(elapsed*17)*11,bottom+length);ctx.stroke();
-    }
-  }
   for(const pulse of auraPulses)if(pulse.delay<=0){
     const t=pulse.age/pulse.life;
     ctx.globalAlpha=Math.max(0,(1-t)*.72);ctx.strokeStyle='#bcb2ff';ctx.lineWidth=3+6*(1-t);
@@ -5162,8 +5220,9 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
-  renderOffensiveSystems();
+  renderThrusterUnderlay();
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
+  renderOffensiveSystems();
   drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
     const base=player.baseSprite||ships.player,cy=player.y+player.sprite.height*.5;
@@ -5176,12 +5235,8 @@ function render() {
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(player.x+player.sprite.width*.5,player.y+player.sprite.height*.5,52,36,0,0,TAU);ctx.stroke();
   }
-  if (artFrames?.fx) for (const fx of bursts) {
-    const frame = artFrames.fx[Math.min(artFrames.fx.length-1,Math.floor(fx.age/fx.life*artFrames.fx.length))];
-    const w=frame.width*fx.size,h=frame.height*fx.size;
-    ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=Math.max(.15,1-fx.age/fx.life);
-    ctx.drawImage(frame.image,fx.x-w/2,fx.y-h/2,w,h);ctx.restore();
-  }
+  // Atlas FX are replaced by circular alpha procedural bursts; no square mattes.
+  for(const fx of bursts)renderExplosionBurst(fx);
   for(const d of decals) {
     const pos=d.material?livingMaterialPosition(d.target.morph,d.target.sourceSprite?.organicFrame??0,d.material):{x:d.x,y:d.y};
     if(d.material&&d.target.severArms?.includes(d.material.arm))continue;
