@@ -245,7 +245,7 @@ jobs:
       - name: Publier uniquement APK direct sur GitHub Releases
         # Only the named first-party crash-fix PR may publish a preview after all checks.
         # Untrusted forks and unrelated pull requests retain read-only QA.
-        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/omega-066-heavy-organics-hidden-roots-20261107') }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/omega-068-fast-touch-behind-ship-fx-20261119') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
