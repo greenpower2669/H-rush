@@ -23,6 +23,18 @@ export function aimFromNose(cx,cy,width,pitch,speed=780,lane=0){
 export function projectedHullBottom(cy,w,h,angle){
   return cy+(Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*.5;
 }
+/** Physical emitter anchors embedded inside the tilted hull.
+ * Draw the exhaust BEFORE the ship: the sprite naturally occludes the roots.
+ * Coordinates use the same world-space pitch as pitchSprite().
+ */
+export function gravityNozzlePositions(cx,cy,width,height,pitch=0){
+  const c=Math.cos(pitch),s=Math.sin(pitch);
+  const localY=height*.19;
+  return [-1,1].map(sign=>{
+    const localX=sign*width*.26;
+    return {x:cx+c*localX-s*localY,y:cy+s*localX+c*localY};
+  });
+}
 /** Downwash never appears in vacuum, ground dust only when the solid surface is nearby. */
 export function hoverPlume(phase,ground,hullBottom){
   if(!gravityFlight(phase))return {jet:0,dust:0,gap:Infinity};
