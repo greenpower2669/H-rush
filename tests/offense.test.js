@@ -22,7 +22,25 @@ test('vagues liées au niveau et anneaux finis',()=>{
 test('rattrapage tactile limité en vitesse et sans téléportation',()=>{
   let p={x:20,y:100,vx:0,vy:0};
   p=followTouch(p.x,p.y,p.vx,p.vy,800,400,.016);
-  assert.ok(p.x<30&&p.y<110);
+  // At 60fps the farthest movement stays bounded while reacting immediately.
+  assert.ok(p.x>30&&p.x<40&&p.y>100&&p.y<110);
+  assert.ok(Math.hypot(p.x-20,p.y-100)<=1000*.016+1e-8);
   for(let i=0;i<240;i++)p=followTouch(p.x,p.y,p.vx,p.vy,800,400,.016);
   assert.ok(Math.abs(p.x-800)<2&&Math.abs(p.y-400)<2);
+});
+
+test('finger chase catches a 400px target briskly, brakes without jumping and respects low FPS',()=>{
+  let p={x:50,y:240,vx:0,vy:0};
+  let previous=50;
+  for(let i=0;i<25;i++){
+    p=followTouch(p.x,p.y,p.vx,p.vy,450,240,.016);
+    assert.ok(p.x>=previous&&p.x<=450);
+    assert.ok((p.x-previous)<=1000*.016+1e-8);
+    previous=p.x;
+  }
+  assert.ok(p.x>370,'should have covered most of 400px in 400ms');
+  for(let i=0;i<100;i++)p=followTouch(p.x,p.y,p.vx,p.vy,450,240,.016);
+  assert.ok(Math.abs(p.x-450)<.1&&Math.abs(p.vx)<1,'no overshoot or oscillation');
+  const low=followTouch(20,20,0,0,800,490,.18);
+  assert.ok(Math.hypot(low.x-20,low.y-20)<=1000*.05+1e-6,'frame-step cap prevents a leap');
 });
