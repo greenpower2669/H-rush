@@ -91,3 +91,6 @@ Le dépôt `H-rush` est le projet du jeu **Ash Rush**, pas PrimeMax et pas Djipi
 ## Pointeur OMEGA 0.5.17 — 2026-11-08
 Branche d'essai : `feature/omega-067-offensive-pickups-organic-wounds-20261108`.
 Sources : `src/offense.js` (compteurs/ramassage/commande), `src/bonuses.js` (bonus), `src/game.js` (combat), `src/bestiary.js` et `src/damage.js` (Bézier/matériau/AND NOT), `src/input.js` (décalage X). Tests : `tests/offense.test.js`, `tests/organic-scars-067.test.js`. Détails et état de validation : `todo.md` / `debughistorical.md`.
+
+## Pointeur 0.5.18 — rendu et commandes
+Branche : `fix/omega-068-fast-touch-behind-ship-fx-20261119`, issue de 0.5.17. Tiroirs `src/offense.js` (suivi tactile), `src/hover-flight.js` (tuyères liées à la rotation), `src/game.js` (ordre de dessin et FX procéduraux), `tests/visual-fixes-068.test.js`, `tests/offense.test.js`. Voir `todo.md` et `debughistorical.md` pour la validation.
