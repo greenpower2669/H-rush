@@ -25,9 +25,10 @@ export function auraWaveCount(level){return Math.max(0,Math.min(3,Math.floor(lev
 export function followTouch(x,y,vx,vy,targetX,targetY,dt){
   const step=Math.max(0,Math.min(.05,Number(dt)||0));
   if(step===0)return {x,y,vx,vy};
-  const ax=(targetX-x)*22-vx*11,ay=(targetY-y)*22-vy*11;
+  // Near-critical damping: fast response without a snap or spring oscillation.
+  const ax=(targetX-x)*90-vx*19,ay=(targetY-y)*90-vy*19;
   vx+=ax*step;vy+=ay*step;
-  const speed=Math.hypot(vx,vy),maxSpeed=435;
+  const speed=Math.hypot(vx,vy),maxSpeed=1000;
   if(speed>maxSpeed){vx=vx/speed*maxSpeed;vy=vy/speed*maxSpeed;}
   const dx=targetX-x,dy=targetY-y;
   const moveX=vx*step,moveY=vy*step;
