@@ -444,3 +444,15 @@
 
 - [x] Vérification CI de la v0.5.17 (run 42428408811) : tests JS, contrôle de parité du HTML, build, apksigner, ressources, APK et Release réussis.
 - [ ] Installer et valider sur Samsung : 50 orbes, bras au dixième tir, aura multi-fronts et propulsion plasma ; tester les données sauvegardées si une clé de signature debug différente impose une désinstallation.
+
+## H-RUSH OMEGA 0.5.18 — corrections demandées le 19/11/2026
+- [x] Créer branche `fix/omega-068-fast-touch-behind-ship-fx-20261119` dérivée de 0.5.17 ; préserver `main`.
+- [x] Accélérer le rattrapage tactile avec freinage final, vitesse bornée et pas de temps limité.
+- [x] Ancrer les rubans sur les deux tuyères réelles en repère incliné, les dessiner derrière la coque.
+- [x] Remplacer les sprites d'explosions rectangulaires par des explosions procédurales circulaires et alpha transparent.
+- [x] Conserver le gameplay 0.5.17 : bonus exclusivement ramassables 0/3, 0/50, 0/3, AND et tentacules.
+- [x] Mettre à jour version Android 0.5.18/code 68 et source HTML autonome.
+- [x] Écrire les tests ciblés de mouvement, géométrie, ordre de dessin, effet visuel.
+- [ ] Obtenir CI GitHub Actions complète (tests Node, HTML autonome identique, Gradle, signature APK et Release).
+- [ ] Vérifier APK direct et SHA-256, puis contrôler l'installation sur Samsung et les FPS/gestes/effets visuels.
+- [ ] Préserver une signature Android stable : APK debug soumis au certificat de la CI, exporter les données avant toute désinstallation.
