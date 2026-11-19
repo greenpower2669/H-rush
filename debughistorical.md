@@ -281,3 +281,9 @@ Ce sont des validations de build et d'intégrité, **pas** un essai de fluidité
 Symptôme tactile : ancien `followTouch` limite la vitesse à 435 px/s, K=22/C=11 ; réponse perçue lente. Nouveaux coefficients K=90/C=19, 1 000 px/s maximum avec pas <=0,05 s, et arrêt sans dépassement pour chaque axe. Critère à valider au toucher : poursuite réactive et absence de téléportation.
 Symptôme rubans : tracés à `projectedHullBottom-3` et rendus dans une fonction globale avant la coque ; racines visibles sur le bord inférieur. Nouvelle fonction sous la coque depuis des tuyères internes calculées selon le tangage, avec rendu occlus par la silhouette. L'aura et les orbes restent visibles au premier plan.
 Symptôme carrés d'explosion : ancien code affichait directement deux frames de `artFrames.fx` recadrées à 68×68, d'où des bordures potentielles. Remplacement par un effet radial purement Canvas sans `drawImage` d'explosion ni rectangle plein, désormais indépendant de l'atlas. Collision physique inchangée. Bâtiment Android/code 68 et tests ciblés en cours de validation, pas encore de certification de rendu sur Samsung.
+
+## 2026-11-19 — OMEGA 0.5.18 : validation complète GitHub Actions
+Workflow [44554879947](https://github.com/greenpower2669/H-rush/actions/runs/44554879947) (PR brouillon #21, branche isolée) : **205/205 tests Node**, HTML standalone octet pour octet identique, musique/ressources présentes, Gradle Android 0.5.18/code68 réussi, signature apksigner vérifiée, publication de l'APK direct confirmée.
+Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.5.18-touch-thruster-fx-preview
+Asset : `HRush-Omega-v0.5.18-touch-thruster-fx-debug.apk` — 14 026 503 octets — SHA-256 `8f01bc83c95b920826c7025273c63eb2d172b88baf1150e29cc7a4acd6c06587`.
+Tests perceptifs et fluidité Samsung : encore à réaliser. PR #21 reste brouillon, aucune fusion dans main ; signature Android Debug de CI, sauvegarde conseillée avant toute désinstallation.
