@@ -22,7 +22,7 @@ import { copyDamageSprite, burnHoleLimited, switchDamagedFrame, addEnemyBurn } f
 import { initialOffense, gainOffense, spendOrbs, orbPosition, auraWaveCount, followTouch } from './offense.js';
 import { speciesFor, adaptSpecies, movementDelta, movementSpeedScale } from './ecology.js';
 import { WARP_DURATION, portalPosition, warpExitWorld, offscreenSpawnX, asteroidWeather, asteroidSpec, obstructionColumn, splitAsteroid, moveDebris, sentinelRock } from './omega-events.js';
-import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
+import { gravityFlight, pitchStep, aimFromNose, projectedHullBottom, hoverPlume, gravityNozzlePositions, sentinelStats, sentinelSteer, HOVER_DUST_LIMIT } from './hover-flight.js';
 import { acquireTwoFingerTarget, twoFingerAimPoint, twoFingerNoseShot, missileAutofocusVelocity, readAutofocus, saveAutofocus } from './two-finger-aim.js';
 import { scoreRun } from './hall.js';
 import { difficultyAt, formationOffset, personalHighScore, bossPhaseAt } from './difficulty.js';
@@ -221,7 +221,37 @@ function updateSpriteAnimations(dt=.016) {
     rocket.baseSprite=artFrames.missile[Math.floor(rocket.age*14)%artFrames.missile.length];
 }
 function spawnSpriteExplosion(x,y,size=1) {
-  if (artFrames?.fx) bursts.push({x,y,size,age:0,life:.28});
+  // Pure circular alpha effect: atlas FX cells formerly revealed square mattes.
+  if(bursts.length>=28)bursts.shift();
+  bursts.push({x,y,size:Math.max(.25,Math.min(2.6,size)),age:0,life:.34,
+    phase:(bursts.length*.61803398875%1)*TAU});
+}
+/** Procedural radial glow, ring and sparks. Every drawn contour is circular:
+ * no rectangular sprite, square fill or opaque atlas background.
+ */
+function renderExplosionBurst(fx){
+  const t=Math.max(0,Math.min(1,fx.age/fx.life));
+  const fade=Math.pow(1-t,1.55),r=(9+47*t)*fx.size;
+  if(fade<=0)return;
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  const glow=ctx.createRadialGradient(fx.x,fx.y,0,fx.x,fx.y,r);
+  glow.addColorStop(0,'rgba(255,255,239,'+(fade*.90)+')');
+  glow.addColorStop(.24,'rgba(255,224,122,'+(fade*.64)+')');
+  glow.addColorStop(.56,'rgba(255,99,63,'+(fade*.24)+')');
+  glow.addColorStop(1,'rgba(255,85,55,0)');
+  ctx.fillStyle=glow;
+  ctx.beginPath();ctx.arc(fx.x,fx.y,r,0,TAU);ctx.fill();
+  ctx.globalAlpha=fade*.85;ctx.strokeStyle='#ffd5a1';ctx.lineWidth=Math.max(1,2.8*fx.size*(1-t));
+  ctx.beginPath();ctx.arc(fx.x,fx.y,r*.78,0,TAU);ctx.stroke();
+  ctx.globalAlpha=fade*.76;ctx.lineWidth=Math.max(1,1.65*fx.size);
+  for(let i=0;i<9;i++){
+    const angle=fx.phase+i*TAU/9,inner=r*(.40+(i%3)*.06),outer=r*(1.05+(i%4)*.12);
+    ctx.beginPath();
+    ctx.moveTo(fx.x+Math.cos(angle)*inner,fx.y+Math.sin(angle)*inner);
+    ctx.lineTo(fx.x+Math.cos(angle)*outer,fx.y+Math.sin(angle)*outer);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 const stars = Array.from({length:140}, () => ({x:rand(0,W),y:rand(0,H),size:rand(.4,2),speed:rand(12,90),twinkle:rand(0,TAU)}));
 const clouds = Array.from({length:9}, () => ({x:rand(0,W),y:rand(0,H),r:rand(85,190),color:Math.random()>.5?'#244b9c':'#8e2d84',speed:rand(3,13)}));
@@ -878,21 +908,36 @@ function stepOffensiveSystems(dt,stage){
     thrusterCooldown=player.thrusters===3?.16:player.thrusters===2?.25:.38;
   }
 }
+/** Exhaust ribbon roots are INSIDE the ship and rendered underneath it.
+ * The ship's opaque pixels cover the emitter origins; no floating tubes.
+ */
+function renderThrusterUnderlay(){
+  if(player.thrusters<=0||!hoverState.jet||warp)return;
+  const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
+  const base=player.baseSprite||ships.player;
+  const nozzles=gravityNozzlePositions(cx,cy,base.width,base.height,player.pitch);
+  const length=44+player.thrusters*29;
+  const colors=['','#ffd59e','#ff702f','#92f2ff'];
+  const color=colors[player.thrusters];
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+  for(const [i,p] of nozzles.entries()){
+    const bend=Math.sin(elapsed*16+i*2.1)*7;
+    const x2=p.x+bend*1.25;
+    const y2=p.y+length;
+    ctx.globalAlpha=.26;ctx.strokeStyle=color;ctx.lineWidth=7+player.thrusters*3;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    ctx.bezierCurveTo(p.x+bend*.45,p.y+length*.26,p.x-bend*.60,p.y+length*.65,x2,y2);
+    ctx.stroke();
+    ctx.globalAlpha=.72;ctx.lineWidth=2.5+player.thrusters*1.5;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    ctx.bezierCurveTo(p.x+bend*.45,p.y+length*.26,p.x-bend*.60,p.y+length*.65,x2,y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function renderOffensiveSystems(){
   const cx=player.x+player.sprite.width*.5,cy=player.y+player.sprite.height*.5;
   ctx.save();ctx.globalCompositeOperation='lighter';
-  if(player.thrusters>0&&hoverState.jet&&!warp){
-    const bottom=projectedHullBottom(cy,(player.baseSprite||ships.player).width,
-      (player.baseSprite||ships.player).height,player.pitch);
-    const length=44+player.thrusters*27;
-    const color=['','#ffc57c','#ff5b23','#a9f8ff'][player.thrusters];
-    ctx.strokeStyle=color;ctx.lineWidth=5+player.thrusters*3;ctx.globalAlpha=.72;
-    for(const x of [cx-29,cx+29]){
-      ctx.beginPath();ctx.moveTo(x,bottom-3);
-      ctx.quadraticCurveTo(x+Math.sin(elapsed*24)*7,bottom+length*.55,
-        x+Math.sin(elapsed*17)*11,bottom+length);ctx.stroke();
-    }
-  }
   for(const pulse of auraPulses)if(pulse.delay<=0){
     const t=pulse.age/pulse.life;
     ctx.globalAlpha=Math.max(0,(1-t)*.72);ctx.strokeStyle='#bcb2ff';ctx.lineWidth=3+6*(1-t);
@@ -1513,8 +1558,9 @@ function render() {
   for(const bullet of bullets)drawEntity(bullet);
   for(const bullet of enemyShots)drawEntity(bullet);
   renderHoverPlume();
-  renderOffensiveSystems();
+  renderThrusterUnderlay();
   drawEntity(player,invulnerable>0&&Math.floor(elapsed*16)%2? .35:1);
+  renderOffensiveSystems();
   drawAtmosphericHeat(ctx,player,atmosphericHeat(stageAt(terrain.scroll+player.x+player.sprite.width*.5)),elapsed);
   if(player.hp>0){
     const base=player.baseSprite||ships.player,cy=player.y+player.sprite.height*.5;
@@ -1527,12 +1573,8 @@ function render() {
     ctx.strokeStyle='#67eaff99';ctx.lineWidth=2;
     ctx.beginPath();ctx.ellipse(player.x+player.sprite.width*.5,player.y+player.sprite.height*.5,52,36,0,0,TAU);ctx.stroke();
   }
-  if (artFrames?.fx) for (const fx of bursts) {
-    const frame = artFrames.fx[Math.min(artFrames.fx.length-1,Math.floor(fx.age/fx.life*artFrames.fx.length))];
-    const w=frame.width*fx.size,h=frame.height*fx.size;
-    ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=Math.max(.15,1-fx.age/fx.life);
-    ctx.drawImage(frame.image,fx.x-w/2,fx.y-h/2,w,h);ctx.restore();
-  }
+  // Atlas FX are replaced by circular alpha procedural bursts; no square mattes.
+  for(const fx of bursts)renderExplosionBurst(fx);
   for(const d of decals) {
     const pos=d.material?livingMaterialPosition(d.target.morph,d.target.sourceSprite?.organicFrame??0,d.material):{x:d.x,y:d.y};
     if(d.material&&d.target.severArms?.includes(d.material.arm))continue;
