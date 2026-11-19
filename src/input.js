@@ -11,8 +11,12 @@ export function touchTarget(point, shipWidth, shipHeight, worldWidth = 960, worl
   const px = options.invertX ? worldWidth-point.x : point.x;
   const py = options.invertY ? worldHeight-point.y : point.y;
   const clearance = Math.max(offsetX,shipWidth+14);
+  // Close to the left edge, keep a small grip clearance instead of shoving
+  // the ship nearly 90 px away. The transition is continuous at x=120.
+  const edgeEase=clampTouch(px/120,0,1);
+  const adaptiveClearance=42+(clearance-42)*edgeEase;
   return {
-    x: clampTouch(px+clearance,10,worldWidth-shipWidth-15),
+    x: clampTouch(px+adaptiveClearance,10,worldWidth-shipWidth-15),
     y: clampTouch(py-shipHeight*.5+offsetY,35,worldHeight-shipHeight-15)
   };
 }

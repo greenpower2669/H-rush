@@ -10,9 +10,9 @@ test('enemy combat and visual variants adapt to world phase and situation',()=>{
  assert.deepEqual(space,adaptSpecies(archetype,seed,5,'space',3,'normal'));
  assert.notDeepEqual(space,inside);
  assert.notEqual(low.speed,inside.speed);
- assert.ok(['patrol','pursuit','serpent','wave','zigzag','slow'].includes(inside.movement));
- assert.ok(['none','burst','rapid','single'].includes(inside.weapon));
+ assert.ok(['patrol','pursuit','serpent','wave','zigzag','slow','swoop','feint','orbit','weave','ambush','dart','swarm','jump','ceiling','ground'].includes(inside.movement));
+ assert.ok(['none','burst','rapid','single','aimed','cross','spiral'].includes(inside.weapon));
  assert.ok(inside.hue>=0&&inside.hue<360);
  assert.ok(inside.hp>=1);
- assert.equal(archetype.phase,undefined,'do not mutate the canonical 20 archetypes');
+ assert.equal(archetype.phase,undefined,'do not mutate canonical archetypes');
 });

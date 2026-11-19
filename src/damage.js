@@ -3,6 +3,7 @@
  * A living enemy can lose no more than 15% of its original opaque pixels.
  */
 import { eraseDisc, hasPixel } from './collision.js';
+import { isLivingAppendage, livingMaterialHit, livingMaterialPosition } from './bestiary.js';
 export const MAX_ENEMY_CUT_FRACTION = .15;
 export const HEAT_REFERENCE_FRACTION = .20;
 const clampDamage=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -11,7 +12,7 @@ export function copyDamageSprite(source){
   const image=document.createElement('canvas');image.width=source.width;image.height=source.height;
   image.getContext('2d',{willReadFrequently:true}).drawImage(source.image,0,0);
   const m=source.mask;
-  return {...source,image,initialFilled:source.initialFilled??m.filled,
+  return {...source,image,volatileDamage:true,initialFilled:source.initialFilled??m.filled,
     mask:{...m,rows:new Uint32Array(m.rows),
       xProjection:new Uint32Array(m.xProjection),yProjection:new Uint32Array(m.yProjection)}};
 }
@@ -92,6 +93,22 @@ export function burnHoleLimited(sprite,localX,localY,radius,healthLoss=0){
   paintHeat(sprite,cx,cy,chosen||Math.max(2,Math.round(radius)),heat);
   return {removed,radius:chosen,fraction,heat};
 }
+/** Dynamic turret angles create many possible source frames, so bound EACH
+ * enemy's private cutout cache. Reconstruct evicted frames from historical scars.
+ */
+export const MAX_ENEMY_DAMAGE_FRAMES=12;
+function rememberDamageFrame(enemy,source,edited){
+  if(enemy.damageFrames.has(source))enemy.damageFrames.delete(source);
+  enemy.damageFrames.set(source,edited);
+  while(enemy.damageFrames.size>MAX_ENEMY_DAMAGE_FRAMES)
+    enemy.damageFrames.delete(enemy.damageFrames.keys().next().value);
+}
+/** Project a stable wound onto THIS exact animated source frame and its alpha mask. */
+export function woundPosition(enemy,source,scar){
+  if(!scar?.material||!isLivingAppendage(enemy?.morph))return {x:scar.x,y:scar.y};
+  if(source.cutArms?.includes(scar.material.arm))return null;
+  return livingMaterialPosition(enemy.morph,source.organicFrame??0,scar.material);
+}
 /** Every atlas frame uses its own alpha/pixel budget, while all historical scars persist. */
 export function switchDamagedFrame(enemy,source){
   enemy.sourceSprite=source;
@@ -100,9 +117,9 @@ export function switchDamagedFrame(enemy,source){
   let edited=enemy.damageFrames.get(source);
   if(!edited){
     edited=copyDamageSprite(source);
-    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(source,edited);
+    for(const p of enemy.scars){const at=woundPosition(enemy,source,p);if(at)burnHoleLimited(edited,at.x,at.y,p.r,p.loss??0);}
   }
+  rememberDamageFrame(enemy,source,edited);
   enemy.sprite=edited;
   return edited;
 }
@@ -112,16 +129,21 @@ export function addEnemyBurn(enemy,localX,localY,radius){
   if(!enemy.damageFrames)enemy.damageFrames=new Map();
   const loss=Number.isFinite(enemy.maxHp)&&enemy.maxHp>0
     ?clampDamage(1-(enemy.hp-1)/enemy.maxHp,0,1):0;
-  const burn={x:Math.round(localX),y:Math.round(localY),
+  const source=enemy.sourceSprite;
+  const material=isLivingAppendage(enemy.morph)?
+    livingMaterialHit(enemy.morph,source.organicFrame??0,localX,localY,enemy.severArms||[]):null;
+  const burn={x:Math.round(localX),y:Math.round(localY),material,
     r:Math.max(2,Math.round(radius)),loss};
   // HP and glow still advance after full physical scarring; bounded mark history avoids runaway CPU.
   if(enemy.scars.length<128)enemy.scars.push(burn);
-  for(const edited of enemy.damageFrames.values())
-    burnHoleLimited(edited,burn.x,burn.y,burn.r,burn.loss);
+  for(const edited of enemy.damageFrames.values()){
+    const at=woundPosition(enemy,edited,burn);
+    if(at)burnHoleLimited(edited,at.x,at.y,burn.r,burn.loss);
+  }
   if(!enemy.damageFrames.has(enemy.sourceSprite)){
     const edited=copyDamageSprite(enemy.sourceSprite);
-    for(const p of enemy.scars)burnHoleLimited(edited,p.x,p.y,p.r,p.loss??0);
-    enemy.damageFrames.set(enemy.sourceSprite,edited);
+    for(const p of enemy.scars){const at=woundPosition(enemy,source,p);if(at)burnHoleLimited(edited,at.x,at.y,p.r,p.loss??0);}
+    rememberDamageFrame(enemy,enemy.sourceSprite,edited);
   }
   enemy.sprite=enemy.damageFrames.get(enemy.sourceSprite);
   return burn;

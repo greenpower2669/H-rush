@@ -8,12 +8,13 @@ test('portal positions are deterministic and on the accessible surface span',()=
   assert.deepEqual(portalPosition(SEED,0),portalPosition(SEED,0));
   const portal=portalPosition(SEED,0);
   assert.ok(portal.worldX>5600&&portal.worldX<10000);
-  assert.ok(portal.y>=136&&portal.y<228);
+  assert.ok(portal.y>=100&&portal.y<=470);
   for(let region=0;region<24;region++){
     const p=portalPosition(SEED,region);
     if(!p)continue;
     const bounds=terrainBounds(SEED,p.worldX);
     assert.ok(p.y+58<bounds.bottom,`portal ${region} must stay above the actual soil`);
+    assert.ok(bounds.bottom-(p.y+58)<110,`portal ${region} must stay embedded by the landscape`);
   }
   assert.equal(portalPosition(SEED,-1),null);
   assert.equal(WARP_DURATION,16);

@@ -1,7 +1,7 @@
 /** Immersive OMEGA backdrops. Every skyline object has its foot below the terrain silhouette.
  * Scenery is visual only; all gameplay contacts are the same AND masks as before.
  */
-import { stageAt, regionIdentity, PHASE_START } from './universe.js';
+import { stageAt, regionIdentity, PHASE_START, REGION_SIZE } from './universe.js';
 import { biomeFor } from './biomes.js';
 const PI2=Math.PI*2;
 const scenicClamp=t=>Math.max(0,Math.min(1,t));
@@ -91,9 +91,10 @@ export function visualEnvelope(stage) {
   else if(p<tail-440)surface=1-scenicSmooth((p-(e+170))/(tail-440-(e+170)));
   surface=scenicClamp(surface);
   planet=scenicClamp(planet);
+  // The atmosphere outlasts the actual geological silhouette on exit.
   const atmosphere=stage.phase==='atmosphere'
     ? scenicSmooth((p-a)/1100)*(1-.20*scenicSmooth((p-s+480)/480))
-    : stage.phase==='exit'?scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(tail-480))/480))
+    : p>=e ? scenicSmooth((p-e)/390)*(1-scenicSmooth((p-(REGION_SIZE-620))/500))
     : stage.phase==='surface'?.68:0;
   return {surface,planet,atmosphere:scenicClamp(atmosphere),scale:.60+surface*.40};
 }
@@ -114,8 +115,9 @@ export function atmosphereGlobePosition(local,W=960,H=540){
   const offLeft=-outerRadius-24;
   const enterStart=PHASE_START.atmosphere-1500;
   const enterEnd=PHASE_START.surface-450;
-  const leaveStart=PHASE_START.exit-900;
-  const leaveEnd=PHASE_START.spaceTail-140;
+  // The bubble is still present AFTER the ground has disappeared at spaceTail.
+  const leaveStart=PHASE_START.spaceTail-360;
+  const leaveEnd=REGION_SIZE-160;
   let x=offRight;
   if(p>=leaveEnd)x=offLeft;
   else if(p>leaveStart)x=settledX+(offLeft-settledX)*scenicSmooth((p-leaveStart)/(leaveEnd-leaveStart));

@@ -1,5 +1,6 @@
 /** OMEGA 0.5.0: deterministic meteor weather, optional warp detours and inertial debris. */
 import { keyedFloat, REGION_SIZE } from './universe.js';
+import { terrainBounds } from './omega-terrain.js';
 const eventClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const WARP_DURATION=16;
 /** A faint, collectible portal inside the surface skyline; no alteration of the saved universe. */
@@ -7,8 +8,22 @@ export function portalPosition(seed,region){
   if(!Number.isInteger(region)||region<0)return null;
   if(region!==0 && keyedFloat(seed,region,809)>.67)return null;
   const wx=region*REGION_SIZE+6750+Math.floor(keyedFloat(seed,region,810)*435);
-  const y=136+Math.floor(keyedFloat(seed,region,811)*92);
+  // The portal's actual alpha ring is accessible, just above nearby solid rock.
+  let floor=Infinity;
+  for(let dx=0;dx<=58;dx+=6)floor=Math.min(floor,terrainBounds(seed,wx+dx).bottom);
+  const y=Math.floor(floor-58-9);
   return {worldX:wx,y,region};
+}
+/** Warp is a shortcut to the NEXT region's outer space, not back onto planet rock. */
+export function warpExitWorld(region){
+  if(!Number.isSafeInteger(region)||region<0)throw RangeError('Invalid region');
+  const pos=(region+1)*REGION_SIZE+96;
+  if(!Number.isSafeInteger(pos))throw RangeError('Warp travel overflow');
+  return pos;
+}
+/** Spawn the complete obstruction outside the viewport before any movement. */
+export function offscreenSpawnX(viewportWidth,bodyWidth,margin=64){
+  return Math.max(0,viewportWidth)+Math.max(0,bodyWidth)+Math.max(24,margin);
 }
 /** Event windows are deterministic and bounded; recoveries stay protected by difficultyAt. */
 export function asteroidWeather(seed,region,seconds,phase){

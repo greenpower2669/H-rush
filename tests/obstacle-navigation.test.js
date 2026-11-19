@@ -23,7 +23,11 @@ test('11 reproducible obstacles per region; the three original scar IDs remain s
   assert.equal(new Set(arr.map(x=>x.id)).size,11);
   assert.ok(arr.slice(3).every(x=>x.id>=10000000&&x.worldX>7*5120));
   assert.deepEqual(arr,Array.from({length:GATE_TYPES},(_,i)=>gateSpec(seed,7,i)));
-  assert.ok(arr.filter(x=>x.baseY<0).length>2);
+  // Columns are no longer permitted to float from the top of open space.
+  const active=arr.filter(x=>x.enabled);
+  assert.ok(active.length>=3,'planetary ground and cavern still have obstacles');
+  assert.ok(active.every(x=>['ground','ceiling'].includes(x.anchor)));
+  assert.ok(active.every(x=>Number.isFinite(x.contactY)));
   assert.ok(arr.filter(x=>x.material==='crystal').length>1);
   assert.ok(arr.some(x=>gateY(x,.5)!==gateY(x,1.2)));
 });
