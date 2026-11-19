@@ -276,3 +276,8 @@ GitHub Actions **42428408811** : étape tests Node réussie (201 tests), génér
 Release : https://github.com/greenpower2669/H-rush/releases/tag/v0.5.17-offensive-bonuses-preview
 APK : `HRush-Omega-v0.5.17-offensive-bonuses-debug.apk`, taille 14 025 471 octets ; digest GitHub **SHA-256 ec49dd3b4d3e7be85f2c21d2a1efbe0dff7f7d1c6eb82abb8e19e8f1a069dc36**.
 Ce sont des validations de build et d'intégrité, **pas** un essai de fluidité, de rendu ou de contrôle tactile sur Samsung. APK signé en mode debug, pas certificat de distribution pérenne.
+
+## 2026-11-19 — H-RUSH OMEGA 0.5.18 — diagnostic et correctifs proposés
+Symptôme tactile : ancien `followTouch` limite la vitesse à 435 px/s, K=22/C=11 ; réponse perçue lente. Nouveaux coefficients K=90/C=19, 1 000 px/s maximum avec pas <=0,05 s, et arrêt sans dépassement pour chaque axe. Critère à valider au toucher : poursuite réactive et absence de téléportation.
+Symptôme rubans : tracés à `projectedHullBottom-3` et rendus dans une fonction globale avant la coque ; racines visibles sur le bord inférieur. Nouvelle fonction sous la coque depuis des tuyères internes calculées selon le tangage, avec rendu occlus par la silhouette. L'aura et les orbes restent visibles au premier plan.
+Symptôme carrés d'explosion : ancien code affichait directement deux frames de `artFrames.fx` recadrées à 68×68, d'où des bordures potentielles. Remplacement par un effet radial purement Canvas sans `drawImage` d'explosion ni rectangle plein, désormais indépendant de l'atlas. Collision physique inchangée. Bâtiment Android/code 68 et tests ciblés en cours de validation, pas encore de certification de rendu sur Samsung.
